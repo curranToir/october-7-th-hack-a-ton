@@ -5,12 +5,20 @@ contract for today. Hackathon rules: `cognee-hackathons/.../COMPANY_BRAIN.md`
 (≥2 Scalekit sources, ≥2 users with different access, Cognee memory per user,
 Respan traces + before/after eval).
 
-## Integration status (single list)
+## Historical October 7 owner handoff
+
+The table below preserves the handoff at that time. The current application-side
+implementation and owner requirements are tracked in
+[prospecting implementation](prospecting-implementation.md). No new live network
+or provider success is implied by repository changes.
+
+## Integration status (historical owner reports and checks)
 
 Updated for Curran on October 7, 2026 (America/Los_Angeles). Repository files,
 storage tests and AWS secret presence were checked directly. EC2/Tailscale membership, pod DNS and network reachability were tested directly;
 After the Spark PostgreSQL rebind, host and pod TCP 5432 and system-trusted,
-exact-hostname TLS verification passed. Port 8200 still refuses connections.
+exact-hostname TLS verification passed. The later brain-api recheck passed TCP
+8200 and unauthenticated `/health` (HTTP 200) on host and pod.
 See the [EC2 handoff](ec2-tailscale-handoff.md) for exact results. Broader Scalekit
 setup is not verified end to end.
 
@@ -55,10 +63,10 @@ Both AWS secret checks verified nonempty required fields in the `AWSCURRENT`
 versions, without displaying values. Use authorized Secrets Manager access or
 an out-of-band handoff to Jared; no credential values belong in this repository.
 Stored credentials do not establish Spark access, Respan project membership,
-successful provider calls, or Scalekit M2M readiness. Setup remains owned by
+successful provider calls, or Brain API readiness. Setup remains owned by
 the owners listed in the current status table above.
 The EC2 tailnet join, pod network checks and PostgreSQL TLS checks are complete;
-database login/cutover and brain-api readiness remain pending.
+database login/cutover and authenticated brain-api integration remain pending.
 
 ## Your database ask: accepted, on the Spark, private
 
@@ -73,21 +81,20 @@ database login/cutover and brain-api readiness remain pending.
   MagicDNS name, so use `sslmode=verify-full`. If the tailnet has HTTPS certs
   disabled we'll hand you a `ca.crt` instead. The DATABASE_URL goes to your
   Secrets Manager out of band, never in this repo.
-- Adapter: we write `apps/orchestrator/storage/postgres.py` (RunRepository on
-  Postgres, `one_active_run` partial unique index, monotonic event sequence)
-  and the `AsyncPostgresSaver` selection by `DATABASE_URL`, then run
-  `tooling/tests/test_research_storage.py` against it. **The requested interfaces,
+- Adapter: `apps/orchestrator/storage/postgres.py` and `AsyncPostgresSaver`
+  selection by `DATABASE_URL` are implemented, with the one-active-run index
+  and monotonic events. The owner reported storage contract tests passing. **The requested interfaces,
   models and tests are now on `main` (`5d66e70`); the file-publication blocker is
   cleared.** Missing `DATABASE_URL` keeps SQLite, as you specified.
 
-## Company Brain: what the Spark serves
+## Company Brain API (updated handoff)
 
 `rag-db-api/` becomes `brain-api/`. The old RAG package is deleted, and Cognee
 1.6.3 is embedded in one FastAPI process (one writer, ACL on). Firm =
 **Toir Inc** (FDE shop), clients Acme Logistics, Globex Health and Initech
 Finance. Sources are pulled through Scalekit: Slack (`toir-fde` workspace),
-GitHub (org `toir-fde-demo`), Notion (`Toir FDE`). Notion is added between the
-before and after eval runs; that's our named change.
+GitHub (org `Toir-FDE-Team`, connection `github-connect`) and HubSpot. Earlier
+Notion/Drive source plans are retired; SOW/contract text lives in HubSpot notes.
 
 Users (Scalekit identifier == Cognee user):
 
@@ -97,9 +104,9 @@ Users (Scalekit identifier == Cognee user):
   `toir-firm`. Live demo grant: `acme-eng` → you; `acme-commercial` stays hidden.
 
 API: `http://<spark tailnet IP>:8200`, tailnet only. Every route except
-`/health` and `/graph` needs a **Scalekit M2M bearer**: audience `brain-api`,
-scopes `brain:query` / `brain:ingest` / `brain:admin`. We mint your API client
-once we have env creds.
+`/health` and `/graph` uses the agreed **static bearer** from `/company-brain-hackathon/brain-api`.
+M2M authentication was dropped; do not build against the retired audience/scope
+proposal.
 
 ```
 POST /recall {as_user, question, mode:"answer"|"context", session_id?, top_k?}
@@ -115,8 +122,10 @@ GET  /graph?dataset=<name>                           # graph view for the demo
   read, plus who owns it. Use it to route an access request instead of
   answering.
 - `session_id` is scratchpad memory only and is never written into the graph.
-- Accepted research reports go to `toir-pipeline` (commercial, Jared-only), with
-  cited source text kept.
+- Accepted research reports go to `toir-pipeline` with cited source text kept.
+  The inspected implementation originally allowed Jared only; continuous
+  prospecting requires explicit authorized read/ingest access for both sales
+  identities and idempotent ingestion. See the current implementation handoff.
 
 ## What you own today
 
@@ -126,19 +135,17 @@ GET  /graph?dataset=<name>                           # graph view for the demo
    calls through the Respan gateway (`https://api.respan.ai/api`, event key) and
    trace with `respan-ai`.
 2. **Scalekit env**: environment/Slack setup is made per Curran's update;
-   finish connections named exactly `github` and `notion`. The required env
-   credentials are verified in `/company-brain-hackathon/scalekit`; arrange
-   Jared's access or an out-of-band handoff, and confirm the M2M / API-client
-   feature is enabled. Both of us then authorize all three connections.
+   use current connections `github-connect`, `slack`, and `hubspot`. The env
+   credentials were verified in `/company-brain-hackathon/scalekit`; arrange
+   per-user authorizations as needed. The Brain API itself uses a static bearer.
 3. **EC2 on the tailnet**: joined as `toir-hackathon` (`100.86.7.62`). Pod
-   connectivity and MagicDNS are verified. PostgreSQL TCP/TLS now pass; port 8200
-   still refuses connections. See [EC2 handoff](ec2-tailscale-handoff.md) for the
+   connectivity and MagicDNS are verified. PostgreSQL TCP/TLS and brain-api
+   TCP 8200/unauthenticated `/health` now pass. See [EC2 handoff](ec2-tailscale-handoff.md) for the
    source address and remaining database/API checks.
 
 ## What we own
 
-Spark infra, seeding the fictional world into Slack/GitHub/Notion (we create the
-workspace, org and Notion; invites coming), the Scalekit pulls, Cognee memory
+Spark infra, seeding the fictional world into Slack/GitHub/HubSpot, the Scalekit pulls, Cognee memory
 (custom FDE graph model, per-client eng/commercial datasets), the API, the
 scenario set (`brain-api/eval/scenarios.json`), and the eval runner plus the
 Respan-hosted judge (`openai/gpt-5-mini`, temp 0). Action scenarios

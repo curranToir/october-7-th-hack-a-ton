@@ -1,6 +1,9 @@
 # EC2 is on Tailscale — database engineer handoff
 
-Verified October 7, 2026 (America/Los_Angeles). The EC2 node has joined the
+Historical verification on October 7, 2026 (America/Los_Angeles). This records
+the network checks at handoff time, not a new deployment health check. See
+[prospecting implementation](prospecting-implementation.md) for subsequent
+repository work and release dependencies. The EC2 node has joined the
 `neptuneops.com` tailnet and the coordinator pod can reach the confirmed Spark
 host. After the Spark owner rebound PostgreSQL, both the host and pod passed
 PostgreSQL connectivity and certificate verification over Tailscale.
@@ -54,7 +57,8 @@ standard cluster/public DNS configuration is preserved.
 | Host and coordinator pod → Spark TCP 22 | Connected; no SSH authentication attempted |
 | Host and coordinator pod → Spark TCP 5432 | **Connected** after the Spark rebind |
 | PostgreSQL SSLRequest and TLS handshake | **Passed** on host and pod: TLS 1.3, system CA trust, exact Spark FQDN verification |
-| Host and coordinator pod → Spark TCP 8200 | **Connection refused**, errno 111 |
+| Host and coordinator pod → Spark TCP 8200 | **Connected** after the brain-api startup |
+| Host and coordinator pod → brain-api `/health` | **HTTP 200** without credentials |
 
 The successful pod TCP connection proves the outbound/return path through the
 host. The earlier PostgreSQL refusal was superseded by the successful recheck
@@ -64,9 +68,10 @@ SSM verification command: `bec37c5f-0226-43b2-b4e0-cbb07fc710e7`.
 
 Host system DNS remains unchanged; the host check connected to the Tailscale IP
 and used the FQDN for SNI/certificate verification. Normal pod DNS resolves the
-FQDN. Port 8200 still refuses connections and `/health` is unavailable. A missing
-listener, loopback-only/container binding, or an explicit firewall reject can
-cause that refusal; the Spark configuration was not changed or inspected here.
+FQDN. The later brain-api recheck passed TCP 8200 and unauthenticated `/health`
+on host and pod, superseding the earlier refusal. SSM command:
+`04aeb49a-eb6a-4d20-ae34-7a1bb2ed025e`. Tailscale remained Running with the same
+identity after the application rollout. The Spark configuration was not changed here.
 
 ## Next steps for the database engineer
 
@@ -80,8 +85,9 @@ cause that refusal; the Spark configuration was not changed or inspected here.
    SQLite until a deliberate storage migration/cutover. The Postgres adapter
    has landed on `main`; its presence does not migrate existing SQLite history
    or enable `DATABASE_URL` in the deployed coordinator.
-4. Publish `brain-api` on port `8200` if that remains the agreed API port, then
-   confirm its `/health` endpoint over the tailnet; this is still pending.
+4. `brain-api` TCP 8200 and `/health` now pass over the tailnet. Application
+   integration still needs the separately configured bearer credential;
+   authenticated brain-api operations were not exercised by this network check.
 5. Repeat the network check below, then validate database login and TLS using
    the actual runtime credentials. Certificate verification passed; database
    authentication and a SQL query have **not** been tested from EC2 yet.

@@ -17,8 +17,8 @@ Bounded checks from both the EC2 host and coordinator pod reached Spark TCP 22.
 Tailscale ping succeeded over a direct connection. After the Spark owner's
 PostgreSQL rebind, host and pod both connected to TCP 5432 and completed a
 PostgreSQL SSLRequest followed by TLS 1.3 with system CA trust and exact FQDN
-verification. The known brain-api port 8200 still returned
-`ConnectionRefusedError` / errno 111 from host and pod; `/health` is unavailable.
+verification. After brain-api started, host and pod both connected to port 8200
+and received HTTP 200 from unauthenticated `/health`, replacing earlier refusals.
 No database login, SSH login or Spark mutation was attempted, and no extra
 NAT/firewall rule was needed. See the [verified handoff](../coms/ec2-tailscale-handoff.md)
 for certificate details and the distinction between connectivity and DB cutover.
