@@ -7,20 +7,31 @@ x-vllm: &vllm
   gpus: all
   volumes:
     - ${HOME}/.cache/huggingface:/root/.cache/huggingface
-    - ./nemotron-rerank.jinja:/templates/nemotron-rerank.jinja:ro
 
 services:
   db:
     image: pgvector/pgvector:pg17
     restart: unless-stopped
+    command:
+      - postgres
+      - -c
+      - ssl=on
+      - -c
+      - ssl_cert_file=/etc/pg/server.crt
+      - -c
+      - ssl_key_file=/etc/pg/server.key
+      - -c
+      - hba_file=/etc/pg/pg_hba.conf
     environment:
       POSTGRES_DB: rag
       POSTGRES_USER: rag
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
     ports:
       - "127.0.0.1:5432:5432"
+      - "100.87.113.122:5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+      - ./pg:/etc/pg:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U rag -d rag"]
       interval: 5s
@@ -36,28 +47,12 @@ services:
       - --gpu-memory-utilization=0.08
     ports:
       - "127.0.0.1:8101:8000"
-    healthcheck: &vllm-health
+    healthcheck:
       test: ["CMD-SHELL", "curl -sf http://127.0.0.1:8000/health"]
       interval: 10s
       start_period: 600s
       retries: 6
 
-  rerank:
-    <<: *vllm
-    command:
-      - nvidia/llama-nemotron-rerank-1b-v2
-      - --trust-remote-code
-      - --chat-template=/templates/nemotron-rerank.jinja
-      - --served-model-name=nemotron-rerank
-      - --max-model-len=8192
-      - --gpu-memory-utilization=0.08
-    ports:
-      - "127.0.0.1:8102:8000"
-    healthcheck: *vllm-health
-    # Start after the embedder so the two vLLM memory profiles don't race.
-    depends_on:
-      embed:
-        condition: service_healthy
 
 volumes:
   pgdata:

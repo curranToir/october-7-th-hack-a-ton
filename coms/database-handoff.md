@@ -131,6 +131,49 @@ runs. Keep the SQLite checkpoint backup for rollback. Do not resume an old graph
 from a manually translated blob. Retrying an interrupted historical run creates
 a new run using its saved report/evidence.
 
+## Postgres option (implemented, Jared)
+
+- **Selection.** Set `DATABASE_URL` on the coordinator to select
+  `PostgresRunRepository` (`apps/orchestrator/storage/postgres.py`) and
+  `AsyncPostgresSaver`. Without `DATABASE_URL`, local SQLite is unchanged.
+  - Startup applies the idempotent run schema v1 and runs the Postgres
+    checkpointer `setup()` once per lifespan, before storage is handed to writers.
+  - Both checkpointers restrict MsgPack deserialization and disable the pickle
+    fallback.
+  - One coordinator uses two Postgres connections. Keep one coordinator replica
+    and the one-active-run database constraint.
+- **Connection.**
+  - Non-loopback `DATABASE_URL` connections require `sslmode=verify-full`
+    (enforced by `factory.py`).
+  - Host: `waffle-spark.taild4c940.ts.net:5432`. Its Tailscale-issued (public CA)
+    certificate matches that name.
+  - Use `sslrootcert=/etc/ssl/certs/ca-certificates.crt`; psycopg's bundled libpq
+    does not resolve `sslrootcert=system`. Never connect by IP with checks
+    disabled.
+  - The ready-made URL is in AWS Secrets Manager `/company-brain-hackathon/database`
+    (`DATABASE_URL`). Inject it into the coordinator only.
+- **Role.** `toir_runs`: LOGIN, CONNECTION LIMIT 10, no CREATEDB, CREATEROLE or
+  superuser. pg_hba allows it only via `hostssl` to `toir_runs` /
+  `toir_runs_test`; every other database rejects it, and plaintext is rejected
+  even on loopback.
+- **State.** The production run and checkpoint schemas are initialized with no runs.
+- **Cutover.** Drain active work, then export and validate historical records and
+  evidence. Keep the SQLite checkpoint backup for rollback. Start new runs on the
+  empty Postgres checkpoint store; never translate or resume old SQLite checkpoint
+  blobs. Retry interrupted historical runs under a new run ID from their preserved
+  report/evidence.
+- **Tests.**
+  - `TEST_DATABASE_URL` points at `toir_runs_test` (127.0.0.1, `sslmode=require`).
+    Each session creates a throwaway schema with `search_path` isolation, resets
+    tables between tests and drops the schema at teardown.
+  - `tooling/tests/test_research_storage.py`: 27 passed on both backends.
+  - SQLite snapshot/export tests remain SQLite-only.
+- **Known differences from SQLite.**
+  - Concurrent same-key creates across connections resolve as a replay, not a
+    `Conflict`.
+  - Integrity errors surface as `psycopg.IntegrityError`.
+  - `BIGSERIAL` can leave gaps after failed inserts; sequences stay monotonic.
+
 ## Configuration and infrastructure changes
 
 1. Add a database adapter and switch the storage factory using `DATABASE_URL`;
