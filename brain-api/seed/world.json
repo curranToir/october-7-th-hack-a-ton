@@ -1,0 +1,1131 @@
+{
+  "fictional": true,
+  "clients": [
+    {
+      "name": "Acme Logistics",
+      "slug": "acme",
+      "project": "acme-agent-rollout",
+      "owner": "Maya Chen",
+      "contact": "Elena Ruiz",
+      "second": "Owen Patel"
+    },
+    {
+      "name": "Globex Health",
+      "slug": "globex",
+      "project": "globex-clinical-rag",
+      "owner": "Curran McLaughlin",
+      "contact": "Dr. Nadia Brooks",
+      "second": "Samir Shah"
+    },
+    {
+      "name": "Initech Finance",
+      "slug": "initech",
+      "project": "initech-evals",
+      "owner": "Theo Park",
+      "contact": "Priya Desai",
+      "second": "Marcus Reed"
+    }
+  ],
+  "people": [
+    {
+      "name": "Jared Lyon",
+      "org": "Toir",
+      "email": "jared@neptuneops.com",
+      "github": "jaredlyon"
+    },
+    {
+      "name": "Curran McLaughlin",
+      "org": "Toir",
+      "email": "curran@toirinc.com",
+      "github": "curranToir"
+    },
+    {
+      "name": "Maya Chen",
+      "org": "Toir",
+      "email": "maya@toir.example"
+    },
+    {
+      "name": "Theo Park",
+      "org": "Toir",
+      "email": "theo@toir.example"
+    },
+    {
+      "name": "Sofia Reyes",
+      "org": "Toir",
+      "email": "sofia@toir.example"
+    },
+    {
+      "name": "Elena Ruiz",
+      "org": "Acme Logistics",
+      "email": "elena-ruiz-acme@example.com",
+      "title": "Executive sponsor"
+    },
+    {
+      "name": "Owen Patel",
+      "org": "Acme Logistics",
+      "email": "owen-patel-acme@example.com",
+      "title": "Technical lead"
+    },
+    {
+      "name": "Dr. Nadia Brooks",
+      "org": "Globex Health",
+      "email": "nadia-brooks-globex@example.com",
+      "title": "Executive sponsor"
+    },
+    {
+      "name": "Samir Shah",
+      "org": "Globex Health",
+      "email": "samir-shah-globex@example.com",
+      "title": "Technical lead"
+    },
+    {
+      "name": "Priya Desai",
+      "org": "Initech Finance",
+      "email": "priya-desai-initech@example.com",
+      "title": "Executive sponsor"
+    },
+    {
+      "name": "Marcus Reed",
+      "org": "Initech Finance",
+      "email": "marcus-reed-initech@example.com",
+      "title": "Technical lead"
+    }
+  ],
+  "slack": [
+    {
+      "dataset": "toir-firm",
+      "container": "toir-general",
+      "title": "toir-general-01",
+      "text": "**Jared Lyon (Toir):** Our engagement playbook requires a named technical owner and a written decision log for every client."
+    },
+    {
+      "dataset": "toir-firm",
+      "container": "toir-general",
+      "title": "toir-general-02",
+      "text": "**Sofia Reyes (Toir):** Escalations go to Jared Lyon; incident updates are due every 30 minutes."
+    },
+    {
+      "dataset": "toir-firm",
+      "container": "toir-general",
+      "title": "toir-general-03",
+      "text": "**Curran McLaughlin (Toir):** Globex clinical evidence citations must use stable document IDs."
+    },
+    {
+      "dataset": "toir-firm",
+      "container": "toir-general",
+      "title": "toir-general-04",
+      "text": "**Maya Chen (Toir):** Engineering handoffs use the engagement checklist."
+    },
+    {
+      "dataset": "toir-firm",
+      "container": "toir-general",
+      "title": "toir-general-05",
+      "text": "**Theo Park (Toir):** Benchmark reviews require a written decision log."
+    },
+    {
+      "dataset": "toir-firm",
+      "container": "toir-general",
+      "title": "toir-general-06",
+      "text": "**Jared Lyon (Toir):** Commercial details stay in deal channels, never copied into engineering channels."
+    },
+    {
+      "dataset": "toir-firm",
+      "container": "toir-general",
+      "title": "toir-general-07",
+      "text": "**Sofia Reyes (Toir):** Use the engagement checklist before every handoff."
+    },
+    {
+      "dataset": "toir-firm",
+      "container": "toir-general",
+      "title": "toir-general-08",
+      "text": "**Curran McLaughlin (Toir):** Engineering artifacts live in the client engineering folder."
+    },
+    {
+      "dataset": "acme-eng",
+      "container": "acme-eng",
+      "title": "acme-eng-01",
+      "text": "**Maya Chen (Toir):** I own the Acme agent rollout and am the technical DRI."
+    },
+    {
+      "dataset": "acme-eng",
+      "container": "acme-eng",
+      "title": "acme-eng-02",
+      "text": "**Owen Patel (Acme Logistics):** Duplicate shipment events must be deduplicated by shipment_id and event_version."
+    },
+    {
+      "dataset": "acme-eng",
+      "container": "acme-eng",
+      "title": "acme-eng-03",
+      "text": "**Maya Chen (Toir):** The duplicate shipment replay bug blocks release; track Duplicate shipment replay in GitHub."
+    },
+    {
+      "dataset": "acme-eng",
+      "container": "acme-eng",
+      "title": "acme-eng-04",
+      "text": "**Sofia Reyes (Toir):** Acme acceptance requires a 99.5% replay success rate."
+    },
+    {
+      "dataset": "acme-eng",
+      "container": "acme-eng",
+      "title": "acme-eng-05",
+      "text": "**Maya Chen (Toir):** Create rollout work in Toir-FDE-Team/acme-agent-rollout; assign jaredlyon and label rollout."
+    },
+    {
+      "dataset": "acme-eng",
+      "container": "acme-eng",
+      "title": "acme-eng-06",
+      "text": "**Owen Patel (Acme Logistics):** Please prepare the Acme canary checklist as a rollout issue."
+    },
+    {
+      "dataset": "acme-eng",
+      "container": "acme-eng",
+      "title": "acme-eng-07",
+      "text": "**Maya Chen (Toir):** The rollback trigger is duplicate-rate above 0.2% for 15 minutes."
+    },
+    {
+      "dataset": "acme-eng",
+      "container": "acme-eng",
+      "title": "acme-eng-08",
+      "text": "**Sofia Reyes (Toir):** The event replay regression needs a replay-labeled issue assigned to jaredlyon."
+    },
+    {
+      "dataset": "acme-commercial",
+      "container": "acme-deal",
+      "title": "acme-deal-01",
+      "text": "**Elena Ruiz (Acme Logistics):** The signed SOW contains the go-live date; Maya owns the engineering rollout."
+    },
+    {
+      "dataset": "acme-commercial",
+      "container": "acme-deal",
+      "title": "acme-deal-02",
+      "text": "**Jared Lyon (Toir):** Acme renewal is pending procurement approval; the CRM deal is the source for the amount."
+    },
+    {
+      "dataset": "acme-commercial",
+      "container": "acme-deal",
+      "title": "acme-deal-03",
+      "text": "**Elena Ruiz (Acme Logistics):** Change requests over 40 engineering hours need written sponsor approval."
+    },
+    {
+      "dataset": "acme-commercial",
+      "container": "acme-deal",
+      "title": "acme-deal-04",
+      "text": "**Jared Lyon (Toir):** Elena Ruiz is the Acme executive sponsor."
+    },
+    {
+      "dataset": "acme-commercial",
+      "container": "acme-deal",
+      "title": "acme-deal-05",
+      "text": "**Sofia Reyes (Toir):** The Acme SOW includes a 14-day hypercare window."
+    },
+    {
+      "dataset": "acme-commercial",
+      "container": "acme-deal",
+      "title": "acme-deal-06",
+      "text": "**Elena Ruiz (Acme Logistics):** The renewal decision requires the shipment replay blocker to be resolved."
+    },
+    {
+      "dataset": "acme-commercial",
+      "container": "acme-deal",
+      "title": "acme-deal-07",
+      "text": "**Jared Lyon (Toir):** Owen Patel is Acme technical lead."
+    },
+    {
+      "dataset": "acme-commercial",
+      "container": "acme-deal",
+      "title": "acme-deal-08",
+      "text": "**Sofia Reyes (Toir):** Commercial milestones are tracked separately from engineering fixes."
+    },
+    {
+      "dataset": "globex-eng",
+      "container": "globex-eng",
+      "title": "globex-eng-01",
+      "text": "**Curran McLaughlin (Toir):** I own the Globex clinical RAG delivery."
+    },
+    {
+      "dataset": "globex-eng",
+      "container": "globex-eng",
+      "title": "globex-eng-02",
+      "text": "**Dr. Nadia Brooks (Globex Health):** Clinical answers must include citations to stable document IDs."
+    },
+    {
+      "dataset": "globex-eng",
+      "container": "globex-eng",
+      "title": "globex-eng-03",
+      "text": "**Curran McLaughlin (Toir):** The citation drift bug blocks the clinical pilot; GitHub tracks Citation ID drift."
+    },
+    {
+      "dataset": "globex-eng",
+      "container": "globex-eng",
+      "title": "globex-eng-04",
+      "text": "**Samir Shah (Globex Health):** The pilot corpus contains 120 de-identified protocols."
+    },
+    {
+      "dataset": "globex-eng",
+      "container": "globex-eng",
+      "title": "globex-eng-05",
+      "text": "**Sofia Reyes (Toir):** Globex clinical pilot acceptance is 95% citation precision."
+    },
+    {
+      "dataset": "globex-eng",
+      "container": "globex-eng",
+      "title": "globex-eng-06",
+      "text": "**Curran McLaughlin (Toir):** Never ingest PHI into the pilot corpus."
+    },
+    {
+      "dataset": "globex-eng",
+      "container": "globex-eng",
+      "title": "globex-eng-07",
+      "text": "**Samir Shah (Globex Health):** Only de-identified protocols are allowed."
+    },
+    {
+      "dataset": "globex-eng",
+      "container": "globex-eng",
+      "title": "globex-eng-08",
+      "text": "**Curran McLaughlin (Toir):** The clinical architecture doc explains retrieval and citation checks."
+    },
+    {
+      "dataset": "globex-commercial",
+      "container": "globex-deal",
+      "title": "globex-deal-01",
+      "text": "**Dr. Nadia Brooks (Globex Health):** Nadia Brooks is the Globex executive sponsor and clinical approver."
+    },
+    {
+      "dataset": "globex-commercial",
+      "container": "globex-deal",
+      "title": "globex-deal-02",
+      "text": "**Jared Lyon (Toir):** Globex pilot contract is in negotiation; the amount lives in HubSpot."
+    },
+    {
+      "dataset": "globex-commercial",
+      "container": "globex-deal",
+      "title": "globex-deal-03",
+      "text": "**Dr. Nadia Brooks (Globex Health):** Our SOW carries the clinical pilot date."
+    },
+    {
+      "dataset": "globex-commercial",
+      "container": "globex-deal",
+      "title": "globex-deal-04",
+      "text": "**Jared Lyon (Toir):** Globex pilot renewal depends on citation precision."
+    },
+    {
+      "dataset": "globex-commercial",
+      "container": "globex-deal",
+      "title": "globex-deal-05",
+      "text": "**Sofia Reyes (Toir):** The Globex contract includes weekly clinical reviews."
+    },
+    {
+      "dataset": "globex-commercial",
+      "container": "globex-deal",
+      "title": "globex-deal-06",
+      "text": "**Samir Shah (Globex Health):** I am the technical lead for the clinical pilot."
+    },
+    {
+      "dataset": "globex-commercial",
+      "container": "globex-deal",
+      "title": "globex-deal-07",
+      "text": "**Jared Lyon (Toir):** Commercial access is principal-only."
+    },
+    {
+      "dataset": "globex-commercial",
+      "container": "globex-deal",
+      "title": "globex-deal-08",
+      "text": "**Sofia Reyes (Toir):** No PHI is permitted by the signed data scope."
+    },
+    {
+      "dataset": "initech-eng",
+      "container": "initech-eng",
+      "title": "initech-eng-01",
+      "text": "**Theo Park (Toir):** I own Initech eval delivery."
+    },
+    {
+      "dataset": "initech-eng",
+      "container": "initech-eng",
+      "title": "initech-eng-02",
+      "text": "**Marcus Reed (Initech Finance):** Risk evals must be reproducible using a fixed seed of 2026."
+    },
+    {
+      "dataset": "initech-eng",
+      "container": "initech-eng",
+      "title": "initech-eng-03",
+      "text": "**Theo Park (Toir):** The nondeterministic eval bug blocks signoff; see Nondeterministic risk eval in GitHub."
+    },
+    {
+      "dataset": "initech-eng",
+      "container": "initech-eng",
+      "title": "initech-eng-04",
+      "text": "**Sofia Reyes (Toir):** Initech acceptance is a maximum false-positive rate of 2%."
+    },
+    {
+      "dataset": "initech-eng",
+      "container": "initech-eng",
+      "title": "initech-eng-05",
+      "text": "**Marcus Reed (Initech Finance):** Use the 500-case frozen risk benchmark."
+    },
+    {
+      "dataset": "initech-eng",
+      "container": "initech-eng",
+      "title": "initech-eng-06",
+      "text": "**Theo Park (Toir):** Architecture notes define the benchmark version freeze."
+    },
+    {
+      "dataset": "initech-eng",
+      "container": "initech-eng",
+      "title": "initech-eng-07",
+      "text": "**Jared Lyon (Toir):** Theo Park is the Initech technical DRI."
+    },
+    {
+      "dataset": "initech-eng",
+      "container": "initech-eng",
+      "title": "initech-eng-08",
+      "text": "**Marcus Reed (Initech Finance):** Benchmark updates require a new version and a decision log."
+    },
+    {
+      "dataset": "initech-commercial",
+      "container": "initech-deal",
+      "title": "initech-deal-01",
+      "text": "**Priya Desai (Initech Finance):** Priya Desai is the Initech executive sponsor."
+    },
+    {
+      "dataset": "initech-commercial",
+      "container": "initech-deal",
+      "title": "initech-deal-02",
+      "text": "**Jared Lyon (Toir):** Initech expansion is at legal review; amount is recorded in HubSpot."
+    },
+    {
+      "dataset": "initech-commercial",
+      "container": "initech-deal",
+      "title": "initech-deal-03",
+      "text": "**Priya Desai (Initech Finance):** The SOW specifies the signoff date."
+    },
+    {
+      "dataset": "initech-commercial",
+      "container": "initech-deal",
+      "title": "initech-deal-04",
+      "text": "**Sofia Reyes (Toir):** Initech scope is evaluation only, not autonomous credit decisions."
+    },
+    {
+      "dataset": "initech-commercial",
+      "container": "initech-deal",
+      "title": "initech-deal-05",
+      "text": "**Jared Lyon (Toir):** Marcus Reed is Initech technical lead."
+    },
+    {
+      "dataset": "initech-commercial",
+      "container": "initech-deal",
+      "title": "initech-deal-06",
+      "text": "**Priya Desai (Initech Finance):** Expansion approval depends on fixing nondeterministic evals."
+    },
+    {
+      "dataset": "initech-commercial",
+      "container": "initech-deal",
+      "title": "initech-deal-07",
+      "text": "**Sofia Reyes (Toir):** Changes to risk thresholds need sponsor approval."
+    },
+    {
+      "dataset": "initech-commercial",
+      "container": "initech-deal",
+      "title": "initech-deal-08",
+      "text": "**Jared Lyon (Toir):** Legal review is the remaining commercial approval gate."
+    }
+  ],
+  "github": [
+    {
+      "dataset": "acme-eng",
+      "container": "acme-agent-rollout",
+      "title": "Duplicate shipment replay",
+      "body": "Reported by Maya Chen (Acme Logistics)\n\nBlocker: duplicate shipment events on retries. Deduplicate with shipment_id and event_version. Rollback if duplicate-rate exceeds 0.2% for 15 minutes.",
+      "labels": [
+        "bug",
+        "replay"
+      ],
+      "assignee": "jaredlyon",
+      "comments": [
+        "**Maya Chen (Acme Logistics):** Confirmed this is the current engagement requirement."
+      ]
+    },
+    {
+      "dataset": "acme-eng",
+      "container": "acme-agent-rollout",
+      "title": "Canary checklist",
+      "body": "Reported by Owen Patel (Acme Logistics)\n\nPrepare canary checks; acceptance is 99.5% replay success.",
+      "labels": [
+        "rollout"
+      ],
+      "assignee": "jaredlyon",
+      "comments": [
+        "**Owen Patel (Acme Logistics):** Confirmed this is the current engagement requirement."
+      ]
+    },
+    {
+      "dataset": "acme-eng",
+      "container": "acme-agent-rollout",
+      "title": "Event replay regression",
+      "body": "Reported by Sofia Reyes (Toir)\n\nAdd replay regression covering repeated shipment events.",
+      "labels": [
+        "replay"
+      ],
+      "assignee": "jaredlyon",
+      "comments": [
+        "**Sofia Reyes (Toir):** Confirmed this is the current engagement requirement."
+      ]
+    },
+    {
+      "dataset": "acme-eng",
+      "container": "acme-agent-rollout",
+      "title": "Rollout ownership",
+      "body": "Reported by Maya Chen (Acme Logistics)\n\nTechnical DRI is Maya Chen. All rollout issues are assigned to jaredlyon.",
+      "labels": [
+        "rollout"
+      ],
+      "assignee": "jaredlyon",
+      "comments": [
+        "**Maya Chen (Acme Logistics):** Confirmed this is the current engagement requirement."
+      ]
+    },
+    {
+      "dataset": "globex-eng",
+      "container": "globex-clinical-rag",
+      "title": "Citation ID drift",
+      "body": "Reported by Curran McLaughlin (Globex Health)\n\nBlocker: citations change IDs across indexing runs; use stable document IDs.",
+      "labels": [
+        "bug"
+      ],
+      "assignee": "curranToir",
+      "comments": [
+        "**Curran McLaughlin (Globex Health):** Confirmed this is the current engagement requirement."
+      ]
+    },
+    {
+      "dataset": "globex-eng",
+      "container": "globex-clinical-rag",
+      "title": "Clinical citation acceptance",
+      "body": "Reported by Dr. Nadia Brooks (Globex Health)\n\nAcceptance requires 95% citation precision.",
+      "labels": [
+        "eval"
+      ],
+      "assignee": "curranToir",
+      "comments": [
+        "**Dr. Nadia Brooks (Globex Health):** Confirmed this is the current engagement requirement."
+      ]
+    },
+    {
+      "dataset": "globex-eng",
+      "container": "globex-clinical-rag",
+      "title": "De-identified corpus",
+      "body": "Reported by Samir Shah (Globex Health)\n\nUse 120 de-identified protocols only; never ingest PHI.",
+      "labels": [
+        "data"
+      ],
+      "assignee": "curranToir",
+      "comments": [
+        "**Samir Shah (Globex Health):** Confirmed this is the current engagement requirement."
+      ]
+    },
+    {
+      "dataset": "globex-eng",
+      "container": "globex-clinical-rag",
+      "title": "Clinical delivery owner",
+      "body": "Reported by Curran McLaughlin (Globex Health)\n\nCurran McLaughlin owns clinical RAG delivery.",
+      "labels": [
+        "rollout"
+      ],
+      "assignee": "curranToir",
+      "comments": [
+        "**Curran McLaughlin (Globex Health):** Confirmed this is the current engagement requirement."
+      ]
+    },
+    {
+      "dataset": "initech-eng",
+      "container": "initech-evals",
+      "title": "Nondeterministic risk eval",
+      "body": "Reported by Theo Park (Initech Finance)\n\nBlocker: repeated risk evaluations change results; fix random seed to 2026.",
+      "labels": [
+        "bug",
+        "eval"
+      ],
+      "assignee": "jaredlyon",
+      "comments": [
+        "**Theo Park (Initech Finance):** Confirmed this is the current engagement requirement."
+      ]
+    },
+    {
+      "dataset": "initech-eng",
+      "container": "initech-evals",
+      "title": "False-positive acceptance",
+      "body": "Reported by Marcus Reed (Initech Finance)\n\nMaximum false-positive rate is 2% on the 500-case frozen risk benchmark.",
+      "labels": [
+        "eval"
+      ],
+      "assignee": "jaredlyon",
+      "comments": [
+        "**Marcus Reed (Initech Finance):** Confirmed this is the current engagement requirement."
+      ]
+    },
+    {
+      "dataset": "initech-eng",
+      "container": "initech-evals",
+      "title": "Benchmark version freeze",
+      "body": "Reported by Theo Park (Initech Finance)\n\nBenchmark updates require a new version and a decision log.",
+      "labels": [
+        "data"
+      ],
+      "assignee": "jaredlyon",
+      "comments": [
+        "**Theo Park (Initech Finance):** Confirmed this is the current engagement requirement."
+      ]
+    },
+    {
+      "dataset": "initech-eng",
+      "container": "initech-evals",
+      "title": "Eval delivery owner",
+      "body": "Reported by Theo Park (Initech Finance)\n\nTheo Park is Initech technical DRI.",
+      "labels": [
+        "rollout"
+      ],
+      "assignee": "jaredlyon",
+      "comments": [
+        "**Theo Park (Initech Finance):** Confirmed this is the current engagement requirement."
+      ]
+    },
+    {
+      "dataset": "toir-firm",
+      "container": "toir-playbooks",
+      "title": "Engagement checklist",
+      "body": "Reported by Jared Lyon (Toir)\n\nEvery client must have a named technical owner and written decision log.",
+      "labels": [
+        "playbook"
+      ],
+      "assignee": "jaredlyon",
+      "comments": [
+        "**Jared Lyon (Toir):** Confirmed this is the current engagement requirement."
+      ]
+    },
+    {
+      "dataset": "toir-firm",
+      "container": "toir-playbooks",
+      "title": "Incident cadence",
+      "body": "Reported by Sofia Reyes (Toir)\n\nEscalate incidents to Jared Lyon; publish updates every 30 minutes.",
+      "labels": [
+        "playbook"
+      ],
+      "assignee": "jaredlyon",
+      "comments": [
+        "**Sofia Reyes (Toir):** Confirmed this is the current engagement requirement."
+      ]
+    },
+    {
+      "dataset": "toir-firm",
+      "container": "toir-playbooks",
+      "title": "Clinical privacy guard",
+      "body": "Reported by Curran McLaughlin (Toir)\n\nGlobex pilot uses de-identified protocols only; no PHI.",
+      "labels": [
+        "playbook"
+      ],
+      "assignee": "jaredlyon",
+      "comments": [
+        "**Curran McLaughlin (Toir):** Confirmed this is the current engagement requirement."
+      ]
+    },
+    {
+      "dataset": "toir-firm",
+      "container": "toir-playbooks",
+      "title": "Commercial separation",
+      "body": "Reported by Jared Lyon (Toir)\n\nDeal terms remain in commercial datasets, not engineering.",
+      "labels": [
+        "playbook"
+      ],
+      "assignee": "jaredlyon",
+      "comments": [
+        "**Jared Lyon (Toir):** Confirmed this is the current engagement requirement."
+      ]
+    },
+    {
+      "dataset": "acme-eng",
+      "container": "acme-agent-rollout",
+      "title": "Acme Logistics Architecture",
+      "body": "Reported by Maya Chen (Acme Logistics)\n\nAcme Logistics Architecture\nTechnical DRI: Maya Chen.\nDeduplicate shipment events by shipment_id and event_version. Acceptance is 99.5% replay success. Rollback if duplicate-rate exceeds 0.2% for 15 minutes.",
+      "labels": [
+        "architecture"
+      ],
+      "assignee": "jaredlyon",
+      "comments": [
+        "**Maya Chen (Toir):** Agreed technical delivery requirements."
+      ]
+    },
+    {
+      "dataset": "acme-eng",
+      "container": "acme-agent-rollout",
+      "title": "Acme Logistics Meeting notes",
+      "body": "Reported by Maya Chen (Acme Logistics)\n\nAcme Logistics Meeting notes\nTechnical DRI: Maya Chen.\nDeduplicate shipment events by shipment_id and event_version. Acceptance is 99.5% replay success. Rollback if duplicate-rate exceeds 0.2% for 15 minutes.",
+      "labels": [
+        "meeting"
+      ],
+      "assignee": "jaredlyon",
+      "comments": [
+        "**Maya Chen (Toir):** Agreed technical delivery requirements."
+      ]
+    },
+    {
+      "dataset": "globex-eng",
+      "container": "globex-clinical-rag",
+      "title": "Globex Health Architecture",
+      "body": "Reported by Curran McLaughlin (Globex Health)\n\nGlobex Health Architecture\nTechnical DRI: Curran McLaughlin.\nRetrieval uses stable document IDs. Use 120 de-identified protocols. Acceptance is 95% citation precision; no PHI.",
+      "labels": [
+        "architecture"
+      ],
+      "assignee": "curranToir",
+      "comments": [
+        "**Curran McLaughlin (Toir):** Agreed technical delivery requirements."
+      ]
+    },
+    {
+      "dataset": "globex-eng",
+      "container": "globex-clinical-rag",
+      "title": "Globex Health Meeting notes",
+      "body": "Reported by Curran McLaughlin (Globex Health)\n\nGlobex Health Meeting notes\nTechnical DRI: Curran McLaughlin.\nRetrieval uses stable document IDs. Use 120 de-identified protocols. Acceptance is 95% citation precision; no PHI.",
+      "labels": [
+        "meeting"
+      ],
+      "assignee": "curranToir",
+      "comments": [
+        "**Curran McLaughlin (Toir):** Agreed technical delivery requirements."
+      ]
+    },
+    {
+      "dataset": "initech-eng",
+      "container": "initech-evals",
+      "title": "Initech Finance Architecture",
+      "body": "Reported by Theo Park (Initech Finance)\n\nInitech Finance Architecture\nTechnical DRI: Theo Park.\nRisk evals use a fixed seed of 2026 and the 500-case frozen risk benchmark. Maximum false-positive rate is 2%. Benchmark updates require a new version and decision log.",
+      "labels": [
+        "architecture"
+      ],
+      "assignee": "jaredlyon",
+      "comments": [
+        "**Theo Park (Toir):** Agreed technical delivery requirements."
+      ]
+    },
+    {
+      "dataset": "initech-eng",
+      "container": "initech-evals",
+      "title": "Initech Finance Meeting notes",
+      "body": "Reported by Theo Park (Initech Finance)\n\nInitech Finance Meeting notes\nTechnical DRI: Theo Park.\nRisk evals use a fixed seed of 2026 and the 500-case frozen risk benchmark. Maximum false-positive rate is 2%. Benchmark updates require a new version and decision log.",
+      "labels": [
+        "meeting"
+      ],
+      "assignee": "jaredlyon",
+      "comments": [
+        "**Theo Park (Toir):** Agreed technical delivery requirements."
+      ]
+    }
+  ],
+  "hubspot": [
+    {
+      "dataset": "acme-commercial",
+      "container": "Acme Logistics",
+      "title": "Acme Logistics",
+      "domain": "acme.example",
+      "deals": [
+        {
+          "title": "Acme annual renewal",
+          "amount": "240000",
+          "stage": "procurement approval",
+          "close_date": "2026-10-23",
+          "owner": "Jared Lyon",
+          "dataset": "acme-commercial",
+          "container": "Acme Logistics"
+        }
+      ],
+      "contacts": [
+        {
+          "name": "Elena Ruiz",
+          "org": "Acme Logistics",
+          "email": "elena-ruiz-acme@example.com",
+          "title": "Executive sponsor",
+          "dataset": "acme-commercial",
+          "container": "Acme Logistics"
+        },
+        {
+          "name": "Owen Patel",
+          "org": "Acme Logistics",
+          "email": "owen-patel-acme@example.com",
+          "title": "Technical lead",
+          "dataset": "acme-commercial",
+          "container": "Acme Logistics"
+        }
+      ],
+      "notes": [
+        {
+          "title": "Acme Logistics commercial review",
+          "body": "Executive sponsor is Elena Ruiz; technical lead is Owen Patel. Acme annual renewal is at procurement approval. Approval depends on resolving the engineering blocker.",
+          "dataset": "acme-commercial",
+          "container": "Acme Logistics"
+        },
+        {
+          "title": "Acme Logistics SOW",
+          "body": "Acme Logistics signed SOW\nGo-live date: 2026-11-02.\nChange requests over 40 engineering hours need written sponsor approval. Includes a 14-day hypercare window.\nCommercial owner: Jared Lyon. This SOW is the authoritative commercial milestone and scope record.",
+          "dataset": "acme-commercial",
+          "container": "Acme Logistics"
+        }
+      ]
+    },
+    {
+      "dataset": "globex-commercial",
+      "container": "Globex Health",
+      "title": "Globex Health",
+      "domain": "globex.example",
+      "deals": [
+        {
+          "title": "Globex clinical pilot",
+          "amount": "180000",
+          "stage": "negotiation",
+          "close_date": "2026-10-30",
+          "owner": "Jared Lyon",
+          "dataset": "globex-commercial",
+          "container": "Globex Health"
+        }
+      ],
+      "contacts": [
+        {
+          "name": "Dr. Nadia Brooks",
+          "org": "Globex Health",
+          "email": "nadia-brooks-globex@example.com",
+          "title": "Executive sponsor",
+          "dataset": "globex-commercial",
+          "container": "Globex Health"
+        },
+        {
+          "name": "Samir Shah",
+          "org": "Globex Health",
+          "email": "samir-shah-globex@example.com",
+          "title": "Technical lead",
+          "dataset": "globex-commercial",
+          "container": "Globex Health"
+        }
+      ],
+      "notes": [
+        {
+          "title": "Globex Health commercial review",
+          "body": "Executive sponsor is Dr. Nadia Brooks; technical lead is Samir Shah. Globex clinical pilot is at negotiation. Approval depends on resolving the engineering blocker.",
+          "dataset": "globex-commercial",
+          "container": "Globex Health"
+        },
+        {
+          "title": "Globex Health SOW",
+          "body": "Globex Health signed SOW\nPilot date: 2026-11-16.\nWeekly clinical reviews are included. Scope excludes PHI.\nCommercial owner: Jared Lyon. This SOW is the authoritative commercial milestone and scope record.",
+          "dataset": "globex-commercial",
+          "container": "Globex Health"
+        }
+      ]
+    },
+    {
+      "dataset": "initech-commercial",
+      "container": "Initech Finance",
+      "title": "Initech Finance",
+      "domain": "initech.example",
+      "deals": [
+        {
+          "title": "Initech evaluation expansion",
+          "amount": "320000",
+          "stage": "legal review",
+          "close_date": "2026-10-26",
+          "owner": "Jared Lyon",
+          "dataset": "initech-commercial",
+          "container": "Initech Finance"
+        }
+      ],
+      "contacts": [
+        {
+          "name": "Priya Desai",
+          "org": "Initech Finance",
+          "email": "priya-desai-initech@example.com",
+          "title": "Executive sponsor",
+          "dataset": "initech-commercial",
+          "container": "Initech Finance"
+        },
+        {
+          "name": "Marcus Reed",
+          "org": "Initech Finance",
+          "email": "marcus-reed-initech@example.com",
+          "title": "Technical lead",
+          "dataset": "initech-commercial",
+          "container": "Initech Finance"
+        }
+      ],
+      "notes": [
+        {
+          "title": "Initech Finance commercial review",
+          "body": "Executive sponsor is Priya Desai; technical lead is Marcus Reed. Initech evaluation expansion is at legal review. Approval depends on resolving the engineering blocker.",
+          "dataset": "initech-commercial",
+          "container": "Initech Finance"
+        },
+        {
+          "title": "Initech Finance SOW",
+          "body": "Initech Finance signed SOW\nSignoff date: 2026-11-09.\nScope is evaluation only, not autonomous credit decisions. Changes to risk thresholds need sponsor approval.\nCommercial owner: Jared Lyon. This SOW is the authoritative commercial milestone and scope record.",
+          "dataset": "initech-commercial",
+          "container": "Initech Finance"
+        }
+      ]
+    },
+    {
+      "dataset": "toir-pipeline",
+      "container": "Toir Prospect: Northstar Energy",
+      "title": "Toir Prospect: Northstar Energy",
+      "domain": "northstarenergy.example",
+      "deals": [
+        {
+          "title": "Toir Prospect: Northstar Energy discovery",
+          "amount": "95000",
+          "stage": "discovery",
+          "close_date": "2026-12-01",
+          "owner": "Jared Lyon",
+          "dataset": "toir-pipeline",
+          "container": "Toir Prospect: Northstar Energy"
+        }
+      ],
+      "contacts": [
+        {
+          "name": "Alex Morgan",
+          "org": "Toir Prospect: Northstar Energy",
+          "email": "alex-northstar@example.com",
+          "title": "VP Operations",
+          "dataset": "toir-pipeline",
+          "container": "Toir Prospect: Northstar Energy"
+        }
+      ],
+      "notes": [
+        {
+          "title": "Toir Prospect: Northstar Energy qualification",
+          "body": "Discovery only; no delivery commitment until a signed SOW.",
+          "dataset": "toir-pipeline",
+          "container": "Toir Prospect: Northstar Energy"
+        },
+        {
+          "title": "Toir Prospect: Northstar Energy scope and qualification notes",
+          "body": "Fictional Toir FDE prospect qualification record\nProspect: Toir Prospect: Northstar Energy\nCurrent stage: discovery.\nDiscovery opportunity: 95000 USD; target close date: 2026-12-01.\nCommercial owner: Jared Lyon.\nNo signed SOW exists and no go-live date or delivery commitment has been promised. A signed SOW is required before engineering work begins.\nQualified contact: Alex Morgan, VP Operations.",
+          "dataset": "toir-pipeline",
+          "container": "Toir Prospect: Northstar Energy"
+        }
+      ]
+    },
+    {
+      "dataset": "toir-pipeline",
+      "container": "Toir Prospect: Cedar Retail",
+      "title": "Toir Prospect: Cedar Retail",
+      "domain": "cedarretail.example",
+      "deals": [
+        {
+          "title": "Toir Prospect: Cedar Retail discovery",
+          "amount": "75000",
+          "stage": "discovery",
+          "close_date": "2026-12-01",
+          "owner": "Jared Lyon",
+          "dataset": "toir-pipeline",
+          "container": "Toir Prospect: Cedar Retail"
+        }
+      ],
+      "contacts": [
+        {
+          "name": "Jordan Lee",
+          "org": "Toir Prospect: Cedar Retail",
+          "email": "jordan-cedar@example.com",
+          "title": "VP Operations",
+          "dataset": "toir-pipeline",
+          "container": "Toir Prospect: Cedar Retail"
+        }
+      ],
+      "notes": [
+        {
+          "title": "Toir Prospect: Cedar Retail qualification",
+          "body": "Discovery only; no delivery commitment until a signed SOW.",
+          "dataset": "toir-pipeline",
+          "container": "Toir Prospect: Cedar Retail"
+        },
+        {
+          "title": "Toir Prospect: Cedar Retail scope and qualification notes",
+          "body": "Fictional Toir FDE prospect qualification record\nProspect: Toir Prospect: Cedar Retail\nCurrent stage: discovery.\nDiscovery opportunity: 75000 USD; target close date: 2026-12-01.\nCommercial owner: Jared Lyon.\nNo signed SOW exists and no go-live date or delivery commitment has been promised. A signed SOW is required before engineering work begins.\nQualified contact: Jordan Lee, VP Operations.",
+          "dataset": "toir-pipeline",
+          "container": "Toir Prospect: Cedar Retail"
+        }
+      ]
+    }
+  ],
+  "planted_facts": [
+    {
+      "id": "acme-date-owner",
+      "fact": "Acme go-live is 2026-11-02; rollout owner is Maya Chen.",
+      "sources": [
+        "slack",
+        "hubspot"
+      ],
+      "datasets": [
+        "acme-eng",
+        "acme-commercial"
+      ],
+      "needs": "crm_docs"
+    },
+    {
+      "id": "acme-renewal-blocker",
+      "fact": "Acme annual renewal is 240000 USD at procurement approval; Duplicate shipment replay blocks release.",
+      "sources": [
+        "github",
+        "hubspot"
+      ],
+      "datasets": [
+        "acme-eng",
+        "acme-commercial"
+      ],
+      "needs": "crm_docs"
+    },
+    {
+      "id": "acme-change",
+      "fact": "Acme changes over 40 engineering hours need written sponsor approval.",
+      "sources": [
+        "slack",
+        "hubspot"
+      ],
+      "datasets": [
+        "acme-commercial"
+      ],
+      "needs": null
+    },
+    {
+      "id": "acme-hypercare",
+      "fact": "Acme includes a 14-day hypercare window.",
+      "sources": [
+        "slack",
+        "hubspot"
+      ],
+      "datasets": [
+        "acme-commercial"
+      ],
+      "needs": null
+    },
+    {
+      "id": "globex-date-owner",
+      "fact": "Globex clinical pilot is 2026-11-16; delivery owner is Curran McLaughlin.",
+      "sources": [
+        "slack",
+        "hubspot"
+      ],
+      "datasets": [
+        "globex-eng",
+        "globex-commercial"
+      ],
+      "needs": "crm_docs"
+    },
+    {
+      "id": "globex-deal",
+      "fact": "Globex clinical pilot deal is 180000 USD in negotiation; citation drift blocks the pilot.",
+      "sources": [
+        "github",
+        "hubspot"
+      ],
+      "datasets": [
+        "globex-eng",
+        "globex-commercial"
+      ],
+      "needs": "crm_docs"
+    },
+    {
+      "id": "initech-date-owner",
+      "fact": "Initech signoff is 2026-11-09; eval owner is Theo Park.",
+      "sources": [
+        "slack",
+        "hubspot"
+      ],
+      "datasets": [
+        "initech-eng",
+        "initech-commercial"
+      ],
+      "needs": "crm_docs"
+    },
+    {
+      "id": "initech-deal",
+      "fact": "Initech expansion is 320000 USD at legal review; nondeterministic risk eval blocks signoff.",
+      "sources": [
+        "github",
+        "hubspot"
+      ],
+      "datasets": [
+        "initech-eng",
+        "initech-commercial"
+      ],
+      "needs": "crm_docs"
+    },
+    {
+      "id": "acme-dedup",
+      "fact": "Acme deduplicates by shipment_id and event_version, with rollback above 0.2% for 15 minutes.",
+      "sources": [
+        "slack",
+        "github"
+      ],
+      "datasets": [
+        "acme-eng"
+      ],
+      "needs": null
+    },
+    {
+      "id": "globex-citations",
+      "fact": "Globex acceptance requires 95% citation precision using stable document IDs.",
+      "sources": [
+        "slack",
+        "github"
+      ],
+      "datasets": [
+        "globex-eng"
+      ],
+      "needs": null
+    },
+    {
+      "id": "initech-seed",
+      "fact": "Initech uses fixed seed 2026 with a 500-case frozen benchmark and maximum 2% false-positive rate.",
+      "sources": [
+        "slack",
+        "github"
+      ],
+      "datasets": [
+        "initech-eng"
+      ],
+      "needs": null
+    },
+    {
+      "id": "incident-cadence",
+      "fact": "Toir escalates to Jared Lyon and posts incident updates every 30 minutes.",
+      "sources": [
+        "slack",
+        "github"
+      ],
+      "datasets": [
+        "toir-firm"
+      ],
+      "needs": null
+    },
+    {
+      "id": "acme-action",
+      "fact": "Create Acme canary checklist in Toir-FDE-Team/acme-agent-rollout assigned to jaredlyon with rollout label.",
+      "sources": [
+        "slack",
+        "github"
+      ],
+      "datasets": [
+        "acme-eng"
+      ],
+      "needs": null
+    },
+    {
+      "id": "acme-replay-action",
+      "fact": "Create Acme event replay regression in Toir-FDE-Team/acme-agent-rollout assigned to jaredlyon with replay label.",
+      "sources": [
+        "slack",
+        "github"
+      ],
+      "datasets": [
+        "acme-eng"
+      ],
+      "needs": null
+    }
+  ],
+  "github_org": "Toir-FDE-Team",
+  "change": "Added HubSpot (CRM: deals, contacts, SOW notes) as a third Scalekit source."
+}

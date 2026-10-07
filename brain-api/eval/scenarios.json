@@ -1,0 +1,227 @@
+[
+  {
+    "id": "s01",
+    "question": "Who owns the Acme rollout and what is its go-live date?",
+    "as_user": "jared@neptuneops.com",
+    "must_mention": [
+      "Maya Chen",
+      "2026-11-02"
+    ],
+    "must_not_mention": [],
+    "expected_sources": [
+      "source:slack",
+      "source:hubspot"
+    ],
+    "needs": "crm_docs",
+    "kind": "access"
+  },
+  {
+    "id": "s02",
+    "question": "Who owns the Acme rollout and what is its go-live date?",
+    "as_user": "curran@toirinc.com",
+    "must_mention": [],
+    "must_not_mention": [
+      "Maya Chen",
+      "2026-11-02"
+    ],
+    "expected_sources": [],
+    "needs": null,
+    "kind": "access"
+  },
+  {
+    "id": "s03",
+    "question": "What is the Initech expansion amount, commercial approval gate, and engineering blocker? State USD amounts as plain digits without separators.",
+    "as_user": "jared@neptuneops.com",
+    "must_mention": [
+      "320000",
+      "legal review",
+      "nondeterministic"
+    ],
+    "must_not_mention": [],
+    "expected_sources": [
+      "source:github",
+      "source:hubspot"
+    ],
+    "needs": "crm_docs",
+    "kind": "access"
+  },
+  {
+    "id": "s04",
+    "question": "What is the Initech expansion amount, commercial approval gate, and engineering blocker? State USD amounts as plain digits without separators.",
+    "as_user": "curran@toirinc.com",
+    "must_mention": [],
+    "must_not_mention": [
+      "320000",
+      "legal review",
+      "nondeterministic"
+    ],
+    "expected_sources": [],
+    "needs": null,
+    "kind": "access"
+  },
+  {
+    "id": "s05",
+    "question": "What Acme SOW change-request threshold requires written sponsor approval?",
+    "as_user": "jared@neptuneops.com",
+    "must_mention": [
+      "40",
+      "written",
+      "sponsor"
+    ],
+    "must_not_mention": [],
+    "expected_sources": [
+      "source:slack",
+      "source:hubspot"
+    ],
+    "needs": null,
+    "kind": "qa"
+  },
+  {
+    "id": "s06",
+    "question": "How long is Acme hypercare in the SOW?",
+    "as_user": "jared@neptuneops.com",
+    "must_mention": [
+      "14",
+      "hypercare"
+    ],
+    "must_not_mention": [],
+    "expected_sources": [
+      "source:slack",
+      "source:hubspot"
+    ],
+    "needs": null,
+    "kind": "qa"
+  },
+  {
+    "id": "s07",
+    "question": "What date does the Globex clinical pilot SOW specify?",
+    "as_user": "jared@neptuneops.com",
+    "must_mention": [
+      "2026-11-16"
+    ],
+    "must_not_mention": [],
+    "expected_sources": [
+      "source:hubspot"
+    ],
+    "needs": "crm_docs",
+    "kind": "qa"
+  },
+  {
+    "id": "s08",
+    "question": "What is the Globex clinical pilot deal amount and current commercial stage? State USD amounts as plain digits without separators.",
+    "as_user": "jared@neptuneops.com",
+    "must_mention": [
+      "180000",
+      "negotiation"
+    ],
+    "must_not_mention": [],
+    "expected_sources": [
+      "source:hubspot"
+    ],
+    "needs": "crm_docs",
+    "kind": "qa"
+  },
+  {
+    "id": "s09",
+    "question": "What is the Initech signoff date and who owns eval delivery?",
+    "as_user": "jared@neptuneops.com",
+    "must_mention": [
+      "2026-11-09",
+      "Theo Park"
+    ],
+    "must_not_mention": [],
+    "expected_sources": [
+      "source:slack",
+      "source:hubspot"
+    ],
+    "needs": "crm_docs",
+    "kind": "qa"
+  },
+  {
+    "id": "s10",
+    "question": "What citation acceptance precision and identifier rule apply to Globex clinical RAG?",
+    "as_user": "curran@toirinc.com",
+    "must_mention": [
+      "95%",
+      "stable",
+      "IDs"
+    ],
+    "must_not_mention": [],
+    "expected_sources": [
+      "source:slack",
+      "source:github"
+    ],
+    "needs": null,
+    "kind": "qa"
+  },
+  {
+    "id": "s11",
+    "question": "What are Acme shipment deduplication keys and its rollback trigger?",
+    "as_user": "curran@toirinc.com",
+    "must_mention": [
+      "shipment_id",
+      "event_version",
+      "0.2%",
+      "15 minutes"
+    ],
+    "must_not_mention": [],
+    "expected_sources": [
+      "source:slack",
+      "source:github"
+    ],
+    "needs": null,
+    "kind": "grant"
+  },
+  {
+    "id": "s12",
+    "question": "Create the Acme canary checklist rollout issue in the correct repo, with the engagement-prescribed assignee and rollout label.",
+    "as_user": "jared@neptuneops.com",
+    "must_mention": [],
+    "must_not_mention": [],
+    "expected_sources": [],
+    "needs": null,
+    "kind": "action",
+    "expected_action": {
+      "tool": "github_issue_create",
+      "repo": "Toir-FDE-Team/acme-agent-rollout",
+      "assignee": "jaredlyon",
+      "labels": [
+        "rollout"
+      ]
+    }
+  },
+  {
+    "id": "s13",
+    "question": "Create the Acme event replay regression issue for duplicate shipments in the correct repo, with the engagement-prescribed assignee and replay label.",
+    "as_user": "jared@neptuneops.com",
+    "must_mention": [],
+    "must_not_mention": [],
+    "expected_sources": [],
+    "needs": null,
+    "kind": "action",
+    "expected_action": {
+      "tool": "github_issue_create",
+      "repo": "Toir-FDE-Team/acme-agent-rollout",
+      "assignee": "jaredlyon",
+      "labels": [
+        "replay"
+      ]
+    }
+  },
+  {
+    "id": "s14",
+    "question": "Who receives Toir incident escalations and how often are incident updates due?",
+    "as_user": "curran@toirinc.com",
+    "must_mention": [
+      "Jared Lyon",
+      "30"
+    ],
+    "must_not_mention": [],
+    "expected_sources": [
+      "source:slack",
+      "source:github"
+    ],
+    "needs": null,
+    "kind": "qa"
+  }
+]
