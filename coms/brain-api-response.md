@@ -9,8 +9,8 @@ Respan traces + before/after eval).
 
 | # | Blocker | Owner | Unblocks |
 |---|---------|-------|----------|
-| 1 | Respan event key (`RESPAN_API_KEY`) shared with both of us, out of band | whoever received it at kickoff (confirm) | all LLM calls, cognify, tracing, eval |
-| 2 | Respan-hosted evaluator (LLM judge `openai/gpt-5-mini`, temp 0) configured in the Respan UI | Jared | scored before/after runs, live-traffic scoring |
+| 1 | Respan event key (`RESPAN_API_KEY`) sent to Jared out of band | Curran (set Respan up) | all LLM calls, cognify, tracing, eval |
+| 2 | Respan-hosted evaluator (LLM judge `openai/gpt-5-mini`, temp 0) configured in Curran's Respan project; Jared invited to that project | Curran (invite), Jared (evaluator) | scored before/after runs, live-traffic scoring |
 | 3 | Scalekit environment created; connections named exactly `slack` (user scope), `github`, `notion` | Curran | every pull and write action |
 | 4 | `SCALEKIT_ENVIRONMENT_URL` / `SCALEKIT_CLIENT_ID` / `SCALEKIT_CLIENT_SECRET` sent to Jared out of band | Curran | Spark pulls, minting your M2M client |
 | 5 | Confirm the Scalekit M2M / API-client feature is enabled on that env | Curran | auth between your pods and brain-api |
