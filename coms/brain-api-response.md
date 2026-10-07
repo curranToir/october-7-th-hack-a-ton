@@ -14,18 +14,21 @@ for exact results. Broader Scalekit setup is not verified end to end.
 
 | # | Status / remaining work | Owner | Unblocks |
 |---|---------|-------|----------|
-| 1 | **Key stored, verified:** nonempty `RESPAN_API_KEY` in AWS Secrets Manager `/company-brain-hackathon/respan`, `us-east-1`. Jared's retrieval/access and successful use on Spark still need confirmation. | Curran (access), Jared (consume) | all LLM calls, cognify, tracing, eval |
-| 2 | Respan-hosted evaluator (LLM judge `openai/gpt-5-mini`, temp 0) configured in Curran's Respan project; Jared invited to that project | Curran (invite), Jared (evaluator) | scored before/after runs, live-traffic scoring |
-| 3 | **Partially complete (Curran update):** Scalekit environment and Slack setup are made; `github` and `notion` connections remain. Required names stay exactly `slack` (user scope), `github`, `notion`. | Curran | every pull and write action |
-| 4 | **Credentials stored, verified:** nonempty `SCALEKIT_ENVIRONMENT_URL`, `SCALEKIT_CLIENT_ID`, `SCALEKIT_CLIENT_SECRET` in AWS Secrets Manager `/company-brain-hackathon/scalekit`, `us-east-1`. Jared's retrieval/access still needs confirmation. | Curran (access), Jared (consume) | Spark pulls, minting your M2M client |
-| 5 | Explicit confirmation of Scalekit M2M / API-client enablement is still outstanding; credential presence does not verify this feature or a `brain-api` client. | Curran | auth between your pods and brain-api |
-| 6 | Slack workspace `toir-fde` + seeding app; invites to Curran | Jared | Slack seed + pull |
-| 7 | GitHub org `toir-fde-demo`; Curran added as collaborator per the access matrix | Jared | GitHub seed + pull |
-| 8 | Notion workspace `Toir FDE` + seeding integration; pages shared per the access matrix | Jared | Notion seed + pull (the "after" run) |
-| 9 | Both users must authorize `slack`, `github`, `notion` through the Scalekit links. Per-user authorization is not verified; GitHub and Notion also await connection setup. | Jared + Curran | per-user pulls, actions as the user |
+| 1 | **Done (Jared, 16:10):** read from `/company-brain-hackathon/respan` and installed on the Spark. A live gateway call works (`claude-haiku-4-5`, `gpt-5-mini`). | — | — |
+| 2 | Respan evaluator (judge `gpt-5-mini`, temp 0, on workflows `eval.scenario` + `brain.recall`). Jared accepts the invite to `jared@neptuneops.com` and sets it up. | Jared | scored before/after, live-traffic scoring |
+| 3 | **Sources changed (Jared, 16:15): we use what you connected** (`slack`, `hubspot`, `google-drive`) **plus a new `github` connection**. Notion is dropped and Gmail is unused. Jared tries to create `github` via the SDK with the env creds; if that's refused, please create it in the dashboard (AgentKit → Connections → GitHub, name exactly `github`, Scalekit's OAuth app). | Jared, fallback Curran | GitHub pull + triage action |
+| 4 | **Done (Jared, 16:10):** read from `/company-brain-hackathon/scalekit` and installed on the Spark. A client-credentials token works. | — | — |
+| 5 | **M2M dropped:** brain-api uses a static bearer, tailnet only. Token + URL are in **`/company-brain-hackathon/brain-api`** (`BRAIN_API_TOKEN`, `BRAIN_API_URL=http://100.87.113.122:8200`). Send `Authorization: Bearer <token>`. | Curran (consume) | your pods → brain-api |
+| 6 | We seed the fictional world **into your Toir sandbox** Slack/HubSpot/Drive through Scalekit as `curran@toirinc.com`: channels `toir-general`, `acme-eng`, `acme-deal`, `initech-eng`, `initech-deal`, `globex-eng`, `globex-deal`; HubSpot companies Acme Logistics / Globex Health / Initech Finance + `Toir Prospect: *`; Drive folder `Toir FDE/` with 8 dataset-named subfolders. Seeding is in progress. | Jared | all pulls |
+| 7 | **Invite `jared@neptuneops.com` with less access than you:** Slack (all 7 channels **except `globex-eng`**), HubSpot (user), Drive `Toir FDE/` subfolders **except `globex-eng`**. This is the Scalekit-layer access difference. | Curran | Jared as user #2 |
+| 8 | GitHub org `toir-fde-demo` (Jared creates it). Repos `acme-agent-rollout`, `initech-evals`, `globex-clinical-rag`, `toir-playbooks`; `curranToir` is a collaborator on globex + playbooks only. | Jared | GitHub seed + pull |
+| 9 | Both users authorize `slack`, `github`, `hubspot`, `google-drive` via Scalekit links. You're ACTIVE on slack/hubspot/google-drive; still to do: you on `github`, Jared on all four. | Jared + Curran | per-user pulls, actions as the user |
 | 10 | **EC2 joined and pod network verified:** `toir-hackathon` / `100.86.7.62` in `neptuneops.com`; pod DNS resolves `waffle-spark` and host/pod TCP 22 succeeds. Spark `100.87.113.122:5432` and `:8200` return connection refused; database/API service readiness is still pending. See [EC2 handoff](ec2-tailscale-handoff.md). | Curran (network done), Jared (Spark listeners) | your pods reaching brain-api and Postgres |
-| 11 | **Done, verified on GitHub:** all three requested files are on `main` in `5d66e70`; SQLite storage suite passes **14 tests**. Jared can start the Postgres adapter. | Curran (published), Jared (adapter) | our Postgres RunRepository adapter |
-| 12 | Triage agent endpoint shared with us | Curran | scoring action scenarios |
+| 11 | **Done:** files on `main` (`5d66e70`). **Jared is building the Postgres adapter now**: `storage/postgres.py`, factory/checkpointer selection by `DATABASE_URL`, and the suite parameterized over both backends. DB `toir_runs` on the Spark; its `DATABASE_URL` will go into your Secrets Manager. | Jared | your durable run state |
+| 12 | Triage agent endpoint shared with us: `POST {as_user, request}` → JSON with an `action` field (tool, repo, assignee, labels) so the eval can score action scenarios. | Curran | scoring action scenarios |
+
+The status table includes Jared's latest reported changes and supersedes the
+earlier integration proposal below, including its source list and M2M-auth plan.
 
 ### Verified files and secret handoff
 
@@ -48,7 +51,7 @@ versions, without displaying values. Use authorized Secrets Manager access or
 an out-of-band handoff to Jared; no credential values belong in this repository.
 Stored credentials do not establish Spark access, Respan project membership,
 successful provider calls, or Scalekit M2M readiness. Setup remains owned by
-Curran, with GitHub/Notion connections still in progress as listed above.
+the owners listed in the current status table above.
 The EC2 tailnet join and pod network checks are complete;
 Spark service readiness remains pending.
 
