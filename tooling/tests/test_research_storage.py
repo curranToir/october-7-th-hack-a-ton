@@ -3,11 +3,15 @@
 import asyncio
 import hashlib
 import json
+import os
 import sqlite3
 from datetime import UTC, date, datetime
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import aiosqlite
+import psycopg
+from psycopg import sql
+from psycopg.conninfo import conninfo_to_dict, make_conninfo
 import pytest
 
 from apps.orchestrator.models.research import (
@@ -20,7 +24,42 @@ from apps.orchestrator.models.research import (
     Source,
 )
 from apps.orchestrator.storage.ports import Conflict
+from apps.orchestrator.storage.postgres import PostgresRunRepository
 from apps.orchestrator.storage.sqlite import SQLiteRunRepository
+
+@pytest.fixture(scope="session")
+def postgres_url():
+    url = os.environ.get("TEST_DATABASE_URL")
+    if not url:
+        pytest.skip("Set TEST_DATABASE_URL to run the Postgres storage contract")
+    if conninfo_to_dict(url).get("dbname") != "toir_runs_test":
+        pytest.fail("TEST_DATABASE_URL must point to the dedicated toir_runs_test database")
+    # The scoped app role cannot CREATE DATABASE; isolate this session in a schema.
+    schema = f"storage_test_{uuid4().hex}"
+    with psycopg.connect(url, autocommit=True) as connection:
+        connection.execute(sql.SQL("CREATE SCHEMA {}").format(sql.Identifier(schema)))
+    try:
+        yield make_conninfo(url, options=f"-c search_path={schema}")
+    finally:
+        with psycopg.connect(url, autocommit=True) as connection:
+            connection.execute(sql.SQL("DROP SCHEMA {} CASCADE").format(sql.Identifier(schema)))
+
+
+@pytest.fixture(params=["sqlite", "postgres"])
+def storage_backend(request):
+    return request.param
+
+
+@pytest.fixture
+def open_repository(storage_backend, request):
+    if storage_backend == "sqlite":
+        return SQLiteRunRepository.open
+    url = request.getfixturevalue("postgres_url")
+    with psycopg.connect(url, autocommit=True) as connection:
+        if connection.execute("SELECT to_regclass('runs')").fetchone()[0]:
+            connection.execute("TRUNCATE runs, run_events RESTART IDENTITY")
+    return lambda path: PostgresRunRepository.open(url)
+
 
 
 def brief(request="Find US manufacturers investing in AI integration"):
@@ -55,12 +94,14 @@ def saved_report():
     )
 
 
-def test_idempotency_replays_normalized_brief_even_after_completion(tmp_path):
+def test_idempotency_replays_normalized_brief_even_after_completion(tmp_path, open_repository):
     async def scenario():
-        repository = await SQLiteRunRepository.open(tmp_path / "runs.sqlite")
+        repository = await open_repository(tmp_path / "runs.sqlite")
         try:
             original = await repository.create(brief(), "stable-key")
             normalized = brief("  Find US manufacturers investing in AI integration  ")
+            assert (await repository.replay(normalized, "stable-key")).id == original.id
+            assert await repository.replay(brief(), "missing-key") is None
             replay = await repository.create(normalized, "stable-key")
             assert replay.id == original.id
             assert len(await repository.events(original.id)) == 1
@@ -72,6 +113,7 @@ def test_idempotency_replays_normalized_brief_even_after_completion(tmp_path):
             assert terminal_replay.id == original.id
             assert terminal_replay.status == "completed"
             assert terminal_replay.report == original.report
+            assert (await repository.replay(brief(), "stable-key")).report == original.report
             assert len(await repository.list()) == 1
         finally:
             await repository.close()
@@ -79,9 +121,9 @@ def test_idempotency_replays_normalized_brief_even_after_completion(tmp_path):
     asyncio.run(scenario())
 
 
-def test_idempotency_rejects_different_brief_or_parent(tmp_path):
+def test_idempotency_rejects_different_brief_or_parent(tmp_path, open_repository):
     async def scenario():
-        repository = await SQLiteRunRepository.open(tmp_path / "runs.sqlite")
+        repository = await open_repository(tmp_path / "runs.sqlite")
         try:
             original = await repository.create(brief(), "stable-key")
             original.status = "failed"
@@ -92,18 +134,24 @@ def test_idempotency_rejects_different_brief_or_parent(tmp_path):
                 )
             with pytest.raises(Conflict, match="different brief"):
                 await repository.create(brief(), "stable-key", parent_id=original.id)
+            with pytest.raises(Conflict, match="different brief"):
+                await repository.replay(
+                    brief("Find US software firms with newly hired CTOs"), "stable-key",
+                )
+            with pytest.raises(Conflict, match="different brief"):
+                await repository.replay(brief(), "stable-key", parent_id=original.id)
         finally:
             await repository.close()
 
     asyncio.run(scenario())
 
 
-def test_concurrent_creates_across_connections_allow_one_active_run(tmp_path):
+def test_concurrent_creates_across_connections_allow_one_active_run(tmp_path, open_repository):
     """Separate connections ensure the database constraint, not only a Python lock, protects us."""
     async def scenario():
         path = tmp_path / "runs.sqlite"
-        first = await SQLiteRunRepository.open(path)
-        second = await SQLiteRunRepository.open(path)
+        first = await open_repository(path)
+        second = await open_repository(path)
         try:
             outcomes = await asyncio.gather(
                 first.create(brief(), "first"), second.create(brief(), "second"),
@@ -123,10 +171,29 @@ def test_concurrent_creates_across_connections_allow_one_active_run(tmp_path):
     asyncio.run(scenario())
 
 
-@pytest.mark.parametrize("terminal", ["completed", "failed", "cancelled", "interrupted"])
-def test_each_terminal_state_releases_active_run_slot(tmp_path, terminal):
+@pytest.mark.parametrize("storage_backend", ["postgres"], indirect=True)
+def test_postgres_concurrent_same_key_replays_committed_run(tmp_path, open_repository):
     async def scenario():
-        repository = await SQLiteRunRepository.open(tmp_path / "runs.sqlite")
+        first = await open_repository(tmp_path / "runs.sqlite")
+        second = await open_repository(tmp_path / "runs.sqlite")
+        try:
+            original, replay = await asyncio.gather(
+                first.create(brief(), "same-key"), second.create(brief(), "same-key"),
+            )
+            assert original.id == replay.id
+            assert len(await first.list()) == 1
+            assert len(await first.events(original.id)) == 1
+        finally:
+            await first.close()
+            await second.close()
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("terminal", ["completed", "failed", "cancelled", "interrupted"])
+def test_each_terminal_state_releases_active_run_slot(tmp_path, terminal, open_repository):
+    async def scenario():
+        repository = await open_repository(tmp_path / "runs.sqlite")
         try:
             original = await repository.create(brief(), "first")
             original.status = "running"
@@ -146,9 +213,9 @@ def test_each_terminal_state_releases_active_run_slot(tmp_path, terminal):
     asyncio.run(scenario())
 
 
-def test_retry_gets_new_uuid_and_keeps_original_evidence_unchanged(tmp_path):
+def test_retry_gets_new_uuid_and_keeps_original_evidence_unchanged(tmp_path, open_repository):
     async def scenario():
-        repository = await SQLiteRunRepository.open(tmp_path / "runs.sqlite")
+        repository = await open_repository(tmp_path / "runs.sqlite")
         try:
             original = await repository.create(brief(), "first")
             original.status = "interrupted"
@@ -173,10 +240,10 @@ def test_retry_gets_new_uuid_and_keeps_original_evidence_unchanged(tmp_path):
     asyncio.run(scenario())
 
 
-def test_payload_events_and_list_order_survive_close_and_reopen(tmp_path):
+def test_payload_events_and_list_order_survive_close_and_reopen(tmp_path, open_repository):
     async def scenario():
         path = tmp_path / "nested" / "runs.sqlite"
-        repository = await SQLiteRunRepository.open(path)
+        repository = await open_repository(path)
         original = await repository.create(brief(), "first")
         original.status = "failed"
         original.stage = "reviewing"
@@ -196,12 +263,15 @@ def test_payload_events_and_list_order_survive_close_and_reopen(tmp_path):
         second = await repository.create(brief(), "second")
         await repository.close()
 
-        reopened = await SQLiteRunRepository.open(path)
+        reopened = await open_repository(path)
         try:
             assert (await reopened.get(original.id)).model_dump(mode="json") == expected
             assert await reopened.get("does-not-exist") is None
             assert [run.id for run in await reopened.list()] == [second.id, original.id]
             assert [run.id for run in await reopened.list(limit=1)] == [second.id]
+            assert await reopened.list(limit=0) == []
+            assert len(await reopened.list(limit=-1)) == 2
+            assert await reopened.events("does-not-exist") == []
             events = await reopened.events(original.id)
             assert [event.message for event in events] == [
                 "Research request saved", "Found company evidence", "Validated the company signal",
@@ -217,9 +287,9 @@ def test_payload_events_and_list_order_survive_close_and_reopen(tmp_path):
     asyncio.run(scenario())
 
 
-def test_event_history_keeps_latest_200_in_chronological_order(tmp_path):
+def test_event_history_keeps_latest_200_in_chronological_order(tmp_path, open_repository):
     async def scenario():
-        repository = await SQLiteRunRepository.open(tmp_path / "runs.sqlite")
+        repository = await open_repository(tmp_path / "runs.sqlite")
         try:
             run = await repository.create(brief(), "first")
             for number in range(205):
@@ -228,17 +298,21 @@ def test_event_history_keeps_latest_200_in_chronological_order(tmp_path):
             assert len(events) == 200
             assert [event.message for event in events] == [f"Progress {n}" for n in range(5, 205)]
             assert [event.sequence for event in events] == sorted({e.sequence for e in events})
+            await repository.event(run.id, "researching", "x" * 1005)
+            latest = (await repository.events(run.id))[-1]
+            assert latest.message == "x" * 1000
+            assert latest.sequence > events[-1].sequence
         finally:
             await repository.close()
 
     asyncio.run(scenario())
 
 
-def test_event_cannot_reference_missing_run(tmp_path):
+def test_event_cannot_reference_missing_run(tmp_path, open_repository):
     async def scenario():
-        repository = await SQLiteRunRepository.open(tmp_path / "runs.sqlite")
+        repository = await open_repository(tmp_path / "runs.sqlite")
         try:
-            with pytest.raises(aiosqlite.IntegrityError):
+            with pytest.raises((aiosqlite.IntegrityError, psycopg.IntegrityError)):
                 await repository.event("missing-run", "researching", "Orphaned evidence")
         finally:
             await repository.close()
@@ -320,8 +394,9 @@ def test_backup_refuses_maintenance_disabled_or_active_research(tmp_path):
 
 
 def test_factory_checkpoint_serializer_stays_strict_when_global_default_is_permissive(
-    tmp_path, monkeypatch,
+    tmp_path, monkeypatch, storage_backend, request, open_repository,
 ):
+    from langgraph.checkpoint.base import empty_checkpoint
     from langgraph.checkpoint.serde import _msgpack
     from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
 
@@ -329,12 +404,21 @@ def test_factory_checkpoint_serializer_stays_strict_when_global_default_is_permi
 
     monkeypatch.setenv("TOIR_DATA_DIR", str(tmp_path))
     monkeypatch.delenv("DATABASE_URL", raising=False)
+    if storage_backend == "postgres":
+        monkeypatch.setenv("DATABASE_URL", request.getfixturevalue("postgres_url"))
     monkeypatch.setenv("LANGGRAPH_STRICT_MSGPACK", "false")
     # Simulate LangGraph having been imported before any application env setup.
     monkeypatch.setattr(_msgpack, "STRICT_MSGPACK_ENABLED", False)
 
     async def scenario():
-        async with open_storage() as (_, checkpointer):
+        async with open_storage() as (repository, checkpointer):
+            if storage_backend == "sqlite":
+                assert isinstance(repository, SQLiteRunRepository)
+            else:
+                from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+
+                assert isinstance(repository, PostgresRunRepository)
+                assert isinstance(checkpointer, AsyncPostgresSaver)
             assert isinstance(checkpointer.serde, JsonPlusSerializer)
             state = {"run": {"brief": brief().model_dump()}, "follow_up_queries": []}
             encoded = checkpointer.serde.dumps_typed(state)
@@ -347,5 +431,18 @@ def test_factory_checkpoint_serializer_stays_strict_when_global_default_is_permi
             assert checkpointer.serde.pickle_fallback is False
             with pytest.raises(NotImplementedError, match="Unknown serialization type: pickle"):
                 checkpointer.serde.loads_typed(("pickle", b"unused"))
+            run = await repository.create(brief(), "checkpoint-run")
+            config = {"configurable": {"thread_id": run.id, "checkpoint_ns": ""}}
+            checkpoint = empty_checkpoint()
+            checkpoint["channel_values"] = state
+            checkpoint["channel_versions"] = {key: "1" for key in state}
+            saved_config = await checkpointer.aput(
+                config, checkpoint, {"source": "update", "step": 0, "parents": {}},
+                checkpoint["channel_versions"],
+            )
+            assert (await checkpointer.aget(saved_config))["channel_values"] == state
+        async with open_storage() as (repository, checkpointer):
+            assert (await repository.get(run.id)).id == run.id
+            assert (await checkpointer.aget(saved_config))["channel_values"] == state
 
     asyncio.run(scenario())
