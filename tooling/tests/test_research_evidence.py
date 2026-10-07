@@ -5,7 +5,7 @@ from datetime import UTC, date, datetime, timedelta
 import pytest
 from pydantic import ValidationError
 
-from apps.orchestrator.graph.evidence import qualify
+from apps.orchestrator.graph.evidence import finalize_report, qualify
 from apps.orchestrator.models.research import (
     Brief,
     Citation,
@@ -248,3 +248,147 @@ def test_excludes_competitor_claims_with_missing_or_fabricated_evidence(kind):
 def test_brief_contract_rejects_inverted_employee_range():
     with pytest.raises(ValidationError, match="Minimum company size"):
         Brief(request="Find recent company funding rounds", employee_min=1000, employee_max=20)
+
+
+def test_finalization_replaces_stale_funding_rationale_and_pre_filter_coverage_claims():
+    brief = Brief(request="Find qualified US companies for Toir", target_count=2)
+    accepted = lead(
+        company="Trase", domain="trase.example",
+        signals=[
+            signal(),
+            signal(kind="funding", event_date=TODAY - timedelta(days=91), quote=FUNDING),
+        ],
+        rationale="Fresh funding inside the last 90 days makes Trase ready to buy immediately.",
+    )
+    unknown_size = lead(company="Unknown size", domain="unknown.example", employee_count=None)
+    raw = report(leads=[accepted, unknown_size])
+    raw.gaps = [
+        "Only 9 leads were found.",
+        "Companies with null employee counts were retained because they seemed promising.",
+        "Trase has fresh funding inside the 90-day window.",
+    ]
+    raw.summary = "Nine leads with fresh funding were qualified."
+    admitted = qualify(raw, brief, today=TODAY)
+    assert [entry.kind for entry in admitted.leads[0].signals] == ["leadership"]
+    assert raw.gaps[0] in admitted.gaps, "Raw gaps remain usable during internal refinement"
+    before_finalization = admitted.model_dump(mode="json")
+
+    final = finalize_report(admitted, brief)
+    assert len(final.leads) == 1
+    assert "leadership" in final.leads[0].rationale.casefold()
+    assert "funding" not in final.leads[0].rationale.casefold()
+    assert "buy immediately" not in final.leads[0].rationale.casefold()
+    assert "Only 1 of 2 requested companies qualified." in final.gaps
+    assert "No verified funding signals." in final.gaps
+    published_prose = " ".join([final.summary, *final.gaps, final.leads[0].rationale]).casefold()
+    assert "9 leads" not in published_prose
+    assert "fresh funding" not in published_prose
+    assert "null employee counts were retained" not in published_prose
+    assert final.summary.startswith("1 companies qualified against the supplied brief.")
+    assert final.leads[0].signals == admitted.leads[0].signals
+    assert final.leads[0].identity_citations == admitted.leads[0].identity_citations
+    assert final.leads[0].ai_use_case == admitted.leads[0].ai_use_case
+    assert final.leads[0].outreach_angle == admitted.leads[0].outreach_angle
+    assert final.sources == admitted.sources
+    assert admitted.model_dump(mode="json") == before_finalization
+
+
+@pytest.mark.parametrize("retained_kind", ["leadership", "funding", "partnership"])
+def test_final_signal_coverage_uses_only_the_signals_in_accepted_companies(retained_kind):
+    brief = Brief(request="Find qualified US companies for Toir", target_count=1)
+    accepted = report(leads=[lead(signals=[signal(kind=retained_kind)])])
+    # These claims may have described earlier passes; they cannot dictate final coverage.
+    accepted.gaps = ["No leadership was found.", "All funding and partnerships were verified."]
+    final = finalize_report(accepted, brief)
+    for kind in ["leadership", "funding", "partnership"]:
+        assert (f"No verified {kind} signals." in final.gaps) is (kind != retained_kind)
+    assert not any(gap.startswith("Only ") for gap in final.gaps)
+    assert final.gaps[-1] == (
+        "Public-web coverage is incomplete; missing evidence does not prove absence."
+    )
+
+
+@pytest.mark.parametrize("fact_kind,covered_label", [
+    ("marketing", None),
+    ("advertisement", "advertisements"),
+    ("pricing", "pricing"),
+    ("customer", "customer relationships"),
+])
+def test_final_competitor_coverage_distinguishes_marketing_from_actual_evidence(
+    fact_kind, covered_label,
+):
+    claims = {
+        "marketing": "OtherCo markets an AI integration service.",
+        "advertisement": "OtherCo published a paid advertisement for its AI integration service.",
+        "pricing": "OtherCo publicly prices its integration starter package at $12,000.",
+        "customer": COMPETITOR,
+    }
+    fact = CompetitorFact(
+        company="OtherCo", kind=fact_kind, claim=claims[fact_kind],
+        citations=[citation(claims[fact_kind])],
+        positioning_hypothesis="A narrower initial implementation scope may suit some buyers.",
+    )
+    accepted = report(
+        competitors=[fact], text=" ".join([IDENTITY, APPOINTMENT, claims[fact_kind]]),
+    )
+    accepted.gaps = ["All ad libraries were searched and every competitor price is known."]
+    brief = Brief(request="Find qualified US companies for Toir", target_count=1)
+    final = finalize_report(accepted, brief)
+    for label in ["advertisements", "pricing", "customer relationships"]:
+        assert (f"No verified competitor {label}." in final.gaps) is (label != covered_label)
+    assert final.competitors == accepted.competitors
+    assert final.competitors[0].positioning_hypothesis == fact.positioning_hypothesis
+    assert not any("all ad libraries" in gap.casefold() for gap in final.gaps)
+
+
+def test_finalization_with_complete_coverage_keeps_only_conservative_web_limitation():
+    brief = Brief(request="Find qualified US companies for Toir", target_count=1)
+    candidate = lead(signals=[signal(kind=kind) for kind in [
+        "leadership", "funding", "partnership", "business_need",
+    ]])
+    facts = [CompetitorFact(
+        company="OtherCo", kind=kind, claim=COMPETITOR, citations=[citation(COMPETITOR)],
+        positioning_hypothesis="Investigate a narrower implementation scope.",
+    ) for kind in ["advertisement", "pricing", "customer"]]
+    # Input here is the post-semantic-review aggregate; finalization never rejudges facts.
+    accepted = report(leads=[candidate], competitors=facts)
+    accepted.gaps = ["An earlier pass had no companies or competitor evidence."]
+    final = finalize_report(accepted, brief)
+    assert final.gaps == [
+        "Public-web coverage is incomplete; missing evidence does not prove absence.",
+    ]
+    assert final.summary == (
+        "1 companies qualified against the supplied brief. "
+        "AI use cases and outreach angles are proposals, not verified buying intent."
+    )
+    assert final.leads[0].signals == candidate.signals
+    assert finalize_report(final, brief) == final
+
+
+def test_finalization_counts_post_semantic_rejections_and_preserves_source_history():
+    brief = Brief(request="Find qualified US companies for Toir", target_count=3)
+    accepted = report(leads=[])
+    accepted.summary = "Previously found three companies."
+    accepted.gaps = ["Only two companies passed deterministic checks."]
+    final = finalize_report(accepted, brief)
+    assert final.leads == []
+    assert final.sources == accepted.sources
+    assert "Only 0 of 3 requested companies qualified." in final.gaps
+    assert final.summary.startswith("0 companies qualified")
+    assert not any("two companies" in gap for gap in final.gaps)
+    for kind in ["leadership", "funding", "partnership"]:
+        assert f"No verified {kind} signals." in final.gaps
+
+
+def test_final_rationale_is_bounded_even_with_maximum_length_verified_claims():
+    brief = Brief(request="Find qualified US companies for Toir", target_count=1)
+    accepted = report()
+    accepted.leads[0].signals = [
+        signal(kind=kind).model_copy(update={"claim": "Verified source statement. " * 55})
+        for kind in ["leadership", "funding", "partnership", "business_need", "business_need"]
+    ]
+    final = finalize_report(accepted, brief)
+    assert len(final.leads[0].rationale) <= 1500
+    assert "Verified source statement." not in final.leads[0].rationale
+    assert final.leads[0].signals == accepted.leads[0].signals
+    assert ResearchReport.model_validate(final.model_dump()) == final

@@ -68,3 +68,46 @@ def qualify(report: ResearchReport, brief: Brief, today: date | None = None) -> 
         sources=list(sources.values()),
         gaps=list(dict.fromkeys(gaps))[:40],
     )
+
+
+def finalize_report(report: ResearchReport, brief: Brief) -> ResearchReport:
+    """Build presentation from accepted facts after review, never stale candidate prose."""
+    result = report.model_copy(deep=True)
+    labels = {
+        "leadership": "new leadership",
+        "funding": "recent funding",
+        "partnership": "recent partnership",
+        "business_need": "documented business need",
+    }
+    for lead in result.leads:
+        signals = ", ".join(dict.fromkeys(labels[signal.kind] for signal in lead.signals))
+        lead.rationale = (
+            f"Verified US location and {lead.employee_count} employees fit the requested "
+            f"{brief.employee_min}–{brief.employee_max} employee profile. "
+            f"Accepted evidence supports: {signals}. "
+            "The cited signals below explain the opportunity; buying intent is unverified."
+        )
+    gaps = []
+    if len(result.leads) < brief.target_count:
+        gaps.append(
+            f"Only {len(result.leads)} of {brief.target_count} requested companies qualified."
+        )
+    signals = {signal.kind for lead in result.leads for signal in lead.signals}
+    for kind in ("leadership", "funding", "partnership"):
+        if kind not in signals:
+            gaps.append(f"No verified {kind} signals.")
+    facts = {fact.kind for fact in result.competitors}
+    for kind, label in (
+        ("advertisement", "advertisements"),
+        ("pricing", "pricing"),
+        ("customer", "customer relationships"),
+    ):
+        if kind not in facts:
+            gaps.append(f"No verified competitor {label}.")
+    gaps.append("Public-web coverage is incomplete; missing evidence does not prove absence.")
+    result.gaps = gaps
+    result.summary = (
+        f"{len(result.leads)} companies qualified against the supplied brief. "
+        "AI use cases and outreach angles are proposals, not verified buying intent."
+    )
+    return result

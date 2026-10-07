@@ -7,7 +7,7 @@ from typing import TypedDict
 from langgraph.graph import END, START, StateGraph
 
 from apps.orchestrator.agents.research import AgentFailure, SessionLost
-from apps.orchestrator.graph.evidence import qualify
+from apps.orchestrator.graph.evidence import finalize_report, qualify
 from apps.orchestrator.models.research import ResearchPlan, ResearchReport, Review, Run
 
 PLAN_PROMPT = """Plan public-web sales research for Toir, a general forward-deployed engineering
@@ -191,19 +191,7 @@ def build_graph(repository, models, agent, checkpointer):
 
     async def report(state: GraphState):
         run = Run.model_validate(state["run"])
-        run.report.summary = (
-            f"{len(run.report.leads)} companies qualified against the supplied brief. "
-            "AI use cases and outreach angles are proposals, not verified buying intent."
-        )
-        if len(run.report.leads) < run.brief.target_count:
-            run.report.gaps = list(
-                dict.fromkeys(
-                    run.report.gaps
-                    + [
-                        "Fewer companies met the evidence requirements than requested.",
-                    ]
-                )
-            )[:40]
+        run.report = finalize_report(run.report, run.brief)
         run.status = "completed"
         await save(run, "completed", "Research report saved")
         return {"run": run.model_dump(mode="json")}

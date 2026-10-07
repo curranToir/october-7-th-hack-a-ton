@@ -416,7 +416,8 @@ def test_semantic_review_receives_context_that_refutes_a_literal_quote(tmp_path)
             result = await repository.get(run.id)
             assert result.status == "completed"
             assert result.report.leads == []
-            assert "The cited source refutes the alleged need." in result.report.gaps
+            assert "Only 0 of 10 requested companies qualified." in result.report.gaps
+            assert "The cited source refutes the alleged need." not in result.report.gaps
             assert models.calls == [Review]
         finally:
             await service.shutdown()
