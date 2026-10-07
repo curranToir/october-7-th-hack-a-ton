@@ -35,6 +35,21 @@ k3s kubectl get nodes -o wide
 """
 
 
+INGRESS_WAIT = """ingress_ready=0
+for attempt in $(seq 1 60); do
+  if curl -fsS --max-time 5 http://127.0.0.1/api/ready >/dev/null 2>&1; then
+    ingress_ready=1
+    break
+  fi
+  sleep 2
+done
+if [ "$ingress_ready" -ne 1 ]; then
+  echo 'Ingress did not become ready after 60 attempts' >&2
+  exit 1
+fi
+"""
+
+
 def provision(aws: Aws):
     try:
         outputs = aws.outputs()
@@ -142,11 +157,14 @@ def verify(aws: Aws, agent_template: bool):
         "sleep 5; done",
         "systemctl is-active --quiet k3s",
         "k3s kubectl wait --for=condition=Ready node --all --timeout=300s",
+        "k3s kubectl -n kube-system rollout status deployment/traefik --timeout=300s",
         "k3s kubectl -n company-brain rollout status deployment/web --timeout=210s",
         "k3s kubectl -n company-brain rollout status deployment/api --timeout=210s",
         "k3s kubectl -n company-brain rollout status deployment/orchestrator --timeout=210s",
         "if k3s kubectl -n company-brain get deployment research >/dev/null 2>&1; then "
-        "k3s kubectl -n company-brain rollout status deployment/research --timeout=210s; "
+        "k3s kubectl -n company-brain rollout status deployment/research --timeout=210s; fi",
+        INGRESS_WAIT,
+        "if k3s kubectl -n company-brain get deployment research >/dev/null 2>&1; then "
         "curl -fsS --max-time 10 http://127.0.0.1/research | grep -o 'Research' | head -n 1; "
         "else curl -fsS --max-time 10 http://127.0.0.1/ | "
         "grep -o 'No agents configured'; fi",

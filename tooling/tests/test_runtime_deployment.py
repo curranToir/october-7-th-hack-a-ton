@@ -402,3 +402,23 @@ def test_terminating_research_pod_prevents_offline_backup(tmp_path, monkeypatch)
     retained_foundation(tmp_path, monkeypatch, old_writer=True)
     with pytest.raises(RuntimeError, match="still holds the database"):
         remote_apply.coordinator_writes_database()
+
+
+@pytest.mark.parametrize("eventually_ready", [True, False])
+def test_post_reboot_ingress_wait_retries_and_has_a_finite_failure(eventually_ready):
+    from manage import INGRESS_WAIT
+
+    # Run the actual operator shell retry with a service-LB that is initially unavailable.
+    response = '[ "$ingress_attempts" -ge 3 ]' if eventually_ready else "return 7"
+    script = (
+        "set -eu\ningress_attempts=0\n"
+        f"curl() {{ ingress_attempts=$((ingress_attempts + 1)); {response}; }}\n"
+        "sleep() { :; }\n" + INGRESS_WAIT + "printf '%s' \"$ingress_attempts\""
+    )
+    result = subprocess.run(["sh", "-c", script], text=True, capture_output=True, timeout=5)
+    if eventually_ready:
+        assert result.returncode == 0
+        assert result.stdout == "3"
+    else:
+        assert result.returncode == 1
+        assert "60 attempts" in result.stderr
