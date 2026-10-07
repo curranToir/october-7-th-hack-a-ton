@@ -5,6 +5,7 @@ COPY package.json package-lock.json ./
 COPY apps/web/package.json ./apps/web/package.json
 RUN npm ci --no-audit --no-fund
 COPY apps/web ./apps/web
+COPY coms ./coms
 RUN npm run build:web
 
 FROM node:24-bookworm-slim@sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20

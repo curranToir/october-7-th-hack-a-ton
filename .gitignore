@@ -158,3 +158,5 @@ __pycache__/
 .deployment/
 *.egg-info/
 .DS_Store
+.playwright-cli/
+output/playwright/

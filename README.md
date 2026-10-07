@@ -3,9 +3,11 @@
 A hackathon foundation using Athena's application layout: Next.js, React,
 TypeScript, and FastAPI on one dedicated AWS `t3.medium` running K3s.
 
-The web shell says **No agents configured**. The API and orchestration host
-provide health probes only. The deployed foundation has no task execution,
-database, AI provider, login, GitHub Actions workflow, or predefined agent.
+The web app includes light/dark chat, sessions, task approvals and user settings.
+Its fictional demo data stays in browser storage behind the root-level
+[`coms/` data adapter](coms/README.md), ready for database integration.
+The API and orchestration host provide health probes only. The foundation has
+no live task execution, database, AI provider, login, or predefined agent.
 
 The separate [RAG service](rag-db-api/README.md) has its own setup instructions
 and is not included in the foundation's Kubernetes deployment.
@@ -90,5 +92,6 @@ The web scaffold makes no backend calls yet, so no local proxy is needed.
 .venv/bin/pytest -q
 .venv/bin/ruff check apps tooling infrastructure/deployment/scripts
 npm run typecheck:web
+npm run test:web:coms
 npm run build:web
 ```

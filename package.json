@@ -8,6 +8,7 @@
     "dev:web": "npm --workspace @company-brain/web run dev",
     "build:web": "npm --workspace @company-brain/web run build",
     "typecheck:web": "npm --workspace @company-brain/web run typecheck",
+    "test:web:coms": "node --experimental-strip-types --test coms/*.test.ts",
     "test:api": "uv run --frozen pytest",
     "lint:api": "uv run --frozen ruff check apps tooling infrastructure/deployment/scripts"
   }
