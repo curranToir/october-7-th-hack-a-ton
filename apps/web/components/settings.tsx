@@ -9,18 +9,22 @@ import type {
 import { workspaceClient } from "../../../coms/storage.ts";
 import { createDemoWorkspace } from "../../../coms/seed.ts";
 import type { UpdateWorkspace } from "./use-workspace";
-import { Icon } from "./icon";
+import { Icon, type IconName } from "./icon";
 import { Dialog } from "./dialog";
 
-export const settingsPages: { id: SettingPage; label: string }[] = [
-  { id: "general", label: "General" },
-  { id: "profile", label: "Profile" },
-  { id: "agents", label: "Agents & permissions" },
-  { id: "connections", label: "Connected apps" },
-  { id: "notifications", label: "Notifications" },
-  { id: "privacy", label: "Data & privacy" },
-  { id: "workspace", label: "Workspace" },
-  { id: "billing", label: "Billing" },
+export const settingsPages: {
+  id: SettingPage;
+  label: string;
+  icon: IconName;
+}[] = [
+  { id: "general", label: "General", icon: "general" },
+  { id: "profile", label: "Profile", icon: "profile" },
+  { id: "agents", label: "Agents & permissions", icon: "brain" },
+  { id: "connections", label: "Connected apps", icon: "connections" },
+  { id: "notifications", label: "Notifications", icon: "notifications" },
+  { id: "privacy", label: "Data & privacy", icon: "shield" },
+  { id: "workspace", label: "Workspace", icon: "workspace" },
+  { id: "billing", label: "Billing", icon: "billing" },
 ];
 
 function Row({
@@ -120,7 +124,7 @@ export function Settings({
     );
     const link = document.createElement("a");
     link.href = url;
-    link.download = "company-brain-export.json";
+    link.download = "toir-export.json";
     link.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
     toast("Workspace export downloaded.");
@@ -135,7 +139,8 @@ export function Settings({
             aria-current={page === item.id ? "page" : undefined}
             onClick={() => navigate(item.id)}
           >
-            {item.label}
+            <Icon name={item.icon} size={17} />
+            <span>{item.label}</span>
           </button>
         ))}
       </nav>
@@ -382,7 +387,16 @@ export function Settings({
               {state.connections.map((item) => (
                 <div className="connection-row" key={item.id}>
                   <span className={`app-icon app-${item.id}`}>
-                    {item.initials}
+                    <Icon
+                      name={
+                        item.id === "hubspot"
+                          ? "crm"
+                          : item.id === "slack"
+                            ? "messages"
+                            : "files"
+                      }
+                      size={21}
+                    />
                   </span>
                   <div className="connection-copy">
                     <strong>{item.name}</strong>

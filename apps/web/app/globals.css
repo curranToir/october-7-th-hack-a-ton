@@ -155,6 +155,7 @@ small {
 .app-shell {
   display: grid;
   grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   height: 100dvh;
   overflow: hidden;
 }
@@ -168,11 +169,14 @@ small {
   border-right: 1px solid var(--line);
   padding: 27px 16px 0;
   min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
 }
 .brand-row {
   display: flex;
   align-items: center;
-  margin-bottom: 32px;
+  margin-bottom: 23px;
+  flex-shrink: 0;
 }
 .brand {
   display: flex;
@@ -182,17 +186,21 @@ small {
   text-align: left;
   min-width: 0;
 }
-.brand > span {
-  font-size: 19px;
-  font-weight: 650;
-  letter-spacing: -0.7px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.toir-logo {
+  display: block;
+  flex-shrink: 0;
+  max-width: 100%;
+  object-fit: contain;
+  mix-blend-mode: multiply;
+}
+[data-theme="dark"] .toir-logo {
+  filter: invert(1);
+  mix-blend-mode: screen;
 }
 .primary-nav {
   display: grid;
   gap: 5px;
+  flex-shrink: 0;
 }
 .nav-item {
   display: flex;
@@ -309,6 +317,7 @@ small {
   line-height: 1.6;
 }
 .sidebar-bottom {
+  flex-shrink: 0;
   padding-top: 12px;
   margin-top: 16px;
   border-top: 1px solid var(--line);
@@ -359,7 +368,13 @@ small {
   flex-direction: column;
   min-width: 0;
   min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scroll-padding-block: 70px 24px;
   outline: none;
+}
+.view-chat {
+  overflow: hidden;
 }
 .workspace-header {
   min-height: 101px;
@@ -479,6 +494,7 @@ small {
 }
 .chat-scroll {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   scroll-behavior: smooth;
 }
@@ -572,6 +588,7 @@ small {
   white-space: nowrap;
 }
 .composer-wrap {
+  flex-shrink: 0;
   width: min(850px, 100%);
   padding: 13px 34px 18px;
   margin: 0 auto;
@@ -683,9 +700,7 @@ small {
 }
 .tasks-workspace {
   padding: 0 38px;
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
+  flex: 1 0 auto;
 }
 .task-tabs {
   position: sticky;
@@ -1021,14 +1036,19 @@ small {
 }
 .settings-layout {
   display: grid;
-  grid-template-columns: 205px minmax(0, 1fr);
+  grid-template-columns: 224px minmax(0, 1fr);
   border-top: 1px solid var(--line);
   margin: 14px 38px 0;
-  flex: 1;
-  overflow-y: auto;
-  min-height: 0;
+  flex: 1 0 auto;
 }
 .settings-nav {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  align-self: start;
+  max-height: 100dvh;
+  overflow-y: auto;
+  background: var(--bg);
   padding: 21px 20px 30px 0;
   display: flex;
   flex-direction: column;
@@ -1036,6 +1056,10 @@ small {
   border-right: 1px solid var(--line);
 }
 .settings-nav button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
   text-align: left;
   border-radius: 6px;
   padding: 11px 13px;
@@ -1052,6 +1076,7 @@ small {
 .settings-content {
   padding: 29px 0 42px 34px;
   min-width: 0;
+  flex-shrink: 0;
   max-width: 930px;
   animation: appear 0.2s ease-out;
 }
@@ -1511,9 +1536,6 @@ small {
   .sidebar {
     padding-inline: 10px;
   }
-  .brand > span {
-    font-size: 17px;
-  }
   .workspace-header {
     padding-inline: 28px;
   }
@@ -1522,7 +1544,7 @@ small {
   }
   .settings-layout {
     margin-inline: 28px;
-    grid-template-columns: 170px minmax(0, 1fr);
+    grid-template-columns: 205px minmax(0, 1fr);
   }
   .settings-nav {
     padding-right: 12px;
@@ -1553,6 +1575,7 @@ small {
   }
   .settings-nav {
     flex-direction: row;
+    align-self: stretch;
     overflow-x: auto;
     gap: 4px;
     border-right: none;
@@ -1590,6 +1613,13 @@ small {
   }
   .review-tasks > strong {
     margin-left: 40px;
+  }
+}
+/* On short windows, scroll the full navigation instead of clipping its footer. */
+@media (max-height: 620px) {
+  .session-list {
+    flex: none;
+    overflow: visible;
   }
 }
 @media (max-width: 700px) {

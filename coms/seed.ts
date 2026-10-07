@@ -103,7 +103,7 @@ export function createDemoWorkspace(): WorkspaceState {
       role: "Workspace owner",
     },
     workspace: {
-      name: "Company Brain",
+      name: "TOIR",
       description: "A shared workspace for your company’s agents.",
     },
     preferences: {

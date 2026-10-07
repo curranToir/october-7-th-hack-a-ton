@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { Session, WorkspaceState } from "../../../coms/types.ts";
 import { Icon } from "./icon";
+import { Logo } from "./logo";
 
 export function Chat({
   session,
@@ -34,7 +35,7 @@ export function Chat({
         {!session?.messages.length ? (
           <div className="chat-welcome">
             <span className="welcome-mark">
-              <Icon name="brain" size={42} />
+              <Logo size={54} alt="TOIR" />
             </span>
             <h1>What’s on your mind?</h1>
             <p>A place to think, find answers, and work with your agents.</p>
@@ -77,7 +78,7 @@ export function Chat({
                 >
                   {message.role === "assistant" && (
                     <span className="message-avatar">
-                      <Icon name="brain" size={23} />
+                      <Logo size={32} />
                     </span>
                   )}
                   <div className="message-body">
@@ -118,12 +119,12 @@ export function Chat({
           }}
         >
           <label className="sr-only" htmlFor="message-input">
-            Message Company Brain
+            Message TOIR
           </label>
           <textarea
             ref={input}
             id="message-input"
-            placeholder="Message Company Brain…"
+            placeholder="Message TOIR…"
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
             rows={1}
@@ -142,7 +143,9 @@ export function Chat({
           <div className="composer-tools">
             <span className="composer-agent">
               <Icon name="brain" size={16} />
-              {session?.agent === "Company Brain" || !session
+              {session?.agent === "TOIR" ||
+              session?.agent === "Company Brain" ||
+              !session
                 ? state.preferences.defaultAgent
                 : session.agent}
             </span>

@@ -4,7 +4,7 @@ export function newSession(agent: string): Session {
   return {
     id: crypto.randomUUID(),
     title: "New chat",
-    agent: agent === "Auto" ? "Company Brain" : agent,
+    agent: agent === "Auto" ? "TOIR" : agent,
     createdAt: new Date().toISOString(),
     messages: [],
   };

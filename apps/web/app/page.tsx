@@ -13,6 +13,7 @@ import { Chat } from "../components/chat";
 import { Tasks } from "../components/tasks";
 import { Settings, settingsPages } from "../components/settings";
 import { Icon } from "../components/icon";
+import { Logo } from "../components/logo";
 import { Dialog } from "../components/dialog";
 
 type Route = { view: "chat" | "tasks" | "settings"; id: string };
@@ -97,6 +98,9 @@ export default function Home() {
     if (content.current) content.current.inert = sidebarOpen;
   }, [sidebarOpen]);
   useEffect(() => {
+    content.current?.scrollTo({ top: 0 });
+  }, [route.view, route.id]);
+  useEffect(() => {
     const desktop = window.matchMedia("(min-width: 701px)");
     const close = () => {
       if (desktop.matches) setSidebarOpen(false);
@@ -107,7 +111,7 @@ export default function Home() {
   if (!state)
     return (
       <div className="loading-workspace" role="status">
-        <Icon name="brain" size={34} />
+        <Logo size={42} alt="TOIR" />
         <span>Opening your workspace…</span>
       </div>
     );
@@ -183,7 +187,7 @@ export default function Home() {
                 ? "Review what your agents found."
                 : route.view === "settings"
                   ? "Manage your workspace and agent preferences."
-                  : (session?.agent ?? "Company Brain")}
+                  : (session?.agent ?? "TOIR")}
             </p>
           </div>
           <div className="header-actions">
@@ -310,7 +314,7 @@ export default function Home() {
           onClose={() => setDialog(null)}
         >
           <div className="help-intro">
-            <Icon name="brain" size={32} />
+            <Logo size={38} alt="TOIR" />
             <p>
               One workspace for conversations with your agents and the decisions
               that need you.

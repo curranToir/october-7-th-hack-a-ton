@@ -1,6 +1,7 @@
 import { useRef, useEffect } from "react";
 import type { WorkspaceState } from "../../../coms/types.ts";
 import { Icon } from "./icon";
+import { Logo } from "./logo";
 
 export function Sidebar({
   state,
@@ -97,9 +98,13 @@ export function Sidebar({
         aria-label="Workspace navigation"
       >
         <div className="brand-row">
-          <button className="brand" onClick={onNew}>
-            <Icon name="brain" size={29} />
-            <span>{state.workspace.name}</span>
+          <button
+            className="brand"
+            onClick={onNew}
+            aria-label="TOIR — New chat"
+            title={state.workspace.name}
+          >
+            <Logo variant="wordmark" size={98} />
           </button>
           <button
             className="icon-button mobile-close"
