@@ -1,0 +1,10 @@
+{
+  "compilerOptions": {
+    "target": "ES2022", "module": "ESNext", "moduleResolution": "Bundler",
+    "strict": true, "noEmit": true, "skipLibCheck": true, "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "typeRoots": ["../research/node_modules/@types"], "types": ["bun"],
+    "paths": {"ajv": ["../research/node_modules/ajv"], "ajv-formats": ["../research/node_modules/ajv-formats"]}
+  },
+  "include": ["src/**/*.ts", "tests/**/*.ts"]
+}

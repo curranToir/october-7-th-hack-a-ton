@@ -1,81 +1,90 @@
-# Toir research architecture
+# Toir prospecting architecture
 
-The initial customer is Toir's internal sales team. The application follows
-Athena's folder conventions without importing its credentials or application
-logic. Rhea's evidence-first research pattern informs the new research harness;
-Rhea queues, services and deployment are independent.
+Toir's sales team uses one coordinator and two persistent public-research workers.
+The coordinator owns authorization, durable queueing, evidence review, versioned
+approvals, deterministic CRM writes and the memory outbox.
 
 ```text
-Team browser → SSM tunnel → server port 80 → Traefik
-  /       → web:3000 → /api/* → api:8000
-                                ↓
-                      orchestrator:8000
-                        LangGraph/Python
-                                ↓
-                         research:8000
-                          Oh My Pi/Bun
-                                ↓
-                         Scalekit → Exa
-
-Coordinator + research → Respan gateway and tracing
-Coordinator → persistent local SQLite volume → encrypted S3 backups
+Sales browser → Scalekit sign-in → /api (facade) → coordinator
+                                                 ├─ discovery → research worker → Scalekit Exa
+                                                 ├─ enrichment → contacts worker → Scalekit Exa
+                                                 ├─ Postgres on Spark (or local SQLite)
+                                                 ├─ approved CRM operations → Scalekit HubSpot
+                                                 └─ outbox / recall → Spark Brain API → Cognee
+Coordinator + workers → Respan gateway and traces
 ```
 
-The API proxies research requests; the custom coordinator owns admission,
-planning, dispatch, evidence review, follow-up and reports. The research agent
-owns its temporary Oh My Pi session and permitted search/retrieval tools. It has
-no shell tools or nested agent spawning. Each future agent gets its own image,
-one-replica Deployment and internal Service.
+Each worker owns only temporary bounded Oh My Pi sessions. They have restricted
+search/retrieval tools, source validation and usage limits. They do not open the
+database or receive CRM write tools. Pending approvals consume no worker slot.
+The original research repository and its one-active-research-run constraint stay
+intact. Sales queues dispatch one discovery run and one contact task concurrently.
 
-## Workload and access boundaries
+## State and access
 
-Four application pods run in the `company-brain` namespace. Kubernetes system
-pods run separately in `kube-system`. All application pods run as UID/GID 1000,
-use read-only root filesystems and have bounded writable `/tmp`. Service-account
-tokens are disabled, with no application RBAC. Only the coordinator mounts the
-2 GiB `coordinator-data` claim at `/data`.
+`DATABASE_URL` selects the existing `PostgresRunRepository` and
+`AsyncPostgresSaver`; absent means local SQLite. A single coordinator uses the
+existing two database connections. Sales storage reuses the repository connection
+and lock with additive `sales_schema_version` and `sales_records` tables. Records
+include workspace membership, sessions/messages, jobs, proposals and revisions,
+approval decisions, CRM operation journals, identity state and memory outbox jobs.
+Postgres is authoritative for approvals and execution; Cognee unavailability does
+not imply a CRM failure or lose a pending proposal.
+
+Scalekit sign-in verifies identity before establishing a server-managed session.
+Curran and Jared are the initial sales members. Browser actor claims and local
+approval preferences cannot authorize CRM writes. Both use Toir's shared HubSpot
+connection owned by `curran@toirinc.com`; requester and approver remain separate
+audit identities. Coordinator-only `SCALEKIT_HUBSPOT_WRITE_SCOPES_VERIFIED` starts
+false because ACTIVE connection/tool availability does not prove granted write
+scopes; an operator verifies provider scope configuration before enabling it.
+It never bypasses per-proposal approval. The shared `toir-pipeline` Cognee dataset requires explicit
+permissions for both people. Shared recall checks the intersection of both users'
+readable grants before copying pipeline/firm text to sessions; it keeps the actual
+requesting user identity. Never impersonate Jared to bypass missing grants.
+
+The browser follows the resource contract in
+[`coms/prospecting-contract.md`](../coms/prospecting-contract.md). Sessions and
+Tasks display the same versioned proposal. A decision is atomic; execution has
+its own status and per-operation journal. A changed CRM baseline requires renewed
+approval, and uncertain creates require reconciliation before another attempt.
+
+## Deployment and credentials
+
+Five application pods run in `company-brain`: web, API, coordinator, research and
+contacts. Each has one replica, zero update surge, no service-account token,
+read-only root filesystem and bounded `/tmp`. Only the coordinator mounts the
+retained 2 GiB data claim. The two worker images use the same pinned Bun/Oh My Pi
+dependencies. Contact code keeps the repository directory layout to import shared
+research tools and evidence handling.
 
 Ingress is denied by default. Allowed paths are Traefik → web/API, web → API,
-API → coordinator, and coordinator → research. Neither coordinator nor research
-has a public ingress route. Outbound HTTPS is available for provider calls;
-IMDSv2 hop limit 1 prevents normal pod access to the instance metadata role.
-No blanket egress network policy is imposed.
+API → coordinator, and coordinator → either worker. Workers and coordinator have
+no public ingress route. The existing browser entry is the SSM tunnel at
+`http://localhost:8080`; Scalekit permits that exact local callback. Any remote
+browser origin must use HTTPS. No public inbound EC2 rule is added.
 
-The same dedicated `t3.medium` supplies 2 vCPU and 4 GiB RAM. The application
-memory requests/limits are web 128/384 MiB, API 128/256 MiB, coordinator
-256/384 MiB and research 256/512 MiB. Each requests 100m CPU with a 500m limit.
-Kubelet reserves 2 GiB and 500m CPU for the host/cluster, with a 200 MiB memory
-eviction buffer. One research run is active at a time. External model calls do
-not require a local GPU; the independent Spark RAG service is not deployed here.
+Host secret access uses exact ARNs. Respan and Scalekit are stack-owned; database
+and Brain API secrets already exist and are referenced by ARN parameters, never
+recreated by CloudFormation. The coordinator receives Respan, Scalekit server
+credentials, `DATABASE_URL`, `BRAIN_API_URL` and `BRAIN_API_TOKEN`. Workers receive
+Respan and Scalekit Exa configuration only. The direct Exa API key remains in its
+setup secret and Scalekit's vault. API and web receive no provider credentials.
 
-Every Deployment uses one replica, zero surge and one unavailable pod during
-updates. Separate pods share one machine; updates can interrupt service and
-this deployment is not highly available. T3 Standard avoids surplus CPU-credit
-charges but sustained work can throttle after credits are exhausted.
+The dedicated t3.medium remains 2 vCPU/4 GiB. Each pod requests 100m CPU and has a
+500m limit. Memory requests/limits: web 128/384 MiB, API 128/256 MiB, coordinator
+256/512 MiB, research 256/512 MiB, contacts 256/512 MiB. Observe a representative
+concurrent run before increasing limits; deployment adds no autoscaling or HA.
 
-## State and credentials
+## Operations
 
-The coordinator exclusively owns `runs.sqlite` and `checkpoints.sqlite` on its
-local-path persistent volume. Pod replacement and server reboot preserve these
-files. Instance replacement or root-disk loss requires restoring an S3 backup.
-The run repository and LangGraph checkpointer have separate replacement seams;
-see [the database handoff](../coms/database-handoff.md).
+Maintenance blocks new discovery, contact and CRM dispatch, and drains all active
+work. Deployment and secret rotation use this aggregate view. Pending approvals
+remain durable. Verified TLS uses the Spark FQDN and the coordinator CA bundle.
+Brain API uses a static bearer over Tailscale, not a Scalekit M2M token.
 
-AWS Secrets Manager is the source of runtime credentials. A host-side SSM runner
-reads only the exact Respan and Scalekit secret ARNs and synchronizes separate
-Kubernetes Secrets. The coordinator receives Respan; the research agent receives
-Respan and Scalekit. Exa's setup key is stored in AWS and in Scalekit's connected
-account vault, but is not granted to the EC2 runtime role or application pods.
-K3s encrypts Kubernetes secret data at rest on the encrypted root disk.
-
-Secret values never enter release archives or SSM command parameters. Rotation
-requires secret synchronization and pod restart because environment variables
-are loaded at startup. Provider setup state is distinct from process health:
-missing credentials keep the application inspectable while research capability
-reports the missing configuration.
-
-The coordinator's internal maintenance endpoint blocks new work and lets an
-active run finish. Deployment and secret rotation use it before replacing pods.
-The persisted admission flag remains set after a failed deployment; operators
-repair or roll back, then explicitly resume when necessary. Consistent snapshots
-use SQLite's online backup API after admission is blocked and work is drained.
+SQLite backup/restore uses the online backup API and integrity/checksum validation.
+When Postgres is active, these commands explicitly stop; retained SQLite files
+are never presented as a Postgres backup. Spark's owner must retain and verify a
+Postgres 17 dump covering research, sales records and checkpoints. See
+[operations](operations.md) for migration, readiness, backups and cutover.

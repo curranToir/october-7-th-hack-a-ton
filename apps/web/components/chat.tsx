@@ -1,49 +1,73 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { Session, WorkspaceState } from "../../../coms/types.ts";
+import type { LiveWorkspace, SalesJob, Session } from "../../../coms/types.ts";
+import type { WorkspaceActions } from "./use-workspace";
 import { Icon } from "./icon";
 import { Logo } from "./logo";
+import { ContactDetails, ProposalCard } from "./proposal";
 
 export function Chat({
   session,
   state,
   onSend,
-  onTasks,
+  actions,
 }: {
   session?: Session;
-  state: WorkspaceState;
-  onSend: (content: string) => void;
-  onTasks: () => void;
+  state: LiveWorkspace;
+  onSend: (content: string) => Promise<void>;
+  actions: WorkspaceActions;
 }) {
   const [draft, setDraft] = useState("");
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState("");
   const end = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLTextAreaElement>(null);
+  const jobs = state.jobs.filter((j) => j.session_id === session?.id);
+  const proposals = state.proposals.filter(
+    (p) =>
+      p.session_id === session?.id ||
+      session?.messages.some((m) => m.taskIds?.includes(p.id)),
+  );
   useEffect(() => {
     if (session?.messages.length)
       end.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [session?.messages.length]);
-  const submit = () => {
-    if (!draft.trim()) return;
-    onSend(draft);
-    setDraft("");
-    input.current?.focus();
+  const submit = async () => {
+    if (!draft.trim() || sending) return;
+    setSending(true);
+    setError("");
+    try {
+      await onSend(draft.trim());
+      setDraft("");
+      input.current?.focus();
+    } catch (e) {
+      setError(
+        e instanceof Error
+          ? e.message
+          : "Your message could not be sent. It is preserved below.",
+      );
+    } finally {
+      setSending(false);
+    }
   };
   return (
     <div className="chat-workspace">
       <div className="chat-scroll">
-        {!session?.messages.length ? (
+        {!session?.messages.length && !jobs.length ? (
           <div className="chat-welcome">
             <span className="welcome-mark">
               <Logo size={54} alt="TOIR" />
             </span>
             <h1>What’s on your mind?</h1>
-            <p>A place to think, find answers, and work with your agents.</p>
+            <p>
+              Research a company, find decision-makers, and prepare CRM updates.
+            </p>
             <div className="suggestions">
               {[
                 "Find new prospects",
-                "Review my pipeline",
-                "Plan customer follow-ups",
+                "Research a company for me",
+                "Research a company and add it to my CRM",
               ].map((suggestion) => (
                 <button
                   key={suggestion}
@@ -65,57 +89,54 @@ export function Chat({
             aria-label="Conversation"
             aria-live="polite"
           >
-            {session.messages.map((message) => {
-              const pending = state.tasks.filter(
-                (task) =>
-                  message.taskIds?.includes(task.id) &&
-                  task.status === "pending",
-              ).length;
-              return (
-                <div
-                  key={message.id}
-                  className={`message message-${message.role}`}
-                >
+            {session?.messages.map((message) => (
+              <div
+                key={message.id}
+                className={`message message-${message.role}`}
+              >
+                {message.role === "assistant" && (
+                  <span className="message-avatar">
+                    <Logo size={32} />
+                  </span>
+                )}
+                <div className="message-body">
                   {message.role === "assistant" && (
-                    <span className="message-avatar">
-                      <Logo size={32} />
-                    </span>
+                    <span className="message-author">{session.agent}</span>
                   )}
-                  <div className="message-body">
-                    {message.role === "assistant" && (
-                      <span className="message-author">{session.agent}</span>
-                    )}
-                    <div className="message-content">{message.content}</div>
-                    {message.taskIds && (
-                      <button className="review-tasks" onClick={onTasks}>
-                        <span className="review-icon">
-                          <Icon name={pending ? "tasks" : "check"} size={18} />
-                        </span>
-                        <span>
-                          {pending
-                            ? `${pending} ${pending === 1 ? "task" : "tasks"} waiting for approval`
-                            : "All tasks reviewed"}
-                        </span>
-                        <strong>
-                          {pending ? "Review tasks" : "View tasks"}
-                          <Icon name="arrow" size={17} />
-                        </strong>
-                      </button>
-                    )}
-                  </div>
+                  <div className="message-content">{message.content}</div>
                 </div>
-              );
-            })}
+              </div>
+            ))}
+            {jobs.map((job) => (
+              <JobProgress
+                key={job.id}
+                job={job}
+                actions={actions}
+                onSelect={(domain) => setDraft(domain)}
+              />
+            ))}
+            {proposals.map((proposal) => (
+              <ProposalCard
+                key={`${proposal.id}:${proposal.version}`}
+                proposal={proposal}
+                actions={actions}
+              />
+            ))}
             <div ref={end} />
           </div>
         )}
       </div>
       <div className="composer-wrap">
+        {error && (
+          <p className="sales-error" role="alert">
+            {error}
+          </p>
+        )}
         <form
           className="composer"
           onSubmit={(event) => {
             event.preventDefault();
-            submit();
+            void submit();
           }}
         >
           <label className="sr-only" htmlFor="message-input">
@@ -124,11 +145,12 @@ export function Chat({
           <textarea
             ref={input}
             id="message-input"
-            placeholder="Message TOIR…"
+            placeholder="Research a company or prepare a CRM addition…"
             value={draft}
+            disabled={sending}
             onChange={(event) => setDraft(event.target.value)}
             rows={1}
-            maxLength={10000}
+            maxLength={4000}
             onKeyDown={(event) => {
               if (
                 event.key === "Enter" &&
@@ -136,24 +158,20 @@ export function Chat({
                 !event.nativeEvent.isComposing
               ) {
                 event.preventDefault();
-                submit();
+                void submit();
               }
             }}
           />
           <div className="composer-tools">
             <span className="composer-agent">
               <Icon name="brain" size={16} />
-              {session?.agent === "TOIR" ||
-              session?.agent === "Company Brain" ||
-              !session
-                ? state.preferences.defaultAgent
-                : session.agent}
+              TOIR research
             </span>
             <button
               type="submit"
               className="send-button"
-              aria-label="Send message"
-              disabled={!draft.trim()}
+              aria-label={sending ? "Sending message" : "Send message"}
+              disabled={!draft.trim() || sending}
             >
               <Icon name="send" size={21} />
             </button>
@@ -161,9 +179,122 @@ export function Chat({
         </form>
         <p className="composer-caption">
           <Icon name="info" size={13} />
-          Demo workspace. Messages and approvals stay on this device.
+          Research runs in the background. Every CRM update needs your approval.
         </p>
       </div>
     </div>
+  );
+}
+function JobProgress({
+  job,
+  actions,
+  onSelect,
+}: {
+  job: SalesJob;
+  actions: WorkspaceActions;
+  onSelect: (domain: string) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const active = ["queued", "running"].includes(job.status);
+  const retryable = ["failed", "interrupted", "cancelled"].includes(job.status);
+  const act = async (action: () => Promise<unknown>) => {
+    setBusy(true);
+    setError("");
+    try {
+      await action();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Request failed.");
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <section
+      className={`job-progress job-${job.status}`}
+      aria-label={`${job.kind} research ${job.status}`}
+    >
+      <div className="job-heading">
+        <Icon
+          name={
+            active ? "clock" : job.status === "completed" ? "check" : "info"
+          }
+          size={18}
+        />
+        <strong>
+          {job.kind === "enrich"
+            ? "Contact research"
+            : job.kind === "discovery"
+              ? "Company discovery"
+              : "Company research"}
+        </strong>
+        <span>{job.status.replaceAll("_", " ")}</span>
+      </div>
+      <p>{job.progress}</p>
+      {job.error && <p className="sales-error">{job.error}</p>}
+      {job.status === "needs_input" && job.candidates.length > 0 && (
+        <>
+          <p>Choose the company, then send the prepared message to confirm.</p>
+          <div className="candidate-options">
+            {job.candidates.map((candidate) => (
+              <button
+                key={candidate.domain}
+                className="button secondary"
+                onClick={() => onSelect(candidate.domain)}
+              >
+                {candidate.name} · {candidate.domain}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+      {job.report && !job.propose_crm && (
+        <details className="research-findings">
+          <summary>Read research findings</summary>
+          <p>{job.report.summary}</p>
+          {job.report.contacts.map((contact) => (
+            <div key={contact.id} className="sales-contact">
+              <ContactDetails contact={contact} sources={job.report!.sources} />
+            </div>
+          ))}
+          {job.report.gaps.length > 0 && (
+            <>
+              <h4>Research gaps</h4>
+              <ul>
+                {job.report.gaps.map((gap, i) => (
+                  <li key={i}>{gap}</li>
+                ))}
+              </ul>
+            </>
+          )}
+        </details>
+      )}
+      {(active || retryable) && (
+        <div className="job-actions">
+          {active ? (
+            <button
+              className="text-button"
+              disabled={busy}
+              onClick={() => void act(() => actions.cancelJob(job.id))}
+            >
+              {busy ? "Cancelling…" : "Cancel research"}
+            </button>
+          ) : (
+            <button
+              className="text-button"
+              disabled={busy}
+              onClick={() => void act(() => actions.retryJob(job.id))}
+            >
+              {busy ? "Queuing…" : "Run research again"}
+            </button>
+          )}
+        </div>
+      )}
+      {error && (
+        <p className="sales-error" role="alert">
+          {error}
+        </p>
+      )}
+    </section>
   );
 }

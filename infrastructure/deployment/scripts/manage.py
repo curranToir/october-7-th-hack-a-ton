@@ -100,6 +100,8 @@ def runtime_arguments(aws: Aws, outputs: dict) -> list[str]:
     for output, flag in (
         ("RespanSecretArn", "--respan-secret"),
         ("ScalekitSecretArn", "--scalekit-secret"),
+        ("DatabaseSecretArn", "--database-secret"),
+        ("BrainApiSecretArn", "--brain-api-secret"),
     ):
         if outputs.get(output):
             args.extend([flag, outputs[output]])
@@ -163,6 +165,8 @@ def verify(aws: Aws, agent_template: bool):
         "k3s kubectl -n company-brain rollout status deployment/orchestrator --timeout=210s",
         "if k3s kubectl -n company-brain get deployment research >/dev/null 2>&1; then "
         "k3s kubectl -n company-brain rollout status deployment/research --timeout=210s; fi",
+        "if k3s kubectl -n company-brain get deployment contacts >/dev/null 2>&1; then "
+        "k3s kubectl -n company-brain rollout status deployment/contacts --timeout=210s; fi",
         INGRESS_WAIT,
         "if k3s kubectl -n company-brain get deployment research >/dev/null 2>&1; then "
         "curl -fsS --max-time 10 http://127.0.0.1/research | grep -o 'Research' | head -n 1; "

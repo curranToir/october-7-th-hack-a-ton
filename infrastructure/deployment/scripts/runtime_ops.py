@@ -2,6 +2,7 @@
 
 import getpass
 import json
+import re
 import subprocess
 import sys
 import tempfile
@@ -21,6 +22,29 @@ SECRET_FIELDS = {
     ),
     "exa": ("EXA_API_KEY",),
 }
+
+EXISTING_SECRET_PARAMETERS = {
+    "DatabaseSecretArn": "database",
+    "BrainApiSecretArn": "brain-api",
+}
+
+
+def existing_secret_parameters(aws: Aws) -> list[dict]:
+    """Resolve metadata only; never recreate Spark-owned secrets or read their values."""
+    parameters = []
+    for parameter, suffix in EXISTING_SECRET_PARAMETERS.items():
+        name = f"/{aws.stack}/{suffix}"
+        try:
+            metadata = aws.json("secretsmanager", "describe-secret", "--secret-id", name)
+        except subprocess.CalledProcessError:
+            raise RuntimeError(
+                f"Cannot resolve existing {suffix} secret; ask its owner to provision it"
+            ) from None
+        arn = metadata.get("ARN", "")
+        if not re.fullmatch(r"arn:[a-z-]+:secretsmanager:[a-z0-9-]+:[0-9]{12}:secret:[^*?]+", arn):
+            raise RuntimeError(f"Invalid ARN metadata for existing {suffix} secret")
+        parameters.append({"ParameterKey": parameter, "ParameterValue": arn})
+    return parameters
 
 
 def cloudformation_yaml(text: str) -> dict:
@@ -85,8 +109,11 @@ def stack_update(aws: Aws, template: Path):
         {"ParameterKey": name, "UsePreviousValue": True}
         for name in candidate.get("Parameters", {})
         if name != "UbuntuAmi"
+        and name not in EXISTING_SECRET_PARAMETERS
+        and name in current.get("Parameters", {})
     ]
     parameters.append({"ParameterKey": "UbuntuAmi", "ParameterValue": image})
+    parameters.extend(existing_secret_parameters(aws))
     change_set = "toir-runtime-" + uuid.uuid4().hex[:12]
     with tempfile.TemporaryDirectory(prefix="toir-stack-") as tmp:
         prepared = Path(tmp) / "stack.json"

@@ -8,6 +8,19 @@ Parameters:
     Type: String
     Default: v1.36.5+k3s1
     AllowedValues: [v1.36.5+k3s1]
+  DatabaseSecretArn:
+    Type: String
+    Default: ''
+    Description: Exact ARN of the existing Spark DATABASE_URL secret (not created by this stack).
+    AllowedPattern: '^$|^arn:[a-z-]+:secretsmanager:[a-z0-9-]+:[0-9]{12}:secret:[^*?]+$'
+  BrainApiSecretArn:
+    Type: String
+    Default: ''
+    Description: Exact ARN of the existing Spark BRAIN_API_URL/BRAIN_API_TOKEN secret.
+    AllowedPattern: '^$|^arn:[a-z-]+:secretsmanager:[a-z0-9-]+:[0-9]{12}:secret:[^*?]+$'
+Conditions:
+  HasDatabaseSecret: !Not [!Equals [!Ref DatabaseSecretArn, '']]
+  HasBrainApiSecret: !Not [!Equals [!Ref BrainApiSecretArn, '']]
 Resources:
   Vpc:
     Type: AWS::EC2::VPC
@@ -137,7 +150,11 @@ Resources:
             Statement:
               - Effect: Allow
                 Action: secretsmanager:GetSecretValue
-                Resource: [!Ref RespanSecret, !Ref ScalekitSecret]
+                Resource:
+                  - !Ref RespanSecret
+                  - !Ref ScalekitSecret
+                  - !If [HasDatabaseSecret, !Ref DatabaseSecretArn, !Ref 'AWS::NoValue']
+                  - !If [HasBrainApiSecret, !Ref BrainApiSecretArn, !Ref 'AWS::NoValue']
               - Effect: Allow
                 Action: [s3:GetObject, s3:PutObject]
                 Resource: !Sub '${Artifacts.Arn}/backups/*'
@@ -220,3 +237,9 @@ Outputs:
     Value: !Ref ScalekitSecret
   ExaSecretArn:
     Value: !Ref ExaSecret
+  DatabaseSecretArn:
+    Condition: HasDatabaseSecret
+    Value: !Ref DatabaseSecretArn
+  BrainApiSecretArn:
+    Condition: HasBrainApiSecret
+    Value: !Ref BrainApiSecretArn

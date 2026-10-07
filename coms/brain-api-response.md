@@ -123,9 +123,11 @@ GET  /graph?dataset=<name>                           # graph view for the demo
   answering.
 - `session_id` is scratchpad memory only and is never written into the graph.
 - Accepted research reports go to `toir-pipeline` with cited source text kept.
-  The inspected implementation originally allowed Jared only; continuous
-  prospecting requires explicit authorized read/ingest access for both sales
-  identities and idempotent ingestion. See the current implementation handoff.
+  The earlier handoff described Jared-only ingestion. Current checked-in
+  `memory.remember_research` accepts either known user, preserving nested source
+  citations, while `apply_initial_grants` grants Curran only `toir-firm`. Verify
+  the deployed version, explicitly grant pipeline reads, and provide the missing
+  idempotency/capability handshake. See the current implementation handoff.
 
 ## What you own today
 

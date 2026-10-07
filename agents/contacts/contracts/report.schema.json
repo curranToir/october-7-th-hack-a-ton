@@ -1,0 +1,320 @@
+{
+  "$defs": {
+    "Citation": {
+      "additionalProperties": false,
+      "properties": {
+        "source_id": {
+          "title": "Source Id",
+          "type": "string"
+        },
+        "quote": {
+          "maxLength": 1000,
+          "minLength": 12,
+          "title": "Quote",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_id",
+        "quote"
+      ],
+      "title": "Citation",
+      "type": "object"
+    },
+    "Company": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "domain": {
+          "maxLength": 253,
+          "minLength": 3,
+          "title": "Domain",
+          "type": "string"
+        },
+        "description": {
+          "default": "",
+          "maxLength": 3000,
+          "title": "Description",
+          "type": "string"
+        },
+        "country": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Country"
+        },
+        "employee_count": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Employee Count"
+        },
+        "citations": {
+          "items": {
+            "$ref": "#/$defs/Citation"
+          },
+          "maxItems": 10,
+          "minItems": 1,
+          "title": "Citations",
+          "type": "array"
+        },
+        "fit_score": {
+          "default": 0,
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Fit Score",
+          "type": "integer"
+        },
+        "sales_angle": {
+          "default": "",
+          "maxLength": 3000,
+          "title": "Sales Angle",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "domain",
+        "citations"
+      ],
+      "title": "Company",
+      "type": "object"
+    },
+    "Contact": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 300,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "company_domain": {
+          "title": "Company Domain",
+          "type": "string"
+        },
+        "buying_relevance": {
+          "maxLength": 1500,
+          "minLength": 1,
+          "title": "Buying Relevance",
+          "type": "string"
+        },
+        "linkedin_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Linkedin Url"
+        },
+        "email": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Email"
+        },
+        "phone": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Phone"
+        },
+        "citations": {
+          "items": {
+            "$ref": "#/$defs/Citation"
+          },
+          "maxItems": 10,
+          "minItems": 1,
+          "title": "Citations",
+          "type": "array"
+        },
+        "linkedin_citations": {
+          "items": {
+            "$ref": "#/$defs/Citation"
+          },
+          "maxItems": 5,
+          "title": "Linkedin Citations",
+          "type": "array"
+        },
+        "email_citations": {
+          "items": {
+            "$ref": "#/$defs/Citation"
+          },
+          "maxItems": 5,
+          "title": "Email Citations",
+          "type": "array"
+        },
+        "phone_citations": {
+          "items": {
+            "$ref": "#/$defs/Citation"
+          },
+          "maxItems": 5,
+          "title": "Phone Citations",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "title",
+        "company_domain",
+        "buying_relevance",
+        "citations"
+      ],
+      "title": "Contact",
+      "type": "object"
+    },
+    "Source": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^src_[a-f0-9]{16}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "url": {
+          "format": "uri",
+          "maxLength": 2083,
+          "minLength": 1,
+          "title": "Url",
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 500,
+          "title": "Title",
+          "type": "string"
+        },
+        "retrieved_at": {
+          "format": "date-time",
+          "title": "Retrieved At",
+          "type": "string"
+        },
+        "published_at": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Published At"
+        },
+        "text": {
+          "maxLength": 12000,
+          "minLength": 1,
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "url",
+        "title",
+        "retrieved_at",
+        "text"
+      ],
+      "title": "Source",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "candidates": {
+      "items": {
+        "$ref": "#/$defs/Company"
+      },
+      "maxItems": 5,
+      "title": "Candidates",
+      "type": "array"
+    },
+    "company": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Company"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "contacts": {
+      "items": {
+        "$ref": "#/$defs/Contact"
+      },
+      "maxItems": 5,
+      "title": "Contacts",
+      "type": "array"
+    },
+    "sources": {
+      "items": {
+        "$ref": "#/$defs/Source"
+      },
+      "maxItems": 100,
+      "title": "Sources",
+      "type": "array"
+    },
+    "gaps": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 40,
+      "title": "Gaps",
+      "type": "array"
+    },
+    "summary": {
+      "default": "",
+      "maxLength": 3000,
+      "title": "Summary",
+      "type": "string"
+    }
+  },
+  "title": "ContactReport",
+  "type": "object"
+}

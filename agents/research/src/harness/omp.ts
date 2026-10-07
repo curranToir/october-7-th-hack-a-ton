@@ -36,11 +36,12 @@ export type Harness = (
   ctx: HarnessContext,
 ) => Promise<Report>;
 export async function createRestrictedSession(
-  task: TaskRequest,
+  task: Pick<TaskRequest, "task_id" | "run_id">,
   ctx: HarnessContext,
   transport: ToolTransport,
   key: string,
   modelID = "gpt-5.4",
+  options: { systemPrompt?: string; agentName?: string } = {},
 ) {
   const dir = await mkdtemp(join(tmpdir(), "toir-research-"));
   const settings = Settings.isolated({
@@ -173,7 +174,7 @@ export async function createRestrictedSession(
           );
         return key;
       },
-      systemPrompt: SYSTEM,
+      systemPrompt: options.systemPrompt ?? SYSTEM,
       restrictToolNames: true,
       allowRestrictedCustomTools: true,
       toolNames: customTools.map((t) => t.name),
@@ -195,7 +196,7 @@ export async function createRestrictedSession(
       telemetry: {
         tracer: tracer(),
         captureMessageContent: false,
-        agent: { name: "toir-research" },
+        agent: { name: options.agentName ?? "toir-research" },
         attributes: {
           "toir.run_id": task.run_id,
           "toir.task_id": task.task_id,

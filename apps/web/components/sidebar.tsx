@@ -220,7 +220,7 @@ export function Sidebar({
             <span className="avatar">{initials}</span>
             <span className="profile-label">
               <strong>{state.profile.name}</strong>
-              <small>Personal workspace</small>
+              <small>Toir sales workspace</small>
             </span>
             <Icon name="chevron" size={16} />
           </button>

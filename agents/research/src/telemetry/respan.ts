@@ -36,14 +36,15 @@ export async function tracedTask<T>(
   runID: string,
   taskID: string,
   work: () => Promise<T>,
+  agentName: "research" | "contacts" = "research",
 ): Promise<T> {
   const parent = propagation.extract(context.active(), headers);
   return context.with(parent, () =>
     tracer().startActiveSpan(
-      "research.task",
+      `${agentName}.task`,
       {
         attributes: {
-          "service.name": "toir-research",
+          "service.name": `toir-${agentName}`,
           "toir.run_id": runID,
           "toir.task_id": taskID,
         },

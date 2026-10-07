@@ -1,0 +1,227 @@
+{
+  "$defs": {
+    "Citation": {
+      "additionalProperties": false,
+      "properties": {
+        "source_id": {
+          "title": "Source Id",
+          "type": "string"
+        },
+        "quote": {
+          "maxLength": 1000,
+          "minLength": 12,
+          "title": "Quote",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_id",
+        "quote"
+      ],
+      "title": "Citation",
+      "type": "object"
+    },
+    "Company": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "domain": {
+          "maxLength": 253,
+          "minLength": 3,
+          "title": "Domain",
+          "type": "string"
+        },
+        "description": {
+          "default": "",
+          "maxLength": 3000,
+          "title": "Description",
+          "type": "string"
+        },
+        "country": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Country"
+        },
+        "employee_count": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Employee Count"
+        },
+        "citations": {
+          "items": {
+            "$ref": "#/$defs/Citation"
+          },
+          "maxItems": 10,
+          "minItems": 1,
+          "title": "Citations",
+          "type": "array"
+        },
+        "fit_score": {
+          "default": 0,
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Fit Score",
+          "type": "integer"
+        },
+        "sales_angle": {
+          "default": "",
+          "maxLength": 3000,
+          "title": "Sales Angle",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "domain",
+        "citations"
+      ],
+      "title": "Company",
+      "type": "object"
+    },
+    "Source": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^src_[a-f0-9]{16}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "url": {
+          "format": "uri",
+          "maxLength": 2083,
+          "minLength": 1,
+          "title": "Url",
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 500,
+          "title": "Title",
+          "type": "string"
+        },
+        "retrieved_at": {
+          "format": "date-time",
+          "title": "Retrieved At",
+          "type": "string"
+        },
+        "published_at": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Published At"
+        },
+        "text": {
+          "maxLength": 12000,
+          "minLength": 1,
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "url",
+        "title",
+        "retrieved_at",
+        "text"
+      ],
+      "title": "Source",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "const": 1,
+      "default": 1,
+      "title": "Version",
+      "type": "integer"
+    },
+    "task_id": {
+      "title": "Task Id",
+      "type": "string"
+    },
+    "run_id": {
+      "title": "Run Id",
+      "type": "string"
+    },
+    "mode": {
+      "enum": [
+        "resolve",
+        "enrich"
+      ],
+      "title": "Mode",
+      "type": "string"
+    },
+    "query": {
+      "maxLength": 4000,
+      "minLength": 1,
+      "title": "Query",
+      "type": "string"
+    },
+    "company": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Company"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "deadline_at": {
+      "title": "Deadline At",
+      "type": "string"
+    },
+    "prior_sources": {
+      "items": {
+        "$ref": "#/$defs/Source"
+      },
+      "maxItems": 100,
+      "title": "Prior Sources",
+      "type": "array"
+    },
+    "usage": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "title": "Usage",
+      "type": "object"
+    }
+  },
+  "required": [
+    "task_id",
+    "run_id",
+    "mode",
+    "query",
+    "deadline_at"
+  ],
+  "title": "ContactTask",
+  "type": "object"
+}

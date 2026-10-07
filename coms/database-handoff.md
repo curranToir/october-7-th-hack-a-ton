@@ -1,10 +1,11 @@
 # Toir research persistence — database engineer handoff
 
-This document was published first so database work could start immediately. The
-SQLite adapter, repository interfaces, validated models and contract tests below
-are now implemented in this repository. Live research still requires the Scalekit
-Exa connection. The existing TypeScript demo adapters in this directory are a
-separate browser demo and are not the research system of record.
+This document was published first so database work could start immediately. The SQLite and Postgres adapters, repository interfaces, validated models and
+contract tests are implemented. The Scalekit Exa connected account was verified
+active in the historical October 7 handoff. Live readiness still requires a
+current runtime check. Server-backed sales workflows are documented in
+[prospecting-contract.md](prospecting-contract.md); historical browser demo
+fixtures are never application records or executable approvals.
 
 ## Ownership and data flow
 
@@ -15,7 +16,9 @@ status, events, accepted company findings, source evidence and graph checkpoints
 The API proxies validated requests; the research agent owns temporary sessions
 and returns versioned task results. Neither opens the coordinator's database.
 
-V1 has one Toir workspace and one active run. Its two local SQLite databases live
+Research v1 has one Toir workspace and one active research run. The new durable
+sales queue preserves that database constraint while adding a separate contact
+worker slot. When `DATABASE_URL` is absent, two local SQLite databases live
 on the coordinator's persistent volume, under `TOIR_DATA_DIR` (default `/data` in
 Kubernetes): `runs.sqlite` and `checkpoints.sqlite`. Local developer runs may set
 this directory to an ignored working directory. SQLite WAL mode is enabled.
@@ -27,9 +30,8 @@ search API cannot replace transactional run state or the LangGraph checkpointer.
 
 ## Application repository contract
 
-Implement `RunRepository` from `apps/orchestrator/storage/ports.py`. The initial
-adapter is `apps/orchestrator/storage/sqlite.py`; select the replacement in the
-storage factory used by the coordinator lifespan, not in routers or graph nodes.
+Preserve the implemented `RunRepository` from `apps/orchestrator/storage/ports.py`. The adapters are `apps/orchestrator/storage/sqlite.py` and `postgres.py`; selection
+already lives in the coordinator storage factory, not routers or graph nodes.
 
 ```python
 async def replay(brief: Brief, key: str, parent_id: str | None = None) -> Run | None: ...
@@ -176,11 +178,12 @@ a new run using its saved report/evidence.
 
 ## Configuration and infrastructure changes
 
-1. Add a database adapter and switch the storage factory using `DATABASE_URL`;
-   missing `DATABASE_URL` continues to select local SQLite.
-2. Store `DATABASE_URL` in this project's AWS Secrets Manager runtime secret,
-   inject it only into the coordinator, and redact it from diagnostics/traces.
-   The API, web and research agent do not need database credentials.
+1. Reuse the implemented adapter and storage factory. `DATABASE_URL` selects
+   Postgres; missing `DATABASE_URL` continues to select local SQLite.
+2. Consume the existing `/company-brain-hackathon/database` secret via its exact
+   ARN; CloudFormation must not create a duplicate named secret. The deployment
+   synchronizer injects it only into the coordinator and omits it from logs/traces.
+   The API, web and both research workers have no database credentials.
 3. Require verified TLS for a remote database, scoped database permissions,
    bounded connections and private connectivity. Choose the concrete connection
    settings with the database deployment; do not expose the Spark service or add
@@ -227,3 +230,31 @@ against the replacement adapter. Extend it for the chosen database driver.
 
 The browser-facing `/api/research-runs` contract and the internal research-agent
 task contract must remain unchanged during the database swap.
+
+
+## Prospecting workflow extension (October 7 implementation)
+
+The additive `sales_schema_version` / `sales_records` schema preserves research
+v1's tables and one-active-run index. `SalesStore` reuses the repository connection
+and transaction lock; Postgres transactions take a sales advisory lock, SQLite
+uses `BEGIN IMMEDIATE`. Versioned JSON records include workspace membership,
+sessions/messages, settings, jobs/leases, contact evidence/proposals/revisions,
+approval decisions, CRM-operation journals, identities/auth sessions and memory
+outbox jobs. Current models and API contracts are in
+[prospecting-contract.md](prospecting-contract.md).
+
+`tooling/migrate_research.py` exports a validated SQLite application snapshot and
+imports into an empty Postgres run store in one transaction. It preserves all
+payload data, source text, IDs, request hashes and ordered events, verifies
+canonical hashes, then advances the PG event sequence. Active runs, duplicates,
+missing parents/event references and a nonempty destination abort import. This
+is historical research migration only; it does not import browser demo fixtures,
+copy checkpoint blobs, or replace a full workflow backup.
+
+The operator must record a verified full Postgres backup reference and stop
+writers before import. Once sales data exists, backups must include its tables,
+CRM journals and outbox. The SQLite operator backup/restore now checks the live
+backend and stops when Postgres is active, even if retained SQLite files exist.
+Spark's owner supplies PG17 dump/restore verification and a release handoff; see
+[operations](../docs/operations.md) and the
+[implementation status](prospecting-implementation.md).

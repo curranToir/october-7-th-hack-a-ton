@@ -1,11 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  decideTask,
-  newSession,
-  sendMessage,
-} from "../../../coms/workspace.ts";
 import type { SettingPage } from "../../../coms/types.ts";
 import { useWorkspace } from "../components/use-workspace";
 import { Sidebar } from "../components/sidebar";
@@ -33,9 +28,9 @@ function readRoute(): Route {
   if (view === "tasks") return { view, id: "" };
   return { view: "chat", id };
 }
-
 export default function Home() {
-  const { state, update, warning, clearWarning } = useWorkspace();
+  const actions = useWorkspace();
+  const { state, warning, clearWarning, unauthorized, loading } = actions;
   const [route, setRoute] = useState<Route>({ view: "chat", id: "" });
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searching, setSearching] = useState(false);
@@ -43,43 +38,41 @@ export default function Home() {
   const [dialog, setDialog] = useState<"help" | "rename" | "delete" | null>(
     null,
   );
-  const [notification, setNotification] = useState("");
-  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [dialogBusy, setDialogBusy] = useState(false);
+  const [dialogError, setDialogError] = useState("");
+  const creating = useRef(false);
   const content = useRef<HTMLElement>(null);
   const closeSidebar = useCallback(() => setSidebarOpen(false), []);
-  const toast = useCallback((message: string) => {
-    setNotification(message);
-    if (toastTimer.current) clearTimeout(toastTimer.current);
-    toastTimer.current = setTimeout(() => setNotification(""), 4200);
-  }, []);
-  useEffect(() => {
-    const read = () => setRoute(readRoute());
-    read();
-    window.addEventListener("hashchange", read);
-    return () => {
-      window.removeEventListener("hashchange", read);
-      if (toastTimer.current) clearTimeout(toastTimer.current);
-    };
-  }, []);
   const navigate = useCallback((view: Route["view"], id = "") => {
     window.location.hash = `${view}${id ? `/${encodeURIComponent(id)}` : ""}`;
     setRoute({ view, id });
     setSidebarOpen(false);
   }, []);
-  const startChat = useCallback(() => {
-    if (!state) return;
-    const existing = state.sessions.find((session) => !session.messages.length);
+  const startChat = useCallback(async () => {
+    if (!state || creating.current) return;
+    const existing = state.sessions.find(
+      (s) => !s.messages.length && s.agent !== "Continuous prospecting",
+    );
     if (existing) {
       navigate("chat", existing.id);
       return;
     }
-    const session = newSession(state.preferences.defaultAgent);
-    update((current) => ({
-      ...current,
-      sessions: [session, ...current.sessions],
-    }));
-    navigate("chat", session.id);
-  }, [state, update, navigate]);
+    creating.current = true;
+    try {
+      const created = await actions.createSession();
+      navigate("chat", created.id);
+    } catch {
+      /* The workspace reports API failures. */
+    } finally {
+      creating.current = false;
+    }
+  }, [state, actions, navigate]);
+  useEffect(() => {
+    const read = () => setRoute(readRoute());
+    read();
+    window.addEventListener("hashchange", read);
+    return () => window.removeEventListener("hashchange", read);
+  }, []);
   useEffect(() => {
     const shortcut = (event: KeyboardEvent) => {
       if (
@@ -88,7 +81,7 @@ export default function Home() {
         !document.querySelector("dialog[open]")
       ) {
         event.preventDefault();
-        startChat();
+        void startChat();
       }
     };
     window.addEventListener("keydown", shortcut);
@@ -108,21 +101,66 @@ export default function Home() {
     desktop.addEventListener("change", close);
     return () => desktop.removeEventListener("change", close);
   }, []);
+  if (unauthorized)
+    return (
+      <main className="loading-workspace sign-in-panel">
+        <Logo size={48} alt="TOIR" />
+        <h1>Your sales workspace</h1>
+        <p>
+          Sign in to research companies, review your agents’ findings, and
+          approve CRM updates.
+        </p>
+        <a className="button primary" href="/api/auth/login">
+          Sign in with Scalekit <Icon name="arrow" size={17} />
+        </a>
+        <small>Access is limited to authorized Toir sales members.</small>
+      </main>
+    );
   if (!state)
     return (
-      <div className="loading-workspace" role="status">
+      <main className="loading-workspace" role="status">
         <Logo size={42} alt="TOIR" />
-        <span>Opening your workspace…</span>
-      </div>
+        <span>
+          {loading
+            ? "Opening your workspace…"
+            : "The sales workspace could not be loaded."}
+        </span>
+        {!loading && (
+          <>
+            <p className="sales-error">{warning}</p>
+            <button
+              className="button secondary"
+              onClick={() => void actions.refresh()}
+            >
+              Try again
+            </button>
+          </>
+        )}
+      </main>
     );
   const session =
     state.sessions.find((item) => item.id === route.id) ?? state.sessions[0];
   const settingsPage = (
     settingsPages.some((item) => item.id === route.id) ? route.id : "general"
   ) as SettingPage;
-  const pending = state.tasks.filter(
-    (task) => task.status === "pending",
-  ).length;
+  const openDialog = (value: typeof dialog) => {
+    setDialogError("");
+    setDialog(value);
+  };
+  const dialogAction = async (action: () => Promise<unknown>) => {
+    setDialogBusy(true);
+    setDialogError("");
+    try {
+      await action();
+      setDialog(null);
+    } catch (error) {
+      setDialogError(
+        error instanceof Error ? error.message : "Request failed.",
+      );
+    } finally {
+      setDialogBusy(false);
+    }
+  };
   return (
     <div
       className={`app-shell ${state.preferences.compactSidebar ? "compact-layout" : ""}`}
@@ -144,10 +182,10 @@ export default function Home() {
         onChat={(id) => navigate("chat", id)}
         onTasks={() => navigate("tasks")}
         onSettings={(page = "general") => navigate("settings", page)}
-        onNew={startChat}
+        onNew={() => void startChat()}
         onHelp={() => {
           setSidebarOpen(false);
-          setDialog("help");
+          openDialog("help");
         }}
         open={sidebarOpen}
         onClose={closeSidebar}
@@ -187,14 +225,28 @@ export default function Home() {
                 ? "Review what your agents found."
                 : route.view === "settings"
                   ? "Manage your workspace and agent preferences."
-                  : (session?.agent ?? "TOIR")}
+                  : (session?.agent ?? "TOIR research")}
             </p>
           </div>
           <div className="header-actions">
-            <span className="demo-label">
-              <span />
-              Demo workspace
-            </span>
+            <button
+              className="automation-indicator"
+              onClick={() => navigate("settings", "agents")}
+              title="Open automation settings"
+            >
+              <span
+                className={
+                  state.automation.enabled && state.capabilities.ready
+                    ? "running"
+                    : ""
+                }
+              />
+              {state.automation.enabled
+                ? state.capabilities.ready
+                  ? "Prospecting active"
+                  : "Awaiting readiness"
+                : "Prospecting paused"}
+            </button>
             {route.view === "chat" && session && (
               <details className="session-menu" key={session.id}>
                 <summary className="icon-button" aria-label="Session options">
@@ -206,7 +258,7 @@ export default function Home() {
                       event.currentTarget
                         .closest("details")
                         ?.removeAttribute("open");
-                      setDialog("rename");
+                      openDialog("rename");
                     }}
                   >
                     <Icon name="edit" size={16} />
@@ -218,7 +270,7 @@ export default function Home() {
                       event.currentTarget
                         .closest("details")
                         ?.removeAttribute("open");
-                      setDialog("delete");
+                      openDialog("delete");
                     }}
                   >
                     <Icon name="trash" size={16} />
@@ -235,7 +287,7 @@ export default function Home() {
             <span>{warning}</span>
             <button
               className="icon-button"
-              aria-label="Dismiss storage warning"
+              aria-label="Dismiss warning"
               onClick={clearWarning}
             >
               <Icon name="close" size={16} />
@@ -244,38 +296,21 @@ export default function Home() {
         )}
         {route.view === "chat" && (
           <Chat
-            key={session?.id ?? "empty"}
             state={state}
             session={session}
-            onTasks={() => navigate("tasks")}
-            onSend={(message) => {
-              const target =
-                session ?? newSession(state.preferences.defaultAgent);
-              update((current) =>
-                sendMessage(
-                  session
-                    ? current
-                    : { ...current, sessions: [target, ...current.sessions] },
-                  target.id,
-                  message,
-                ),
-              );
+            actions={actions}
+            onSend={async (message) => {
+              const target = session ?? (await actions.createSession());
               if (!session) navigate("chat", target.id);
+              await actions.send(target.id, message);
             }}
           />
         )}
         {route.view === "tasks" && (
           <Tasks
             state={state}
+            actions={actions}
             onSession={(id) => navigate("chat", id)}
-            onDecide={(id, decision) => {
-              update((current) => decideTask(current, id, decision));
-              toast(
-                decision === "approved"
-                  ? "Approval recorded. No external action was taken in this demo."
-                  : "Task denied. No changes were made to connected tools.",
-              );
-            }}
           />
         )}
         {route.view === "settings" && (
@@ -283,31 +318,11 @@ export default function Home() {
             key={settingsPage}
             page={settingsPage}
             state={state}
-            update={update}
+            actions={actions}
             navigate={(page) => navigate("settings", page)}
-            toast={toast}
-            onReset={() => navigate("chat", "prospects")}
-            storageAvailable={!warning}
           />
         )}
       </main>
-      <div className="toast-region" role="status" aria-live="polite">
-        {notification && (
-          <div className="toast">
-            <span className="toast-icon">
-              <Icon name="check" size={16} />
-            </span>
-            <span>{notification}</span>
-            <button
-              className="icon-button"
-              aria-label="Dismiss notification"
-              onClick={() => setNotification("")}
-            >
-              <Icon name="close" size={16} />
-            </button>
-          </div>
-        )}
-      </div>
       {dialog === "help" && (
         <Dialog
           title="A little help getting started"
@@ -316,52 +331,51 @@ export default function Home() {
           <div className="help-intro">
             <Logo size={38} alt="TOIR" />
             <p>
-              One workspace for conversations with your agents and the decisions
-              that need you.
+              One workspace for company research and the decisions that need
+              you.
             </p>
           </div>
           <div className="help-steps">
             <p>
               <strong>Start a conversation</strong>Use New chat or press ⌘ K /
-              Ctrl K. Your sessions stay in the sidebar.
+              Ctrl K. Ask for company research, or ask to research a company and
+              add it to your CRM.
             </p>
             <p>
-              <strong>Review agent findings</strong>Open Tasks to see the
-              evidence and proposed action. Approve or deny, then move to the
-              next item.
+              <strong>Review findings</strong>Open Tasks or the original session
+              to inspect contacts, citations, and exact CRM changes. Save
+              exclusions as a new proposal version before approving.
             </p>
             <p>
-              <strong>Make it yours</strong>Switch between light, dark and
-              system themes in Settings → General.
+              <strong>Follow execution</strong>An approval is recorded before
+              the CRM work runs. Execution status and retries remain in the
+              session and task history.
             </p>
-          </div>
-          <div className="notice">
-            <Icon name="info" />
             <p>
-              This is a local demo with {pending} pending{" "}
-              {pending === 1 ? "task" : "tasks"}. No real agent or CRM actions
-              run. For feedback, share your notes with your workspace team.
+              <strong>Configure continuous work</strong>Settings → Agents &
+              automation controls targeting, quotas, and pause state. Chat
+              requests take the next available worker slot.
             </p>
           </div>
         </Dialog>
       )}
       {dialog === "rename" && session && (
-        <Dialog title="Rename session" onClose={() => setDialog(null)}>
+        <Dialog
+          title="Rename session"
+          onClose={() => {
+            if (!dialogBusy) setDialog(null);
+          }}
+        >
           <form
             onSubmit={(event) => {
               event.preventDefault();
               const title = String(
                 new FormData(event.currentTarget).get("title") ?? "",
               ).trim();
-              if (!title) return;
-              update((current) => ({
-                ...current,
-                sessions: current.sessions.map((item) =>
-                  item.id === session.id ? { ...item, title } : item,
-                ),
-              }));
-              setDialog(null);
-              toast("Session renamed.");
+              if (title)
+                void dialogAction(() =>
+                  actions.renameSession(session.id, title),
+                );
             }}
           >
             <label className="form-label">
@@ -372,51 +386,69 @@ export default function Home() {
                 required
                 maxLength={80}
                 autoFocus
+                disabled={dialogBusy}
               />
             </label>
+            {dialogError && (
+              <p className="sales-error" role="alert">
+                {dialogError}
+              </p>
+            )}
             <div className="dialog-actions">
               <button
                 className="button secondary"
                 type="button"
+                disabled={dialogBusy}
                 onClick={() => setDialog(null)}
               >
                 Cancel
               </button>
-              <button className="button primary" type="submit">
-                Save name
+              <button
+                className="button primary"
+                type="submit"
+                disabled={dialogBusy}
+              >
+                {dialogBusy ? "Saving…" : "Save name"}
               </button>
             </div>
           </form>
         </Dialog>
       )}
       {dialog === "delete" && session && (
-        <Dialog title="Delete this session?" onClose={() => setDialog(null)}>
+        <Dialog
+          title="Delete this session?"
+          onClose={() => {
+            if (!dialogBusy) setDialog(null);
+          }}
+        >
           <p>
-            “{session.title}” will be removed from this browser. Related task
-            decisions will be kept. This cannot be undone.
+            “{session.title}” will be removed from the workspace’s session list.
+            Related tasks, decisions, and CRM audit records are kept.
           </p>
+          {dialogError && (
+            <p className="sales-error" role="alert">
+              {dialogError}
+            </p>
+          )}
           <div className="dialog-actions">
             <button
               className="button secondary"
+              disabled={dialogBusy}
               onClick={() => setDialog(null)}
             >
               Cancel
             </button>
             <button
               className="button danger"
-              onClick={() => {
-                update((current) => ({
-                  ...current,
-                  sessions: current.sessions.filter(
-                    (item) => item.id !== session.id,
-                  ),
-                }));
-                setDialog(null);
-                navigate("chat");
-                toast("Session deleted.");
-              }}
+              disabled={dialogBusy}
+              onClick={() =>
+                void dialogAction(async () => {
+                  await actions.deleteSession(session.id);
+                  navigate("chat");
+                })
+              }
             >
-              Delete session
+              {dialogBusy ? "Deleting…" : "Delete session"}
             </button>
           </div>
         </Dialog>

@@ -3,6 +3,7 @@
 import argparse
 import hashlib
 import json
+import os
 import sqlite3
 from pathlib import Path
 
@@ -10,7 +11,16 @@ from apps.orchestrator.models.research import Run, now
 from apps.orchestrator.storage.factory import data_directory
 
 
+def require_local_source(source: Path | None):
+    if source is None and os.environ.get("DATABASE_URL"):
+        raise RuntimeError(
+            "Postgres is active; local SQLite files are not its backup. "
+            "Use the Spark Postgres backup procedure in docs/operations.md."
+        )
+
+
 def snapshot(directory: Path, source: Path | None = None):
+    require_local_source(source)
     source = source or data_directory()
     maintenance = source / "maintenance.json"
     if not maintenance.exists() or not json.loads(maintenance.read_text()).get("enabled"):
@@ -44,6 +54,7 @@ def snapshot(directory: Path, source: Path | None = None):
 
 
 def export_rows(destination: Path, source: Path | None = None):
+    require_local_source(source)
     with sqlite3.connect(
         f"file:{(source or data_directory()) / 'runs.sqlite'}?mode=ro", uri=True
     ) as db:

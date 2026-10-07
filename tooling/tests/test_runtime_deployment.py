@@ -20,7 +20,7 @@ def test_application_boundaries_and_secret_scope():
     deployments = {
         r["metadata"]["name"]: r for r in resources["items"] if r["kind"] == "Deployment"
     }
-    assert set(deployments) == {"web", "api", "orchestrator", "research"}
+    assert set(deployments) == {"web", "api", "orchestrator", "research", "contacts"}
     for name, deployment in deployments.items():
         pod = deployment["spec"]["template"]["spec"]
         assert not pod["automountServiceAccountToken"]
@@ -42,7 +42,13 @@ def test_application_boundaries_and_secret_scope():
         for statement in policy["PolicyDocument"]["Statement"]
         if statement["Action"] == "secretsmanager:GetSecretValue"
     ]
-    assert grants[0]["Resource"] == [{"Ref": "RespanSecret"}, {"Ref": "ScalekitSecret"}]
+    assert grants[0]["Resource"][:2] == [{"Ref": "RespanSecret"}, {"Ref": "ScalekitSecret"}]
+    assert grants[0]["Resource"][2:] == [
+        {"Fn::If": ["HasDatabaseSecret", {"Ref": "DatabaseSecretArn"}, {"Ref": "AWS::NoValue"}]},
+        {"Fn::If": ["HasBrainApiSecret", {"Ref": "BrainApiSecretArn"}, {"Ref": "AWS::NoValue"}]},
+    ]
+    assert "DatabaseSecret" not in template["Resources"]
+    assert "BrainApiSecret" not in template["Resources"]
     for name in ("RespanSecret", "ScalekitSecret", "ExaSecret"):
         assert "SecretString" not in template["Resources"][name]["Properties"]
         assert template["Resources"][name]["DeletionPolicy"] == "Retain"
@@ -92,7 +98,8 @@ def test_sync_uses_stdin_not_argv_and_separates_pod_credentials(monkeypatch):
     assert "runtime-token" not in str(args)
     resources = json.loads(kwargs["input"])["items"]
     secrets = {r["metadata"]["name"]: r["data"] for r in resources if r["kind"] == "Secret"}
-    assert set(secrets["orchestrator-runtime"]) == {"RESPAN_API_KEY"}
+    assert set(secrets["orchestrator-runtime"]) == {"RESPAN_API_KEY", "SCALEKIT_CLIENT_SECRET"}
+    assert secrets["contacts-runtime"] == secrets["research-runtime"]
     assert set(secrets["research-runtime"]) == {"RESPAN_API_KEY", "SCALEKIT_CLIENT_SECRET"}
 
 
@@ -115,7 +122,7 @@ def test_old_release_removes_research_but_keeps_persistent_volume(tmp_path, monk
     )
     remote_apply.apply_release(tmp_path)
     deletes = [call for call in calls if "delete" in call]
-    assert len(deletes) == 3
+    assert len(deletes) == 6
     assert not any("pvc" in call for call in calls)
     assert not any("deployment/research" in call for call in calls)
 
@@ -186,6 +193,12 @@ def test_update_refuses_host_replacement(tmp_path):
         def json(self, *args):
             if "get-template" in args:
                 return {"TemplateBody": template.read_text()}
+            if "describe-secret" in args:
+                return {
+                    "ARN": "arn:aws:secretsmanager:us-east-1:123456789012:secret:"
+                    + args[-1]
+                    + "-abc123"
+                }
             if "describe-instances" in args:
                 return {"Reservations": [{"Instances": [{"ImageId": "ami-pinned"}]}]}
             return {
@@ -422,3 +435,130 @@ def test_post_reboot_ingress_wait_retries_and_has_a_finite_failure(eventually_re
     else:
         assert result.returncode == 1
         assert "60 attempts" in result.stderr
+
+
+def test_contacts_has_an_independent_private_worker_and_no_durable_volume():
+    resources = json.loads(
+        (ROOT / "infrastructure/deployment/kubernetes/foundation.json").read_text()
+    )["items"]
+    deployment = next(
+        r for r in resources if r["kind"] == "Deployment" and r["metadata"]["name"] == "contacts"
+    )
+    pod = deployment["spec"]["template"]["spec"]
+    assert deployment["spec"]["replicas"] == 1
+    assert not any(v.get("persistentVolumeClaim") for v in pod["volumes"])
+    assert pod["containers"][0]["envFrom"] == [{"secretRef": {"name": "contacts-runtime"}}]
+    policy = next(
+        r
+        for r in resources
+        if r["kind"] == "NetworkPolicy" and r["metadata"]["name"] == "contacts-ingress"
+    )
+    assert policy["spec"]["ingress"][0]["from"] == [
+        {"podSelector": {"matchLabels": {"app.kubernetes.io/name": "orchestrator"}}}
+    ]
+
+
+def test_spark_secret_values_reach_only_coordinator(monkeypatch):
+    monkeypatch.setattr(
+        remote_apply,
+        "runtime_config",
+        lambda: {
+            "respan_secret": "respan",
+            "scalekit_secret": "scalekit",
+            "database_secret": "database",
+            "brain_api_secret": "brain",
+        },
+    )
+    values = {
+        "respan": {"RESPAN_API_KEY": "respan-value"},
+        "scalekit": {
+            "SCALEKIT_CLIENT_SECRET": "scalekit-value",
+            "SCALEKIT_CONNECTION_NAME": "exa",
+            "SCALEKIT_ACCOUNT_ID": "toir",
+        },
+        "database": {"DATABASE_URL": "database-value"},
+        "brain": {"BRAIN_API_URL": "http://brain", "BRAIN_API_TOKEN": "brain-value"},
+    }
+    monkeypatch.setattr(remote_apply, "read_secret", lambda name, fields: values[name])
+    calls = []
+    monkeypatch.setattr(
+        remote_apply.subprocess,
+        "run",
+        lambda args, **kwargs: (
+            calls.append(kwargs["input"]) or subprocess.CompletedProcess(args, 0, "", "")
+        ),
+    )
+    remote_apply.sync_secrets()
+    secrets = {
+        r["metadata"]["name"]: r["data"]
+        for r in json.loads(calls[0])["items"]
+        if r["kind"] == "Secret"
+    }
+    assert set(secrets["orchestrator-runtime"]) == {
+        "RESPAN_API_KEY",
+        "SCALEKIT_CLIENT_SECRET",
+        "DATABASE_URL",
+        "BRAIN_API_URL",
+        "BRAIN_API_TOKEN",
+    }
+    for worker in ("research-runtime", "contacts-runtime"):
+        assert not ({"DATABASE_URL", "BRAIN_API_TOKEN", "BRAIN_API_URL"} & secrets[worker].keys())
+        assert "SCALEKIT_CONNECTION_NAME" in secrets[worker]
+
+
+@pytest.mark.parametrize(
+    "active", ["active_contact_task_id", "active_crm_operations", "active_jobs"]
+)
+def test_drain_waits_for_contact_and_crm_work(monkeypatch, active):
+    monkeypatch.setattr(remote_apply, "data_directory", lambda: Path("/data"))
+    monkeypatch.setattr(remote_apply, "coordinator_writes_database", lambda: True)
+    responses = iter([{}, {"enabled": True, active: ["work"]}, {"enabled": True}])
+    monkeypatch.setattr(remote_apply, "maintenance", lambda *_: next(responses))
+    waits = []
+    monkeypatch.setattr(remote_apply.time, "sleep", waits.append)
+    assert remote_apply.drain() is True
+    assert waits == [5]
+
+
+@pytest.mark.parametrize("backend", ["postgres", "unknown"])
+def test_backup_backend_check_fails_closed_without_exposing_url(monkeypatch, backend):
+    monkeypatch.setattr(remote_apply, "execute", lambda *args, **kwargs: backend)
+    with pytest.raises(RuntimeError):
+        remote_apply.require_sqlite_backend()
+
+
+def test_postgres_backup_never_copies_retained_sqlite(tmp_path, monkeypatch):
+    monkeypatch.setattr(remote_apply, "data_directory", lambda: tmp_path)
+    monkeypatch.setattr(remote_apply, "coordinator_writes_database", lambda: True)
+    monkeypatch.setattr(remote_apply, "execute", lambda *args, **kwargs: "postgres")
+    monkeypatch.setattr(
+        remote_apply,
+        "snapshot_databases",
+        lambda *_: pytest.fail("Cannot snapshot SQLite as a PG backup"),
+    )
+    with pytest.raises(RuntimeError, match="Postgres is active"):
+        remote_apply.backup("bucket")
+
+
+def test_code_rollback_cannot_bypass_required_postgres_backup(monkeypatch):
+    monkeypatch.setattr(remote_apply, "runtime_config", lambda: {"bucket": "private"})
+
+    def postgres_backup(*args, **kwargs):
+        raise remote_apply.PostgresBackupRequired("Postgres requires its owner backup")
+
+    monkeypatch.setattr(remote_apply, "backup", postgres_backup)
+    with pytest.raises(remote_apply.PostgresBackupRequired):
+        remote_apply.prepare_backup("private", recovery=True)
+
+
+def test_crm_write_scope_attestation_is_coordinator_only_and_disabled():
+    resources = json.loads(
+        (ROOT / "infrastructure/deployment/kubernetes/foundation.json").read_text()
+    )["items"]
+    for deployment in (r for r in resources if r["kind"] == "Deployment"):
+        container = deployment["spec"]["template"]["spec"]["containers"][0]
+        values = {item["name"]: item["value"] for item in container.get("env", [])}
+        if deployment["metadata"]["name"] == "orchestrator":
+            assert values["SCALEKIT_HUBSPOT_WRITE_SCOPES_VERIFIED"] == "false"
+        else:
+            assert "SCALEKIT_HUBSPOT_WRITE_SCOPES_VERIFIED" not in values

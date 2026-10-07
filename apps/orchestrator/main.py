@@ -11,6 +11,16 @@ from apps.orchestrator.coordinator import Coordinator
 from apps.orchestrator.graph.workflow import build_graph
 from apps.orchestrator.integrations.models import RespanModels, initialize_tracing
 from apps.orchestrator.routes import router
+from apps.orchestrator.sales.auth import AuthService
+from apps.orchestrator.sales.brain import BrainClient
+from apps.orchestrator.sales.contact_client import ContactAgentClient
+from apps.orchestrator.sales.crm import ScalekitCRM
+from apps.orchestrator.sales.crm_executor import CRMExecutor
+from apps.orchestrator.sales.crm_planner import CRMPlanner
+from apps.orchestrator.sales.routes import auth_router
+from apps.orchestrator.sales.routes import router as sales_router
+from apps.orchestrator.sales.service import SalesService
+from apps.orchestrator.sales.store import SalesStore
 from apps.orchestrator.storage.factory import data_directory, open_storage
 
 
@@ -25,17 +35,45 @@ async def lifespan(application: FastAPI):
             service = Coordinator(repository, graph, models, agent, data_directory())
             application.state.coordinator = service
             application.state.telemetry = telemetry
-            await service.recover()
+            store = SalesStore(repository)
+            auth, contacts, crm, brain = (
+                AuthService(store),
+                ContactAgentClient(),
+                ScalekitCRM.from_env(),
+                BrainClient(),
+            )
+            sales = SalesService(
+                store,
+                service,
+                models,
+                auth,
+                contacts,
+                crm,
+                CRMPlanner(crm, store),
+                CRMExecutor(store, crm, can_execute=lambda: not service.maintenance),
+                brain,
+            )
+            application.state.sales_service = sales
             try:
+                await sales.setup()
+                await service.recover()
+                sales.start()
                 yield
             finally:
+                await sales.shutdown()
                 await service.shutdown()
+                await auth.close()
+                await contacts.close()
+                await crm.close()
+                await brain.close()
     finally:
         await agent.close()
 
 
 app = FastAPI(title="Toir Coordinator", lifespan=lifespan, docs_url=None, redoc_url=None)
 app.include_router(router)
+app.include_router(sales_router)
+app.include_router(auth_router)
 
 
 class Probe(BaseModel):

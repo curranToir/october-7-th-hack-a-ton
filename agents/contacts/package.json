@@ -1,0 +1,10 @@
+{
+  "name": "@toir/contact-agent",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "bun src/server/index.ts",
+    "test": "bun test",
+    "typecheck": "../research/node_modules/.bin/tsc --noEmit"
+  }
+}

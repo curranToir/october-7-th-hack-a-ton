@@ -390,7 +390,7 @@
                   },
                   "limits": {
                     "cpu": "500m",
-                    "memory": "384Mi"
+                    "memory": "512Mi"
                   }
                 },
                 "securityContext": {
@@ -452,6 +452,26 @@
                   {
                     "name": "RESPAN_BASE_URL",
                     "value": "https://api.respan.ai/api/"
+                  },
+                  {
+                    "name": "CONTACT_AGENT_URL",
+                    "value": "http://contacts:8000"
+                  },
+                  {
+                    "name": "SCALEKIT_HUBSPOT_CONNECTION",
+                    "value": "hubspot"
+                  },
+                  {
+                    "name": "SCALEKIT_HUBSPOT_IDENTIFIER",
+                    "value": "curran@toirinc.com"
+                  },
+                  {
+                    "name": "SALES_PUBLIC_URL",
+                    "value": "http://localhost:8080"
+                  },
+                  {
+                    "name": "SCALEKIT_HUBSPOT_WRITE_SCOPES_VERIFIED",
+                    "value": "false"
                   }
                 ],
                 "envFrom": [
@@ -895,6 +915,216 @@
         "podSelector": {
           "matchLabels": {
             "app.kubernetes.io/name": "research"
+          }
+        },
+        "policyTypes": [
+          "Ingress"
+        ],
+        "ingress": [
+          {
+            "from": [
+              {
+                "podSelector": {
+                  "matchLabels": {
+                    "app.kubernetes.io/name": "orchestrator"
+                  }
+                }
+              }
+            ],
+            "ports": [
+              {
+                "protocol": "TCP",
+                "port": 8000
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "apiVersion": "apps/v1",
+      "kind": "Deployment",
+      "metadata": {
+        "name": "contacts",
+        "namespace": "company-brain",
+        "labels": {
+          "app.kubernetes.io/name": "contacts",
+          "app.kubernetes.io/part-of": "company-brain"
+        }
+      },
+      "spec": {
+        "replicas": 1,
+        "revisionHistoryLimit": 2,
+        "progressDeadlineSeconds": 180,
+        "strategy": {
+          "type": "RollingUpdate",
+          "rollingUpdate": {
+            "maxSurge": 0,
+            "maxUnavailable": 1
+          }
+        },
+        "selector": {
+          "matchLabels": {
+            "app.kubernetes.io/name": "contacts",
+            "app.kubernetes.io/part-of": "company-brain"
+          }
+        },
+        "template": {
+          "metadata": {
+            "labels": {
+              "app.kubernetes.io/name": "contacts",
+              "app.kubernetes.io/part-of": "company-brain"
+            }
+          },
+          "spec": {
+            "serviceAccountName": "application",
+            "automountServiceAccountToken": false,
+            "terminationGracePeriodSeconds": 30,
+            "securityContext": {
+              "runAsNonRoot": true,
+              "runAsUser": 1000,
+              "runAsGroup": 1000,
+              "fsGroup": 1000,
+              "seccompProfile": {
+                "type": "RuntimeDefault"
+              }
+            },
+            "containers": [
+              {
+                "name": "contacts",
+                "image": "__CONTACTS_IMAGE__",
+                "imagePullPolicy": "Never",
+                "ports": [
+                  {
+                    "name": "http",
+                    "containerPort": 8000
+                  }
+                ],
+                "resources": {
+                  "requests": {
+                    "cpu": "100m",
+                    "memory": "256Mi"
+                  },
+                  "limits": {
+                    "cpu": "500m",
+                    "memory": "512Mi"
+                  }
+                },
+                "securityContext": {
+                  "allowPrivilegeEscalation": false,
+                  "readOnlyRootFilesystem": true,
+                  "capabilities": {
+                    "drop": [
+                      "ALL"
+                    ]
+                  }
+                },
+                "startupProbe": {
+                  "httpGet": {
+                    "path": "/health",
+                    "port": "http"
+                  },
+                  "periodSeconds": 2,
+                  "failureThreshold": 60
+                },
+                "livenessProbe": {
+                  "httpGet": {
+                    "path": "/health",
+                    "port": "http"
+                  },
+                  "periodSeconds": 15,
+                  "timeoutSeconds": 2
+                },
+                "readinessProbe": {
+                  "httpGet": {
+                    "path": "/ready",
+                    "port": "http"
+                  },
+                  "periodSeconds": 5,
+                  "timeoutSeconds": 2
+                },
+                "volumeMounts": [
+                  {
+                    "name": "tmp",
+                    "mountPath": "/tmp"
+                  }
+                ],
+                "env": [
+                  {
+                    "name": "PORT",
+                    "value": "8000"
+                  },
+                  {
+                    "name": "RESPAN_MODEL",
+                    "value": "gpt-5.4"
+                  },
+                  {
+                    "name": "RESPAN_BASE_URL",
+                    "value": "https://api.respan.ai/api/"
+                  },
+                  {
+                    "name": "HOME",
+                    "value": "/tmp"
+                  }
+                ],
+                "envFrom": [
+                  {
+                    "secretRef": {
+                      "name": "contacts-runtime"
+                    }
+                  }
+                ]
+              }
+            ],
+            "volumes": [
+              {
+                "name": "tmp",
+                "emptyDir": {
+                  "sizeLimit": "128Mi"
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "apiVersion": "v1",
+      "kind": "Service",
+      "metadata": {
+        "name": "contacts",
+        "namespace": "company-brain",
+        "labels": {
+          "app.kubernetes.io/name": "contacts",
+          "app.kubernetes.io/part-of": "company-brain"
+        }
+      },
+      "spec": {
+        "type": "ClusterIP",
+        "selector": {
+          "app.kubernetes.io/name": "contacts",
+          "app.kubernetes.io/part-of": "company-brain"
+        },
+        "ports": [
+          {
+            "name": "http",
+            "port": 8000,
+            "targetPort": "http"
+          }
+        ]
+      }
+    },
+    {
+      "apiVersion": "networking.k8s.io/v1",
+      "kind": "NetworkPolicy",
+      "metadata": {
+        "name": "contacts-ingress",
+        "namespace": "company-brain"
+      },
+      "spec": {
+        "podSelector": {
+          "matchLabels": {
+            "app.kubernetes.io/name": "contacts"
           }
         },
         "policyTypes": [

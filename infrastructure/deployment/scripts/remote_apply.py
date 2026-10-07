@@ -18,10 +18,14 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 STATE = Path("/var/lib/company-brain")
-SERVICES = ("web", "api", "orchestrator", "research")
+SERVICES = ("web", "api", "orchestrator", "research", "contacts")
 DATABASES = ("runs.sqlite", "checkpoints.sqlite")
 KUBECTL = ["k3s", "kubectl", "--request-timeout=30s"]
 FILES = {"images.tar", "manifests.json", "release.json", "checksums.json"}
+
+
+class PostgresBackupRequired(RuntimeError):
+    """An explicit operator backup is required; recovery must not bypass this gate."""
 
 
 def sha256(path: Path) -> str:
@@ -151,12 +155,14 @@ def apply_release(folder: Path):
     if "research" in services:
         sync_secrets()
     execute(*KUBECTL, "apply", "-f", str(folder / "manifests.json"))
-    # Rolling back to the three-pod foundation removes only the known research objects.
-    if "research" not in services:
+    # Remove only known workers omitted by an older release; preserve all durable state.
+    for worker in ("research", "contacts"):
+        if worker in services:
+            continue
         for kind, name in (
-            ("deployment", "research"),
-            ("service", "research"),
-            ("networkpolicy", "research-ingress"),
+            ("deployment", worker),
+            ("service", worker),
+            ("networkpolicy", worker + "-ingress"),
         ):
             execute(*KUBECTL, "-n", "company-brain", "delete", kind, name, "--ignore-not-found")
     for service in services:
@@ -332,6 +338,27 @@ def sync_secrets(restart: bool = False):
             "SCALEKIT_ACCOUNT_ID",
         },
     )
+    database = (
+        read_secret(config["database_secret"], {"DATABASE_URL"})
+        if config.get("database_secret")
+        else {}
+    )
+    brain = (
+        read_secret(config["brain_api_secret"], {"BRAIN_API_URL", "BRAIN_API_TOKEN"})
+        if config.get("brain_api_secret")
+        else {}
+    )
+    # Worker account/connection settings select Exa only. CRM/auth credentials and
+    # shared HubSpot settings remain coordinator-owned; no DB/Brain secrets reach workers.
+    coordinator_scalekit = {
+        k: v
+        for k, v in scalekit.items()
+        if k
+        not in {
+            "SCALEKIT_ACCOUNT_ID",
+            "SCALEKIT_CONNECTION_NAME",
+        }
+    }
     protected = False
     if restart:
         protected = drain()
@@ -340,8 +367,9 @@ def sync_secrets(restart: bool = False):
         ns = {"apiVersion": "v1", "kind": "Namespace", "metadata": {"name": "company-brain"}}
         secrets = [ns]
         for name, values in (
-            ("orchestrator-runtime", respan),
+            ("orchestrator-runtime", {**respan, **coordinator_scalekit, **database, **brain}),
             ("research-runtime", {**respan, **scalekit}),
+            ("contacts-runtime", {**respan, **scalekit}),
         ):
             secrets.append(
                 {
@@ -375,7 +403,9 @@ def sync_secrets(restart: bool = False):
             flush=True,
         )
         if restart:
-            for service in ("orchestrator", "research"):
+            for service in ("orchestrator", "research", "contacts"):
+                if not kubernetes_json("-n", "company-brain", "get", "deployment", service):
+                    continue
                 execute(
                     *KUBECTL, "-n", "company-brain", "rollout", "restart", f"deployment/{service}"
                 )
@@ -503,11 +533,46 @@ def drain() -> bool:
         status = maintenance()
         if not status.get("enabled"):
             raise RuntimeError("Coordinator did not enter maintenance")
-        if not status.get("active_run_id"):
+        if not any(
+            status.get(key)
+            for key in (
+                "active_run_id",
+                "active_contact_task_id",
+                "active_crm_operations",
+                "active_jobs",
+            )
+        ):
             return True
         if time.monotonic() >= deadline:
-            raise RuntimeError("Research did not drain; maintenance remains enabled")
+            raise RuntimeError(
+                "Research, contacts or CRM execution did not drain; maintenance remains enabled"
+            )
         time.sleep(5)
+
+
+def require_sqlite_backend():
+    """Inspect the live process, so pre-cutover secret rotation cannot misidentify it."""
+    script = "import os; print('postgres' if os.environ.get('DATABASE_URL') else 'sqlite')"
+    backend = execute(
+        *KUBECTL,
+        "-n",
+        "company-brain",
+        "exec",
+        "deployment/orchestrator",
+        "--",
+        "python",
+        "-c",
+        script,
+        capture=True,
+    ).strip()
+    if backend == "postgres":
+        raise PostgresBackupRequired(
+            "Postgres is active. SQLite backup/restore is disabled; coordinate a verified "
+            "Postgres dump and restore with the Spark owner (docs/operations.md). "
+            "No database files were changed."
+        )
+    if backend != "sqlite":
+        raise RuntimeError("Cannot verify the live storage backend; refusing backup/restore")
 
 
 def validate_backup_id(value: str) -> str:
@@ -539,6 +604,8 @@ def backup(bucket: str, *, leave_maintenance: bool = False) -> str | None:
         print("No research persistent volume exists yet; pre-deployment backup skipped.")
         return None
     writer = coordinator_writes_database()
+    if writer:
+        require_sqlite_backend()
     already_paused = maintenance().get("enabled", False) if writer else False
     protected = drain() if writer else False
     if not writer:
@@ -554,6 +621,7 @@ def backup(bucket: str, *, leave_maintenance: bool = False) -> str | None:
                 folder / "backup.json",
                 {
                     "version": 1,
+                    "storage_backend": "sqlite",
                     "schema_version": 1,
                     "backup_id": backup_id,
                     "created_at": datetime.now(UTC).isoformat(),
@@ -599,6 +667,8 @@ def prepare_backup(bucket: str | None, recovery: bool = False) -> bool:
         # Rollback is the escape hatch for an unhealthy coordinator. Preserve its PVC unchanged.
         try:
             return backup(bucket, leave_maintenance=True) is not None
+        except PostgresBackupRequired:
+            raise
         except (subprocess.CalledProcessError, RuntimeError):
             print("Coordinator unavailable for backup; rollback preserves its volume unchanged.")
             return True
@@ -617,6 +687,8 @@ def unpack_backup(archive: Path, destination: Path, backup_id: str):
             with tar.extractfile(member) as src, (destination / member.name).open("wb") as dst:
                 shutil.copyfileobj(src, dst)
     manifest = json.loads((destination / "backup.json").read_text())
+    if manifest.get("storage_backend", "sqlite") != "sqlite":
+        raise ValueError("This restore command accepts only verified SQLite backups")
     if (
         manifest.get("version") != 1
         or manifest.get("schema_version") != 1
@@ -636,6 +708,7 @@ def restore(bucket: str, backup_id: str):
     target = data_directory()
     if target is None or not coordinator_writes_database():
         raise RuntimeError("Deploy the research runtime before restoring its persistent volume")
+    require_sqlite_backend()
     with tempfile.TemporaryDirectory(prefix="restore-", dir=STATE) as tmp:
         folder = Path(tmp)
         archive = folder / "backup.tar.gz"
@@ -698,6 +771,8 @@ if __name__ == "__main__":
     parser.add_argument("--region", default="us-east-1")
     parser.add_argument("--respan-secret")
     parser.add_argument("--scalekit-secret")
+    parser.add_argument("--database-secret")
+    parser.add_argument("--brain-api-secret")
     parser.add_argument("--restart", action="store_true")
     parser.add_argument("--backup-id")
     parser.add_argument("--resume", action="store_true")
@@ -706,7 +781,14 @@ if __name__ == "__main__":
     with (STATE / "deploy.lock").open("w") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         config = runtime_config()
-        for name in ("bucket", "region", "respan_secret", "scalekit_secret"):
+        for name in (
+            "bucket",
+            "region",
+            "respan_secret",
+            "scalekit_secret",
+            "database_secret",
+            "brain_api_secret",
+        ):
             value = getattr(ARGS, name)
             if value:
                 config[name] = value

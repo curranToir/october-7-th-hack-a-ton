@@ -2,15 +2,12 @@
 
 import { useState, type ReactNode } from "react";
 import type {
-  Preferences,
+  AutomationUpdate,
+  LiveWorkspace,
   SettingPage,
-  WorkspaceState,
 } from "../../../coms/types.ts";
-import { workspaceClient } from "../../../coms/storage.ts";
-import { createDemoWorkspace } from "../../../coms/seed.ts";
-import type { UpdateWorkspace } from "./use-workspace";
+import type { WorkspaceActions } from "./use-workspace";
 import { Icon, type IconName } from "./icon";
-import { Dialog } from "./dialog";
 
 export const settingsPages: {
   id: SettingPage;
@@ -19,14 +16,11 @@ export const settingsPages: {
 }[] = [
   { id: "general", label: "General", icon: "general" },
   { id: "profile", label: "Profile", icon: "profile" },
-  { id: "agents", label: "Agents & permissions", icon: "brain" },
+  { id: "agents", label: "Agents & automation", icon: "brain" },
   { id: "connections", label: "Connected apps", icon: "connections" },
-  { id: "notifications", label: "Notifications", icon: "notifications" },
   { id: "privacy", label: "Data & privacy", icon: "shield" },
   { id: "workspace", label: "Workspace", icon: "workspace" },
-  { id: "billing", label: "Billing", icon: "billing" },
 ];
-
 function Row({
   label,
   detail,
@@ -79,59 +73,43 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
     </section>
   );
 }
-
 export function Settings({
   page,
   state,
-  update,
+  actions,
   navigate,
-  toast,
-  onReset,
-  storageAvailable,
 }: {
   page: SettingPage;
-  state: WorkspaceState;
-  update: UpdateWorkspace;
+  state: LiveWorkspace;
+  actions: WorkspaceActions;
   navigate: (page: string) => void;
-  toast: (message: string) => void;
-  onReset: () => void;
-  storageAvailable: boolean;
 }) {
-  const [confirm, setConfirm] = useState<"history" | "reset" | null>(null);
-  const [connection, setConnection] = useState<string | null>(null);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
   const prefs = state.preferences;
-  const setPreference = <K extends keyof Preferences>(
-    key: K,
-    value: Preferences[K],
-  ) =>
-    update((current) => ({
-      ...current,
-      preferences: { ...current.preferences, [key]: value },
-    }));
-  const toggle = (key: keyof Preferences, label: string) => (
-    <Toggle
-      label={label}
-      checked={!!prefs[key]}
-      onChange={(value) => setPreference(key, value)}
-    />
-  );
-  const activeConnection = state.connections.find(
-    (item) => item.id === connection,
-  );
+  const logout = async () => {
+    setBusy(true);
+    try {
+      await actions.logout();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Sign out failed.");
+    } finally {
+      setBusy(false);
+    }
+  };
   const exportData = () => {
     const url = URL.createObjectURL(
-      new Blob([workspaceClient.export(state)], { type: "application/json" }),
+      new Blob([JSON.stringify(state, null, 2)], { type: "application/json" }),
     );
     const link = document.createElement("a");
     link.href = url;
-    link.download = "toir-export.json";
+    link.download = "toir-sales-export.json";
     link.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
-    toast("Workspace export downloaded.");
   };
   return (
     <div className="settings-layout">
-      <nav className="settings-nav" aria-label="Settings categories">
+      <nav className="settings-nav" aria-label="Settings">
         {settingsPages.map((item) => (
           <button
             key={item.id}
@@ -139,540 +117,373 @@ export function Settings({
             aria-current={page === item.id ? "page" : undefined}
             onClick={() => navigate(item.id)}
           >
-            <Icon name={item.icon} size={17} />
-            <span>{item.label}</span>
+            <Icon name={item.icon} size={18} />
+            {item.label}
           </button>
         ))}
       </nav>
-      <div className="settings-content" key={page}>
-        <h2>{settingsPages.find((item) => item.id === page)?.label}</h2>
+      <div className="settings-content">
+        <h2>{settingsPages.find((p) => p.id === page)?.label ?? "General"}</h2>
         {page === "general" && (
           <>
+            <p className="settings-intro">
+              Make this workspace comfortable to work in.
+            </p>
             <Section title="Appearance">
               <Row label="Theme">
-                <div className="theme-switch" role="group" aria-label="Theme">
-                  {(["light", "dark", "system"] as const).map((theme) => (
-                    <button
-                      key={theme}
-                      aria-pressed={prefs.theme === theme}
-                      onClick={() => setPreference("theme", theme)}
-                    >
-                      <Icon
-                        name={
-                          theme === "light"
-                            ? "sun"
-                            : theme === "dark"
-                              ? "moon"
-                              : "monitor"
-                        }
-                        size={16}
-                      />
-                      {theme[0].toUpperCase() + theme.slice(1)}
-                    </button>
-                  ))}
-                </div>
-              </Row>
-              <Row
-                label="Compact sidebar"
-                detail="A little less space between your sessions."
-              >
-                {toggle("compactSidebar", "Compact sidebar")}
-              </Row>
-            </Section>
-            <Section title="Language & region">
-              <Row label="Language">
-                <span className="static-control">
-                  English <small>More languages soon</small>
-                </span>
-              </Row>
-              <Row label="Time zone">
                 <select
-                  aria-label="Time zone"
-                  value={prefs.timeZone}
-                  onChange={(event) =>
-                    setPreference("timeZone", event.target.value)
+                  aria-label="Theme"
+                  value={prefs.theme}
+                  onChange={(e) =>
+                    actions.updatePreferences({
+                      theme: e.target.value as typeof prefs.theme,
+                    })
                   }
                 >
-                  {[
-                    "America/Los_Angeles",
-                    "America/New_York",
-                    "Europe/London",
-                    "Europe/Paris",
-                    "Asia/Tokyo",
-                    "Australia/Sydney",
-                    "UTC",
-                  ].map((zone) => (
-                    <option key={zone}>{zone}</option>
-                  ))}
+                  <option value="system">System</option>
+                  <option value="light">Light</option>
+                  <option value="dark">Dark</option>
                 </select>
               </Row>
-            </Section>
-            <Section title="Chat & tasks">
-              <Row
-                label="Default agent"
-                detail="Used when you start a new conversation."
-              >
-                <select
-                  aria-label="Default agent"
-                  value={prefs.defaultAgent}
-                  onChange={(event) =>
-                    setPreference("defaultAgent", event.target.value)
+              <Row label="Compact sidebar" detail="Keep more sessions visible.">
+                <Toggle
+                  label="Compact sidebar"
+                  checked={prefs.compactSidebar}
+                  onChange={(compactSidebar) =>
+                    actions.updatePreferences({ compactSidebar })
                   }
-                >
-                  {[
-                    "Auto",
-                    "Prospecting agent",
-                    "Pipeline agent",
-                    "Customer agent",
-                    "Research agent",
-                  ].map((agent) => (
-                    <option key={agent}>{agent}</option>
-                  ))}
-                </select>
-              </Row>
-              <Row
-                label="Open next task after a decision"
-                detail="Keep reviewing without returning to the queue."
-              >
-                {toggle("autoAdvance", "Open next task after a decision")}
-              </Row>
-              <Row
-                label="Require approval for external actions"
-                detail="Ask before updating connected tools."
-              >
-                {toggle(
-                  "requireApproval",
-                  "Require approval for external actions",
-                )}
+                />
               </Row>
             </Section>
+            <Section title="Task review">
+              <Row
+                label="Automatically show next task"
+                detail="Move to the next proposal after your decision is saved."
+              >
+                <Toggle
+                  label="Automatically show next task"
+                  checked={prefs.autoAdvance}
+                  onChange={(autoAdvance) =>
+                    actions.updatePreferences({ autoAdvance })
+                  }
+                />
+              </Row>
+              <Row
+                label="CRM approval"
+                detail="Every CRM change requires an explicit approval of the current proposal version."
+              >
+                <span className="muted-tag">Always required</span>
+              </Row>
+            </Section>
+            <p className="saved-status">
+              <Icon name="check" size={16} />
+              Display preferences are saved on this device.
+            </p>
           </>
         )}
         {page === "profile" && (
-          <form
-            className="settings-form"
-            onSubmit={(event) => {
-              event.preventDefault();
-              const data = new FormData(event.currentTarget);
-              const name = String(data.get("name") ?? "").trim();
-              if (!name) return;
-              const saved = update((current) => ({
-                ...current,
-                profile: {
-                  ...current.profile,
-                  name,
-                  email: String(data.get("email") ?? "").trim(),
-                },
-              }));
-              toast(
-                saved
-                  ? "Profile saved on this device."
-                  : "Profile updated for this visit only.",
-              );
-            }}
-          >
-            <div className="profile-preview">
-              <span className="avatar avatar-large">
-                {state.profile.name
-                  .split(/\s+/)
-                  .map((word) => word[0])
-                  .slice(0, 2)
-                  .join("")}
-              </span>
-              <div>
-                <strong>{state.profile.name}</strong>
-                <p>{state.profile.role}</p>
-              </div>
-            </div>
-            <label>
-              Full name
-              <input
-                name="name"
-                defaultValue={state.profile.name}
-                required
-                maxLength={60}
-                autoComplete="name"
-                pattern=".*\S.*"
-              />
-            </label>
-            <label>
-              Email address
-              <input
-                type="email"
-                name="email"
-                defaultValue={state.profile.email}
-                required
-                autoComplete="email"
-                maxLength={120}
-              />
-            </label>
-            <p className="field-hint">
-              Your demo profile is saved on this device. Account sign-in will be
-              available later.
-            </p>
-            <button className="button primary" type="submit">
-              Save profile
-            </button>
-          </form>
-        )}
-        {page === "agents" && (
           <>
             <p className="settings-intro">
-              Decide how your agents work with your tools.
+              Your identity is verified through Scalekit.
             </p>
-            <div className="notice">
-              <Icon name="shield" />
-              <p>
-                These preferences are saved for your workspace. In this demo,
-                every external action stays in the approval queue and no tools
-                are changed.
-              </p>
-            </div>
-            <Section title="Approval preferences">
-              <Row
-                label="Require approval for external actions"
-                detail="Review proposed changes before an agent carries them out."
-              >
-                {toggle(
-                  "requireApproval",
-                  "Require approval for external actions",
-                )}
+            <Section title="Signed-in account">
+              <Row label={state.profile.name} detail={state.profile.email}>
+                <span className="muted-tag">Sales member</span>
               </Row>
               <Row
-                label="Open next task after a decision"
-                detail="Move to the next pending item automatically."
+                label="Session"
+                detail="Sign out of this browser without interrupting approved background work."
               >
-                {toggle("autoAdvance", "Open next task after a decision")}
-              </Row>
-            </Section>
-            <Section title="Agents">
-              {[
-                "Prospecting agent",
-                "Pipeline agent",
-                "Customer agent",
-                "Research agent",
-              ].map((agent) => (
-                <Row
-                  key={agent}
-                  label={agent}
-                  detail={
-                    agent === "Prospecting agent"
-                      ? "Find contacts and research companies"
-                      : agent === "Pipeline agent"
-                        ? "Review opportunities and meeting notes"
-                        : agent === "Customer agent"
-                          ? "Prepare customer follow-ups"
-                          : "Explore your company knowledge"
-                  }
+                <button
+                  className="button secondary"
+                  disabled={busy}
+                  onClick={() => void logout()}
                 >
-                  <span className="muted-tag">Demo agent</span>
-                </Row>
-              ))}
+                  {busy ? "Signing out…" : "Sign out"}
+                </button>
+              </Row>
             </Section>
           </>
+        )}
+        {page === "agents" && (
+          <AutomationSettings state={state} actions={actions} />
         )}
         {page === "connections" && (
           <>
             <p className="settings-intro">
-              Give your agents context from the tools you use.
+              Connection readiness is checked by the coordinator.
             </p>
-            <div className="notice">
-              <Icon name="info" />
-              <p>
-                Demo connections only. No account access is granted and no
-                external data is read or changed.
-              </p>
-            </div>
             <div className="connections">
-              {state.connections.map((item) => (
-                <div className="connection-row" key={item.id}>
-                  <span className={`app-icon app-${item.id}`}>
-                    <Icon
-                      name={
-                        item.id === "hubspot"
-                          ? "crm"
-                          : item.id === "slack"
-                            ? "messages"
-                            : "files"
-                      }
-                      size={21}
-                    />
+              {state.connections.map((connection) => (
+                <div className="connection-row" key={connection.id}>
+                  <span className={`app-icon app-${connection.id}`}>
+                    <Icon name="crm" size={21} />
                   </span>
                   <div className="connection-copy">
-                    <strong>{item.name}</strong>
-                    <p>{item.description}</p>
+                    <strong>{connection.name}</strong>
+                    <p>{connection.description}</p>
                     <span
-                      className={
-                        item.connected
-                          ? "connection-status connected"
-                          : "connection-status"
-                      }
+                      className={`connection-status ${connection.connected ? "connected" : ""}`}
                     >
-                      {item.connected ? "Demo connected" : "Not connected"}
+                      {connection.connected ? "Ready" : "Unavailable"}
                     </span>
                   </div>
-                  <button
-                    className="button secondary"
-                    onClick={() => setConnection(item.id)}
-                  >
-                    {item.connected ? "Manage" : "Connect"}
-                  </button>
                 </div>
               ))}
             </div>
-          </>
-        )}
-        {page === "notifications" && (
-          <>
-            <p className="settings-intro">
-              Choose the updates you want from your agents.
-            </p>
-            <div className="notice">
-              <Icon name="info" />
-              <p>
-                Preferences are saved now. Notifications will become available
-                when live agents are connected.
-              </p>
-            </div>
-            <Section title="Agent activity">
+            <Section title="Shared sales memory">
               <Row
-                label="Tasks awaiting approval"
-                detail="When an agent has an action ready for your review."
+                label="Spark / Cognee"
+                detail="Accepted research is synced independently from CRM execution."
               >
-                {toggle("notifyTasks", "Tasks awaiting approval notifications")}
-              </Row>
-              <Row
-                label="Completed work"
-                detail="When an agent finishes an approved action."
-              >
-                {toggle("notifyCompleted", "Completed work notifications")}
-              </Row>
-              <Row
-                label="Notification sounds"
-                detail="Play a sound for new updates."
-              >
-                {toggle("sound", "Notification sounds")}
+                <span className="muted-tag">
+                  {state.capabilities.brain
+                    ? "Ready"
+                    : "Awaiting service readiness"}
+                </span>
               </Row>
             </Section>
+            <p className="field-hint">
+              Account connections are managed by the workspace administrator.
+              Connection ownership does not change who requested or approved a
+              CRM update.
+            </p>
+            <Readiness state={state} />
           </>
         )}
         {page === "privacy" && (
           <>
             <p className="settings-intro">
-              Manage the information saved on this device.
+              Conversations, research evidence, and approval decisions are
+              stored by the coordinator.
             </p>
-            <Section title="Conversation history">
+            <Section title="Workspace records">
               <Row
-                label="Save chat history"
-                detail="When off, conversations are kept only for this visit. Previously saved conversations are removed from browser storage."
+                label="Conversation history"
+                detail="Use a session’s menu to delete it. Related task decisions and CRM audit records are retained."
               >
-                {toggle("saveHistory", "Save chat history")}
+                <span className="muted-tag">Server managed</span>
               </Row>
               <Row
-                label="Clear all conversations"
-                detail="Permanently remove your saved chats. Approval history is kept."
-              >
-                <button
-                  className="button secondary danger-text"
-                  onClick={() => setConfirm("history")}
-                  disabled={!state.sessions.length}
-                >
-                  Clear history
-                </button>
-              </Row>
-            </Section>
-            <Section title="Your data">
-              <Row
-                label="Export workspace data"
-                detail="Download your profile, preferences, chats and task history as JSON."
+                label="Export visible workspace data"
+                detail="Download your current sessions, proposals, evidence, and execution status."
               >
                 <button className="button secondary" onClick={exportData}>
                   <Icon name="download" size={16} />
                   Export data
                 </button>
               </Row>
-              <Row
-                label="Reset demo workspace"
-                detail="Restore the example sessions and tasks. Your current local data will be replaced."
-              >
-                <button
-                  className="button secondary danger-text"
-                  onClick={() => setConfirm("reset")}
-                >
-                  Reset demo
-                </button>
-              </Row>
             </Section>
           </>
         )}
         {page === "workspace" && (
-          <form
-            className="settings-form"
-            onSubmit={(event) => {
-              event.preventDefault();
-              const data = new FormData(event.currentTarget);
-              const name = String(data.get("name") ?? "").trim();
-              if (!name) return;
-              const saved = update((current) => ({
-                ...current,
-                workspace: {
-                  name,
-                  description: String(data.get("description") ?? "").trim(),
-                },
-              }));
-              toast(
-                saved
-                  ? "Workspace details saved."
-                  : "Workspace updated for this visit only.",
-              );
-            }}
-          >
-            <label>
-              Workspace name
-              <input
-                name="name"
-                defaultValue={state.workspace.name}
-                required
-                maxLength={32}
-                pattern=".*\S.*"
-              />
-            </label>
-            <label>
-              Description
-              <textarea
-                name="description"
-                defaultValue={state.workspace.description}
-                maxLength={240}
-                rows={3}
-              />
-            </label>
-            <button className="button primary" type="submit">
-              Save workspace
-            </button>
-            <Section title="Members">
-              <Row label={state.profile.name} detail={state.profile.email}>
-                <span className="muted-tag">Owner</span>
-              </Row>
-              <p className="field-hint">
-                Team invitations will be available when workspace accounts are
-                connected.
-              </p>
-            </Section>
-          </form>
-        )}
-        {page === "billing" && (
           <>
-            <div className="billing-intro">
-              <span className="agent-avatar">
-                <Icon name="brain" size={25} />
-              </span>
-              <h3>You’re exploring the demo.</h3>
-              <p>
-                No subscription, payment method or charges are associated with
-                this workspace.
-              </p>
-            </div>
-            <Section title="Plan details">
-              <Row label="Current workspace">
-                <span className="muted-tag">Demo</span>
+            <p className="settings-intro">Toir’s shared sales workspace.</p>
+            <Section title="Access">
+              <Row
+                label="Sales workspace"
+                detail="Curran and Jared are authorized sales members. The server enforces workspace access for research, tasks, approvals, and memory."
+              >
+                <span className="muted-tag">Toir</span>
               </Row>
-              <Row label="Payment method">
-                <span className="muted">None</span>
+              <Row label="Current member" detail={state.profile.email}>
+                <span>{state.profile.name}</span>
               </Row>
-              <Row label="Billing history">
-                <span className="muted">No invoices</span>
+              <Row
+                label="Automation timezone"
+                detail="Daily discovery and enrichment quotas reset at midnight in this timezone."
+              >
+                <span>America/Los_Angeles</span>
               </Row>
             </Section>
           </>
         )}
-        {!["profile", "workspace", "billing", "connections"].includes(page) && (
-          <p className="saved-status">
-            <Icon name={storageAvailable ? "check" : "info"} size={16} />
-            {storageAvailable
-              ? "Preferences saved on this device"
-              : "Changes are temporary for this visit"}
+        {error && (
+          <p className="sales-error" role="alert">
+            {error}
           </p>
         )}
       </div>
-      {confirm && (
-        <Dialog
-          title={
-            confirm === "history"
-              ? "Clear all conversations?"
-              : "Reset your demo workspace?"
-          }
-          onClose={() => setConfirm(null)}
-        >
-          <p>
-            {confirm === "history"
-              ? "This removes all conversations from this browser. Your task decisions and settings will be kept. This cannot be undone."
-              : "This replaces your profile, settings, conversations and task decisions with the original demo. This cannot be undone."}
-          </p>
-          <div className="dialog-actions">
-            <button
-              className="button secondary"
-              onClick={() => setConfirm(null)}
-            >
-              Cancel
-            </button>
-            <button
-              className="button danger"
-              onClick={() => {
-                if (confirm === "history") {
-                  update((current) => ({ ...current, sessions: [] }));
-                  toast("Conversation history cleared.");
-                } else {
-                  update(() => createDemoWorkspace());
-                  onReset();
-                  toast("Demo workspace reset.");
-                }
-                setConfirm(null);
-              }}
-            >
-              {confirm === "history" ? "Clear conversations" : "Reset demo"}
-            </button>
-          </div>
-        </Dialog>
-      )}
-      {activeConnection && (
-        <Dialog
-          title={`${activeConnection.name} connection`}
-          onClose={() => setConnection(null)}
-        >
-          <p>
-            {activeConnection.description}. You can change the demo connection
-            state to preview this integration. This does not sign in to{" "}
-            {activeConnection.name}.
-          </p>
-          <div className="dialog-actions">
-            <button
-              className="button secondary"
-              onClick={() => setConnection(null)}
-            >
-              Cancel
-            </button>
-            <button
-              className="button primary"
-              onClick={() => {
-                update((current) => ({
-                  ...current,
-                  connections: current.connections.map((item) =>
-                    item.id === activeConnection.id
-                      ? { ...item, connected: !item.connected }
-                      : item,
-                  ),
-                }));
-                toast(
-                  `${activeConnection.name} demo ${activeConnection.connected ? "disconnected" : "connected"}.`,
-                );
-                setConnection(null);
-              }}
-            >
-              {activeConnection.connected ? "Disconnect demo" : "Connect demo"}
-            </button>
-          </div>
-        </Dialog>
-      )}
     </div>
+  );
+}
+export function Readiness({ state }: { state: LiveWorkspace }) {
+  return !state.capabilities.ready ? (
+    <div className="notice readiness-notice">
+      <Icon name="info" />
+      <div>
+        <strong>Continuous dispatch is waiting on readiness</strong>
+        <ul>
+          {state.capabilities.reasons.length ? (
+            state.capabilities.reasons.map((reason, index) => (
+              <li key={index}>{reason}</li>
+            ))
+          ) : (
+            <li>One or more services are not ready.</li>
+          )}
+        </ul>
+      </div>
+    </div>
+  ) : null;
+}
+function AutomationSettings({
+  state,
+  actions,
+}: {
+  state: LiveWorkspace;
+  actions: WorkspaceActions;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const save = async (update: Partial<AutomationUpdate>) => {
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      await actions.saveAutomation(update);
+      setNotice("Automation settings saved.");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Settings could not be saved.");
+    } finally {
+      setBusy(false);
+    }
+  };
+  const dailyJobs = state.jobs.filter(
+    (j) =>
+      j.origin === "background" &&
+      j.budget_day ===
+        new Intl.DateTimeFormat("en-CA", {
+          timeZone: "America/Los_Angeles",
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+        }).format(new Date()),
+  );
+  return (
+    <>
+      <p className="settings-intro">
+        Company discovery and contact research work continuously, with a review
+        before every CRM update.
+      </p>
+      <Section title="Continuous prospecting">
+        <Row
+          label={state.automation.enabled ? "Enabled" : "Paused"}
+          detail="Pausing stops new background dispatch. Current research and approved CRM operations can finish."
+        >
+          <Toggle
+            label="Continuous prospecting"
+            checked={state.automation.enabled}
+            disabled={
+              busy || (!state.automation.enabled && !state.capabilities.ready)
+            }
+            onChange={(enabled) => void save({ enabled })}
+          />
+        </Row>
+        <Row
+          label="Company discovery"
+          detail="Find and qualify companies using cited evidence."
+        >
+          <span className="muted-tag">
+            {state.capabilities.research ? "Ready" : "Unavailable"}
+          </span>
+        </Row>
+        <Row
+          label="Contact research"
+          detail="Up to five verified executives and buying stakeholders per company."
+        >
+          <span className="muted-tag">
+            {state.capabilities.contacts ? "Ready" : "Unavailable"}
+          </span>
+        </Row>
+      </Section>
+      <Readiness state={state} />
+      <form
+        className="settings-form automation-form"
+        key={state.automation.updated_at}
+        onSubmit={(event) => {
+          event.preventDefault();
+          const data = new FormData(event.currentTarget);
+          const number = (key: string) => Number(data.get(key));
+          const min = number("employee_min"),
+            max = number("employee_max");
+          if (min > max) {
+            setError("Minimum company size must not exceed the maximum.");
+            return;
+          }
+          void save({
+            request: String(data.get("request")).trim(),
+            employee_min: min,
+            employee_max: max,
+            fit_threshold: number("fit_threshold"),
+            daily_enrichments: number("daily_enrichments"),
+            daily_discoveries: number("daily_discoveries"),
+          });
+        }}
+      >
+        <h3>Targeting and daily limits</h3>
+        <label>
+          Research brief
+          <textarea
+            name="request"
+            defaultValue={state.automation.request}
+            required
+            minLength={10}
+            maxLength={4000}
+            rows={4}
+            disabled={busy}
+          />
+        </label>
+        <p className="field-hint">
+          United States · Daily quotas reset in America/Los_Angeles. Explicit
+          chat requests have priority at the next worker slot and do not use
+          background quotas.
+        </p>
+        <div className="automation-fields">
+          {(
+            [
+              ["employee_min", "Minimum employees", 1, 100000],
+              ["employee_max", "Maximum employees", 1, 100000],
+              ["fit_threshold", "Minimum fit score", 0, 100],
+              ["daily_enrichments", "Company enrichments per day", 1, 100],
+              ["daily_discoveries", "Discovery batches per day", 1, 100],
+            ] as const
+          ).map(([key, title, min, max]) => (
+            <label key={key}>
+              {title}
+              <input
+                name={key}
+                type="number"
+                min={min}
+                max={max}
+                step={1}
+                required
+                defaultValue={state.automation[key]}
+                disabled={busy}
+              />
+            </label>
+          ))}
+        </div>
+        <button className="button primary" type="submit" disabled={busy}>
+          {busy ? "Saving…" : "Save automation"}
+        </button>
+      </form>
+      <p className="field-hint">
+        Today: {dailyJobs.filter((j) => j.kind === "discovery").length}{" "}
+        discovery batches and{" "}
+        {dailyJobs.filter((j) => j.kind === "enrich").length} enrichment
+        attempts recorded.
+      </p>
+      {error && (
+        <p className="sales-error" role="alert">
+          {error}
+        </p>
+      )}
+      {notice && (
+        <p className="sales-success" role="status">
+          {notice}
+        </p>
+      )}
+    </>
   );
 }

@@ -3,7 +3,9 @@
 import os
 
 import httpx
-from fastapi import HTTPException
+from fastapi import HTTPException, Request
+
+from apps.api.browser_auth import browser_headers
 
 
 class ResearchClient:
@@ -16,10 +18,26 @@ class ResearchClient:
     async def close(self):
         await self.client.aclose()
 
-    async def request(self, method: str, path: str, *, body=None, key: str | None = None):
-        headers = {"Idempotency-Key": key} if key else {}
+    async def request(
+        self,
+        method: str,
+        path: str,
+        *,
+        body=None,
+        key: str | None = None,
+        browser_request: Request | None = None,
+    ):
+        headers = browser_headers(browser_request)
+        if key:
+            headers["Idempotency-Key"] = key
         try:
-            result = await self.client.request(method, path, json=body, headers=headers)
+            result = await self.client.request(
+                method,
+                path,
+                json=body,
+                headers=headers,
+                follow_redirects=False,
+            )
         except httpx.HTTPError:
             raise HTTPException(503, "Research coordinator is temporarily unavailable") from None
         if result.is_error:
