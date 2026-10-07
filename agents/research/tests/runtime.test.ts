@@ -234,6 +234,7 @@ test("real OMP SDK constructs restricted session without calling a model", async
 test("real OMP loop calls only Respan and custom Scalekit tools with a fake gateway", async () => {
   const originalFetch = globalThis.fetch;
   const outbound: string[] = [];
+  const requestBodies: unknown[] = [];
   let calls = 0;
   const url = "https://example.com/news";
   const quote = "Example appointed Jane as its new technology leader.";
@@ -255,6 +256,7 @@ test("real OMP loop calls only Respan and custom Scalekit tools with a fake gate
     outbound.push(endpoint);
     expect(endpoint).toBe("https://api.respan.ai/api/chat/completions");
     const body = JSON.parse(init.body);
+    requestBodies.push(body);
     expect(body.model).toBe("gpt-5.4");
     expect(body.tools.map((t: any) => t.function.name).sort()).toEqual([
       "exa_crawl",
@@ -310,6 +312,7 @@ test("real OMP loop calls only Respan and custom Scalekit tools with a fake gate
     signal = new AbortController().signal,
     sources = new Sources(),
     budget = new Budget({}, task.deadline_at, signal);
+  task.focus = "Return search queries only, not leads or outreach.";
   try {
     const { ompHarness } = await import("../src/harness/omp");
     const report = await ompHarness(
@@ -325,6 +328,10 @@ test("real OMP loop calls only Respan and custom Scalekit tools with a fake gate
       "fake-test-key",
     )(task, { budget, sources, signal, progress: () => {} });
     expect(outbound).toHaveLength(2);
+    for (const requestBody of requestBodies) {
+      expect(JSON.stringify(requestBody)).not.toContain(task.focus);
+      expect(JSON.stringify(requestBody)).toContain("research execution agent");
+    }
     expect(report.competitors).toHaveLength(1);
     expect(report.sources).toHaveLength(1);
     expect(budget.usage.model_turns).toBe(2);
@@ -336,57 +343,173 @@ test("real OMP loop calls only Respan and custom Scalekit tools with a fake gate
 
 test("report defaults match Python and whitespace cannot act as evidence", () => {
   const sources = new Sources();
-  const source = sources.add({url: "https://example.com/news", text: "Verified company announcement.", publishedDate: "2026-02-30"})!;
+  const source = sources.add({
+    url: "https://example.com/news",
+    text: "Verified company announcement.",
+    publishedDate: "2026-02-30",
+  })!;
   expect(source.published_at).toBeNull();
-  const partial = sources.finalize({leads: []});
+  const partial = sources.finalize({ leads: [] });
   expect(partial.competitors).toEqual([]);
   expect(partial.gaps).toEqual([]);
   expect(partial.summary).toBe("");
-  const forged = sources.finalize({competitors: [{company: "Example", kind: "pricing", claim: "A fabricated pricing claim.", positioning_hypothesis: "Investigate pricing", citations: [{source_id: source.id, quote: "            "}]}]});
+  const forged = sources.finalize({
+    competitors: [
+      {
+        company: "Example",
+        kind: "pricing",
+        claim: "A fabricated pricing claim.",
+        positioning_hypothesis: "Investigate pricing",
+        citations: [{ source_id: source.id, quote: "            " }],
+      },
+    ],
+  });
   expect(forged.competitors).toEqual([]);
 });
 
 test("real Respan transport auth failures are sanitized", async () => {
   const originalFetch = globalThis.fetch;
-  const fake = async () => new Response(JSON.stringify({error:{message:"Credential fake-test-key must never reach the UI",type:"authentication_error",code:"invalid_api_key"}}), {status:401, headers:{"Content-Type":"application/json"}});
-  globalThis.fetch = Object.assign(fake,{preconnect:originalFetch.preconnect}) as typeof fetch;
+  const fake = async () =>
+    new Response(
+      JSON.stringify({
+        error: {
+          message: "Credential fake-test-key must never reach the UI",
+          type: "authentication_error",
+          code: "invalid_api_key",
+        },
+      }),
+      { status: 401, headers: { "Content-Type": "application/json" } },
+    );
+  globalThis.fetch = Object.assign(fake, {
+    preconnect: originalFetch.preconnect,
+  }) as typeof fetch;
   try {
-    const {ompHarness}=await import("../src/harness/omp");
-    const task=request(),signal=new AbortController().signal;
-    const app=createApp({harness:ompHarness({execute:async()=>{throw Error("Unexpected search");}},"fake-test-key")});
+    const { ompHarness } = await import("../src/harness/omp");
+    const task = request(),
+      signal = new AbortController().signal;
+    const app = createApp({
+      harness: ompHarness(
+        {
+          execute: async () => {
+            throw Error("Unexpected search");
+          },
+        },
+        "fake-test-key",
+      ),
+    });
     await app.fetch(post(task));
-    await waitUntil(async()=>(await (await app.fetch(get())).json()).status==='failed');
-    const status=await (await app.fetch(get())).json();
+    await waitUntil(
+      async () => (await (await app.fetch(get())).json()).status === "failed",
+    );
+    const status = await (await app.fetch(get())).json();
     expect(status.error).toContain("Respan");
     expect(status.error).not.toContain("fake-test-key");
     await app.shutdown();
-  } finally {globalThis.fetch=originalFetch;}
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
 
 test("W3C coordinator context reaches real OMP model spans without content capture", async () => {
-  const {NodeTracerProvider,SimpleSpanProcessor,InMemorySpanExporter}=await import("@opentelemetry/sdk-trace-node");
-  const {tracedTask}=await import("../src/telemetry/respan");
-  const {ompHarness}=await import("../src/harness/omp");
-  const exporter=new InMemorySpanExporter();
-  const provider=new NodeTracerProvider({spanProcessors:[new SimpleSpanProcessor(exporter)]});
+  const { NodeTracerProvider, SimpleSpanProcessor, InMemorySpanExporter } =
+    await import("@opentelemetry/sdk-trace-node");
+  const { tracedTask } = await import("../src/telemetry/respan");
+  const { ompHarness } = await import("../src/harness/omp");
+  const exporter = new InMemorySpanExporter();
+  const provider = new NodeTracerProvider({
+    spanProcessors: [new SimpleSpanProcessor(exporter)],
+  });
   provider.register();
-  const originalFetch=globalThis.fetch;
-  const fake=async()=>new Response(`data: ${JSON.stringify({id:"test",object:"chat.completion.chunk",created:1,model:"gpt-5.4",choices:[{index:0,delta:{role:"assistant",content:JSON.stringify(EMPTY_REPORT)},finish_reason:null}]})}\n\ndata: ${JSON.stringify({id:"test",object:"chat.completion.chunk",created:1,model:"gpt-5.4",choices:[{index:0,delta:{},finish_reason:"stop"}]})}\n\ndata: [DONE]\n\n`,{headers:{"Content-Type":"text/event-stream"}});
-  globalThis.fetch=Object.assign(fake,{preconnect:originalFetch.preconnect}) as typeof fetch;
-  const traceID="1234567890abcdef1234567890abcdef",parentID="1234567890abcdef";
+  const originalFetch = globalThis.fetch;
+  const fake = async () =>
+    new Response(
+      `data: ${JSON.stringify({ id: "test", object: "chat.completion.chunk", created: 1, model: "gpt-5.4", choices: [{ index: 0, delta: { role: "assistant", content: JSON.stringify(EMPTY_REPORT) }, finish_reason: null }] })}\n\ndata: ${JSON.stringify({ id: "test", object: "chat.completion.chunk", created: 1, model: "gpt-5.4", choices: [{ index: 0, delta: {}, finish_reason: "stop" }] })}\n\ndata: [DONE]\n\n`,
+      { headers: { "Content-Type": "text/event-stream" } },
+    );
+  globalThis.fetch = Object.assign(fake, {
+    preconnect: originalFetch.preconnect,
+  }) as typeof fetch;
+  const traceID = "1234567890abcdef1234567890abcdef",
+    parentID = "1234567890abcdef";
   try {
-    const task=request(),signal=new AbortController().signal;
-    await tracedTask({traceparent:`00-${traceID}-${parentID}-01`},task.run_id,task.task_id,()=>ompHarness({execute:async()=>{throw Error("Unexpected search");}},"fake-test-key")(task,{budget:new Budget({},task.deadline_at,signal),sources:new Sources(),signal,progress:()=>{}}));
+    const task = request(),
+      signal = new AbortController().signal;
+    await tracedTask(
+      { traceparent: `00-${traceID}-${parentID}-01` },
+      task.run_id,
+      task.task_id,
+      () =>
+        ompHarness(
+          {
+            execute: async () => {
+              throw Error("Unexpected search");
+            },
+          },
+          "fake-test-key",
+        )(task, {
+          budget: new Budget({}, task.deadline_at, signal),
+          sources: new Sources(),
+          signal,
+          progress: () => {},
+        }),
+    );
     await provider.forceFlush();
-    const spans=exporter.getFinishedSpans();
-    const root=spans.find(s=>s.name==='research.task')!;
+    const spans = exporter.getFinishedSpans();
+    const root = spans.find((s) => s.name === "research.task")!;
     expect(root.parentSpanContext?.spanId).toBe(parentID);
-    expect(root.attributes['toir.run_id']).toBe(task.run_id);
+    expect(root.attributes["toir.run_id"]).toBe(task.run_id);
     expect(spans.length).toBeGreaterThan(2);
-    expect(spans.every(s=>s.spanContext().traceId===traceID)).toBe(true);
-    expect(spans.some(s=>s.attributes['gen_ai.request.model']==='gpt-5.4')).toBe(true);
-    const allAttributes=JSON.stringify(spans.map(s=>s.attributes));
-    expect(allAttributes).not.toContain('fake-test-key');
+    expect(spans.every((s) => s.spanContext().traceId === traceID)).toBe(true);
+    expect(
+      spans.some((s) => s.attributes["gen_ai.request.model"] === "gpt-5.4"),
+    ).toBe(true);
+    const allAttributes = JSON.stringify(spans.map((s) => s.attributes));
+    expect(allAttributes).not.toContain("fake-test-key");
     expect(allAttributes).not.toContain(task.brief.request);
-  } finally {globalThis.fetch=originalFetch;await provider.shutdown();}
-},30000);
+  } finally {
+    globalThis.fetch = originalFetch;
+    await provider.shutdown();
+  }
+}, 30000);
+
+test("an oversized planner-style summary cannot discard valid source evidence", () => {
+  const sources = new Sources();
+  sources.add({
+    url: "https://example.com/news",
+    text: "Verified evidence retained from the first pass.",
+  });
+  const report = sources.finalize({
+    ...EMPTY_REPORT,
+    summary: "Recommended search plan only. ".repeat(150),
+  });
+  expect(report.summary).toBe("");
+  expect(report.sources).toHaveLength(1);
+});
+
+test("schema diagnostics expose safe paths and rules, never rejected data", () => {
+  const sources = new Sources();
+  let failure: unknown;
+  try {
+    sources.finalize({
+      ...EMPTY_REPORT,
+      gaps: ["private-model-value"],
+      leads: [{ company: "private-company-value" }],
+    });
+  } catch (error) {
+    failure = error;
+  }
+  expect(failure).toBeInstanceOf(ResearchError);
+  expect((failure as Error).message).toContain("/leads/0/domain (required)");
+  expect((failure as Error).message).not.toContain("private-");
+  let extraFailure: unknown;
+  try {
+    sources.finalize({
+      ...EMPTY_REPORT,
+      "private-unknown-key": "private-value",
+    });
+  } catch (error) {
+    extraFailure = error;
+  }
+  expect((extraFailure as Error).message).toContain("additionalProperties");
+  expect((extraFailure as Error).message).not.toContain("private-");
+});

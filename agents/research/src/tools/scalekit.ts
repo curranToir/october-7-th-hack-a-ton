@@ -37,11 +37,27 @@ export function scalekitTransport(
   };
 }
 function code(error: unknown): number {
-  return Number(
-    (error as { status?: number; statusCode?: number; code?: number })
-      ?.status ??
-      (error as { statusCode?: number })?.statusCode ??
-      (error as { code?: number })?.code,
+  if (!error || typeof error !== "object") return Number.NaN;
+  const status = error as {
+    grpcStatus?: unknown;
+    httpStatus?: unknown;
+    status?: unknown;
+    statusCode?: unknown;
+    code?: unknown;
+  };
+  // Scalekit 2.19 exposes getters, not status/code. Prefer its gRPC status:
+  // the SDK can map an unfamiliar HTTP statusText to 500 while preserving
+  // the original authentication/rate-limit status in grpcStatus.
+  return (
+    [
+      status.grpcStatus,
+      status.httpStatus,
+      status.status,
+      status.statusCode,
+      status.code,
+    ]
+      .map(Number)
+      .find((value) => Number.isInteger(value) && value > 0) ?? Number.NaN
   );
 }
 function wait(ms: number, signal: AbortSignal) {
@@ -145,7 +161,7 @@ export class ExaTools {
             "Scalekit authentication or the Exa connected account requires attention.",
           );
         if (
-          [429, 500, 502, 503, 504, 8, 13, 14].includes(status) &&
+          [429, 500, 502, 503, 504, 4, 8, 13, 14].includes(status) &&
           attempt < 2
         ) {
           await wait(500 * 2 ** attempt, this.budget.signal);

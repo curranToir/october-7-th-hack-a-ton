@@ -158,14 +158,56 @@ def test_keeps_supported_business_need_without_inventing_appointment_or_date():
 
 @pytest.mark.parametrize("employees", [19, 1001])
 def test_excludes_companies_outside_requested_employee_range(employees):
-    assert qualify_report(report(leads=[lead(employee_count=employees)])).leads == []
+    size_quote = f"Acme is a US company with {employees} employees."
+    result = qualify_report(report(
+        leads=[lead(employee_count=employees, identity_citations=[citation(size_quote)])],
+        text=f"{size_quote} {APPOINTMENT}",
+    ))
+    assert result.leads == []
+    assert any("outside the requested 20–1000 range" in gap for gap in result.gaps)
 
 
-@pytest.mark.parametrize("employees", [20, 1000, None])
-def test_retains_boundary_and_unknown_employee_counts(employees):
-    result = qualify_report(report(leads=[lead(employee_count=employees)]))
+@pytest.mark.parametrize("employees", [20, 1000])
+def test_retains_inclusive_employee_count_boundaries(employees):
+    size_quote = f"Acme is a US company with {employees} employees."
+    result = qualify_report(report(
+        leads=[lead(employee_count=employees, identity_citations=[citation(size_quote)])],
+        text=f"{size_quote} {APPOINTMENT}",
+    ))
     assert len(result.leads) == 1
     assert result.leads[0].employee_count == employees
+
+
+def test_unknown_size_is_not_qualified_despite_strong_recent_signal():
+    identity = "Acme is a US company based in Austin, Texas."
+    candidate = lead(employee_count=None, identity_citations=[citation(identity)], fit_score=100)
+    candidates = report(leads=[candidate], text=f"{identity} {APPOINTMENT}")
+    result = qualify_report(candidates)
+    assert result.leads == []
+    assert any("employee count is unknown" in gap for gap in result.gaps)
+    assert result.sources == candidates.sources
+    # Nullable estimates remain valid candidate data; qualification does not invent a count.
+    assert candidates.leads[0].employee_count is None
+
+
+def test_employee_count_must_fit_the_actual_brief_not_only_default_bounds():
+    result = qualify_report(report(), employee_min=150, employee_max=250)
+    assert result.leads == []
+    assert any("outside the requested 150–250 range" in gap for gap in result.gaps)
+
+
+def test_unknown_size_and_stale_signal_do_not_displace_a_qualified_company():
+    candidates = [
+        lead(company="Unknown size", domain="unknown.example", employee_count=None, fit_score=100),
+        lead(company="Stale signal", domain="stale.example", fit_score=99, signals=[
+            signal(event_date=TODAY - timedelta(days=181)),
+        ]),
+        lead(company="Qualified", domain="qualified.example", fit_score=80),
+    ]
+    result = qualify_report(report(leads=candidates), target_count=1)
+    assert [candidate.domain for candidate in result.leads] == ["qualified.example"]
+    assert any("Unknown size: employee count is unknown" in gap for gap in result.gaps)
+    assert any("Stale signal: no supported, in-window buying signal" in gap for gap in result.gaps)
 
 
 def test_deduplicates_canonical_domains_and_keeps_best_supported_candidate():

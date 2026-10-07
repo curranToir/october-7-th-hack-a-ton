@@ -1,7 +1,8 @@
 import { createHash } from "node:crypto";
 import { isIP } from "node:net";
 import type { Citation, Report, Source } from "./contracts";
-import { EMPTY_REPORT, validateReport } from "./contracts";
+import { EMPTY_REPORT, validateReport, reportSchema } from "./contracts";
+import type { ErrorObject } from "ajv";
 import { ResearchError } from "./budget";
 
 export function publicURL(raw: string): string {
@@ -29,6 +30,46 @@ export function publicURL(raw: string): string {
 const sourceID = (url: string) =>
   `src_${createHash("sha256").update(url).digest("hex").slice(0, 16)}`;
 const norm = (text: string) => text.replace(/\s+/g, " ").trim().toLowerCase();
+// Diagnostics contain contract paths and validator rules only, never model values.
+const schemaFields = new Set<string>();
+function collectFields(node: unknown) {
+  if (!node || typeof node !== "object") return;
+  if (Array.isArray(node)) {
+    node.forEach(collectFields);
+    return;
+  }
+  const object = node as Record<string, unknown>;
+  if (object.properties && typeof object.properties === "object") {
+    Object.keys(object.properties).forEach((field) => schemaFields.add(field));
+  }
+  Object.values(object).forEach(collectFields);
+}
+collectFields(reportSchema);
+export class ReportValidationError extends ResearchError {
+  readonly issues: { path: string; rule: string }[];
+  constructor(errors: ErrorObject[] | null | undefined) {
+    const issues = (errors ?? []).slice(0, 5).map((error) => {
+      const parts = error.instancePath.split("/").filter(Boolean);
+      if (error.keyword === "required")
+        parts.push(String(error.params.missingProperty));
+      const path =
+        "/" +
+        parts
+          .map((part) =>
+            schemaFields.has(part) || /^\d{1,3}$/.test(part) ? part : "[field]",
+          )
+          .join("/");
+      return { path: path.slice(0, 100), rule: error.keyword };
+    });
+    super(
+      "report",
+      "Research report failed validation: " +
+        issues.map((issue) => `${issue.path} (${issue.rule})`).join("; ") +
+        ".",
+    );
+    this.issues = issues;
+  }
+}
 export class Sources {
   private items = new Map<string, Source>();
   constructor(prior: Source[] = []) {
@@ -95,12 +136,16 @@ export class Sources {
       );
     // Pydantic default_factory fields are optional in the shared JSON schema.
     // Apply those defaults before using the validated TypeScript shape.
-    const report = { ...structuredClone(EMPTY_REPORT), ...value, sources: this.list() };
+    const report = {
+      ...structuredClone(EMPTY_REPORT),
+      ...value,
+      // These fields are host-owned. Planner prose or an overlong model summary
+      // must not discard otherwise valid evidence; the coordinator writes it.
+      summary: "",
+      sources: this.list(),
+    };
     if (!validateReport(report))
-      throw new ResearchError(
-        "report",
-        "Research did not return a valid structured report.",
-      );
+      throw new ReportValidationError(validateReport.errors);
     const citationOK = (c: Citation) => {
       const s = this.items.get(c.source_id);
       const quote = norm(c.quote);

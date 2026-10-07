@@ -27,9 +27,17 @@ def qualify(report: ResearchReport, brief: Brief, today: date | None = None) -> 
         if not supported(candidate.identity_citations):
             gaps.append(f"Excluded {candidate.company}: company identity lacks retrieved evidence.")
             continue
-        if candidate.employee_count is not None and not (
-            brief.employee_min <= candidate.employee_count <= brief.employee_max
-        ):
+        if candidate.employee_count is None:
+            gaps.append(
+                f"Excluded {candidate.company}: employee count is unknown; "
+                "company-size evidence is required."
+            )
+            continue
+        if not brief.employee_min <= candidate.employee_count <= brief.employee_max:
+            gaps.append(
+                f"Excluded {candidate.company}: employee count is outside the requested "
+                f"{brief.employee_min}–{brief.employee_max} range."
+            )
             continue
         signals = []
         for signal in candidate.signals:
