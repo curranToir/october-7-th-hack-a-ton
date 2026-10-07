@@ -1,0 +1,85 @@
+# Unapplied template. Replace __AGENT_NAME__ and __AGENT_IMAGE__ before use.
+# Images must be imported into containerd before applying this manifest.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: __AGENT_NAME__
+  namespace: company-brain
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  progressDeadlineSeconds: 180
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: {maxSurge: 0, maxUnavailable: 1}
+  selector:
+    matchLabels: {app.kubernetes.io/name: __AGENT_NAME__}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: __AGENT_NAME__
+        app.kubernetes.io/part-of: company-brain
+        app.kubernetes.io/component: agent
+    spec:
+      serviceAccountName: application
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: agent
+          image: __AGENT_IMAGE__
+          imagePullPolicy: Never
+          ports: [{name: http, containerPort: 8000}]
+          resources:
+            requests: {cpu: 100m, memory: 128Mi}
+            limits: {cpu: 500m, memory: 256Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          startupProbe:
+            httpGet: {path: /health, port: http}
+            periodSeconds: 2
+            failureThreshold: 60
+          livenessProbe:
+            httpGet: {path: /health, port: http}
+            periodSeconds: 15
+            timeoutSeconds: 2
+          readinessProbe:
+            httpGet: {path: /ready, port: http}
+            periodSeconds: 5
+            timeoutSeconds: 2
+          volumeMounts: [{name: tmp, mountPath: /tmp}]
+      volumes:
+        - name: tmp
+          emptyDir: {sizeLimit: 64Mi}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: __AGENT_NAME__
+  namespace: company-brain
+spec:
+  type: ClusterIP
+  selector: {app.kubernetes.io/name: __AGENT_NAME__}
+  ports: [{name: http, port: 8000, targetPort: http}]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: __AGENT_NAME__-ingress
+  namespace: company-brain
+spec:
+  podSelector:
+    matchLabels: {app.kubernetes.io/name: __AGENT_NAME__}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels: {app.kubernetes.io/name: orchestrator}
+      ports: [{protocol: TCP, port: 8000}]

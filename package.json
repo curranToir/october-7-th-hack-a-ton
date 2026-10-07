@@ -1,0 +1,14 @@
+{
+  "name": "company-brain",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": ["apps/web"],
+  "engines": {"node": ">=24 <25"},
+  "scripts": {
+    "dev:web": "npm --workspace @company-brain/web run dev",
+    "build:web": "npm --workspace @company-brain/web run build",
+    "typecheck:web": "npm --workspace @company-brain/web run typecheck",
+    "test:api": "uv run --frozen pytest",
+    "lint:api": "uv run --frozen ruff check apps tooling infrastructure/deployment/scripts"
+  }
+}

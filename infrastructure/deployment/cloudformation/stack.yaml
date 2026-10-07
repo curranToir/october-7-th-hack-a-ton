@@ -1,0 +1,180 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Dedicated Company Brain hackathon host. No public inbound access.
+Parameters:
+  UbuntuAmi:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/canonical/ubuntu/server/24.04/stable/current/amd64/hvm/ebs-gp3/ami-id
+  K3sVersion:
+    Type: String
+    Default: v1.36.5+k3s1
+    AllowedValues: [v1.36.5+k3s1]
+Resources:
+  Vpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.87.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags: [{Key: Name, Value: !Ref 'AWS::StackName'}]
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+  GatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref Vpc
+      InternetGatewayId: !Ref InternetGateway
+  Subnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: 10.87.1.0/24
+      MapPublicIpOnLaunch: true
+  RouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref Vpc
+  InternetRoute:
+    Type: AWS::EC2::Route
+    DependsOn: GatewayAttachment
+    Properties:
+      RouteTableId: !Ref RouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+  RouteAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref Subnet
+      RouteTableId: !Ref RouteTable
+  HostSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: SSM only; no inbound access
+      VpcId: !Ref Vpc
+      SecurityGroupIngress: []
+      SecurityGroupEgress:
+        - IpProtocol: '-1'
+          CidrIp: 0.0.0.0/0
+  Artifacts:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault: {SSEAlgorithm: AES256}
+      OwnershipControls:
+        Rules: [{ObjectOwnership: BucketOwnerEnforced}]
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration: {Status: Enabled}
+      LifecycleConfiguration:
+        Rules:
+          - Id: AbortIncompleteUploads
+            Status: Enabled
+            AbortIncompleteMultipartUpload: {DaysAfterInitiation: 1}
+  ArtifactPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref Artifacts
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Deny
+            Principal: '*'
+            Action: s3:*
+            Resource: [!GetAtt Artifacts.Arn, !Sub '${Artifacts.Arn}/*']
+            Condition: {Bool: {'aws:SecureTransport': false}}
+  HostRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: {Service: ec2.amazonaws.com}
+            Action: sts:AssumeRole
+      ManagedPolicyArns: [!Sub 'arn:${AWS::Partition}:iam::aws:policy/AmazonSSMManagedInstanceCore']
+      Policies:
+        - PolicyName: ReadReleaseArtifacts
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: s3:GetObject
+                Resource: !Sub '${Artifacts.Arn}/releases/*'
+  HostProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles: [!Ref HostRole]
+  Host:
+    Type: AWS::EC2::Instance
+    DependsOn: [InternetRoute, RouteAssociation, ArtifactPolicy]
+    Properties:
+      InstanceType: t3.medium
+      ImageId: !Ref UbuntuAmi
+      IamInstanceProfile: !Ref HostProfile
+      SubnetId: !Ref Subnet
+      SecurityGroupIds: [!Ref HostSecurityGroup]
+      MetadataOptions:
+        HttpTokens: required
+        HttpPutResponseHopLimit: 1
+      CreditSpecification: {CPUCredits: standard}
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs:
+            VolumeType: gp3
+            VolumeSize: 30
+            Encrypted: true
+            DeleteOnTermination: true
+      Tags:
+        - {Key: Name, Value: !Ref 'AWS::StackName'}
+        - {Key: Project, Value: company-brain-hackathon}
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          set -euo pipefail
+          exec > >(tee -a /var/log/company-brain-bootstrap.log) 2>&1
+          export DEBIAN_FRONTEND=noninteractive
+          apt-get update
+          apt-get install -y ca-certificates curl unzip jq python3 conntrack
+          swapoff -a
+          if ! snap list amazon-ssm-agent >/dev/null 2>&1; then
+            snap install amazon-ssm-agent --classic
+          fi
+          snap start --enable amazon-ssm-agent
+          work=$(mktemp -d)
+          cd "$work"
+          curl --fail --location --retry 5 https://awscli.amazonaws.com/awscli-exe-linux-x86_64-2.35.6.zip -o awscliv2.zip
+          unzip -q awscliv2.zip
+          ./aws/install
+          curl --fail --location --retry 5 'https://github.com/k3s-io/k3s/releases/download/${K3sVersion}/k3s' -o k3s
+          echo 'd73847bcd3c5fccef0115b372e2f9a91f3032dc84bbf71518a4617565294d313  k3s' | sha256sum -c -
+          install -m 0755 k3s /usr/local/bin/k3s
+          curl --fail --location --retry 5 'https://raw.githubusercontent.com/k3s-io/k3s/${K3sVersion}/install.sh' -o install-k3s.sh
+          echo '46177d4c99440b4c0311b67233823a8e8a2fc09693f6c89af1a7161e152fbfad  install-k3s.sh' | sha256sum -c -
+          mkdir -p /etc/rancher/k3s /var/lib/company-brain/releases
+          chmod 700 /var/lib/company-brain
+          cat > /etc/rancher/k3s/config.yaml <<'K3SCONFIG'
+          write-kubeconfig-mode: "0600"
+          secrets-encryption: true
+          kubelet-arg:
+            - "kube-reserved=cpu=300m,memory=1536Mi"
+            - "system-reserved=cpu=200m,memory=512Mi"
+            - "eviction-hard=memory.available<200Mi,nodefs.available<10%"
+          K3SCONFIG
+          INSTALL_K3S_SKIP_DOWNLOAD=true INSTALL_K3S_VERSION='${K3sVersion}' sh install-k3s.sh
+          cd /
+          rm -rf "$work"
+          touch /var/lib/company-brain/bootstrap-complete
+Outputs:
+  InstanceId:
+    Value: !Ref Host
+  ArtifactBucket:
+    Value: !Ref Artifacts
+  Region:
+    Value: !Ref 'AWS::Region'
+  VpcId:
+    Value: !Ref Vpc

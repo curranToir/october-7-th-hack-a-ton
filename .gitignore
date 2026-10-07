@@ -147,3 +147,14 @@ vite.config.ts.timestamp-*
 
 # Turbo Repo
 .turbo
+
+# Python and local deployment artifacts
+.venv/
+.tools-venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.deployment/
+*.egg-info/
+.DS_Store
