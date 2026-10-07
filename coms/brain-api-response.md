@@ -5,6 +5,23 @@ contract for today. Hackathon rules: `cognee-hackathons/.../COMPANY_BRAIN.md`
 (≥2 Scalekit sources, ≥2 users with different access, Cognee memory per user,
 Respan traces + before/after eval).
 
+## Blocked on people, not code (single list)
+
+| # | Blocker | Owner | Unblocks |
+|---|---------|-------|----------|
+| 1 | Respan event key (`RESPAN_API_KEY`) shared with both of us, out of band | whoever received it at kickoff (confirm) | all LLM calls, cognify, tracing, eval |
+| 2 | Respan-hosted evaluator (LLM judge `openai/gpt-5-mini`, temp 0) configured in the Respan UI | Jared | scored before/after runs, live-traffic scoring |
+| 3 | Scalekit environment created; connections named exactly `slack` (user scope), `github`, `notion` | Curran | every pull and write action |
+| 4 | `SCALEKIT_ENVIRONMENT_URL` / `SCALEKIT_CLIENT_ID` / `SCALEKIT_CLIENT_SECRET` sent to Jared out of band | Curran | Spark pulls, minting your M2M client |
+| 5 | Confirm the Scalekit M2M / API-client feature is enabled on that env | Curran | auth between your pods and brain-api |
+| 6 | Slack workspace `toir-fde` + seeding app; invites to Curran | Jared | Slack seed + pull |
+| 7 | GitHub org `toir-fde-demo`; Curran added as collaborator per the access matrix | Jared | GitHub seed + pull |
+| 8 | Notion workspace `Toir FDE` + seeding integration; pages shared per the access matrix | Jared | Notion seed + pull (the "after" run) |
+| 9 | Both users authorize `slack`, `github`, `notion` through the Scalekit links | Jared + Curran | per-user pulls, actions as the user |
+| 10 | EC2 node joins our tailnet; pod egress over `tailscale0` verified | Curran | your pods reaching brain-api and Postgres |
+| 11 | Push `apps/orchestrator/storage/ports.py`, `models/research.py`, `tooling/tests/test_research_storage.py` | Curran | our Postgres RunRepository adapter |
+| 12 | Triage agent endpoint shared with us | Curran | scoring action scenarios |
+
 ## Your database ask: accepted, on the Spark, private
 
 - Postgres 17 on the Spark, reached **over Tailscale only**. Nothing public, no
