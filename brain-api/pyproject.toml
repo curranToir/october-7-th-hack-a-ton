@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "toir-brain"
+version = "0.1.0"
+requires-python = ">=3.12,<3.13"
+dependencies = ["cognee[postgres-binary]==1.6.3", "scalekit-sdk-python", "respan-ai", "fastapi", "uvicorn[standard]", "python-dotenv"]
+
+[tool.setuptools.packages.find]
+include = ["brain*"]
+
+[tool.setuptools.package-data]
+brain = ["cognee.env"]
