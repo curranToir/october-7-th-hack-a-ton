@@ -107,6 +107,26 @@ The Toir Exa connected account is **ACTIVE** in Scalekit. A real search through
 Scalekit returned two sources with URLs and text, and the server runtime secrets
 were synchronized with controlled coordinator/research restarts. Exa's direct
 key stays in its setup secret and Scalekit's connected account; the research
-pod receives Scalekit credentials. A full research test retrieved 44 sources
-but exposed a report-validation issue in a follow-up pass; that application fix
-is being validated separately and is unrelated to Tailscale connectivity.
+pod receives Scalekit credentials.
+
+The initial full run preserved 44 sources after a report-format failure. Its
+explicit retry, `51be4938-7297-476b-b2d4-895f418f30e3`, completed in 96 seconds:
+two companies, 74 sources and four competitor facts. All 19 citations matched
+retrieved evidence; employee counts, source IDs, dates and unique company domains
+passed checks. The two results are AI vendors with possible delivery-capacity
+opportunities; this is a narrow prospecting result, not verified buying intent.
+The report explicitly records missing funding, partnership, ad and pricing coverage.
+
+Coordinator and worker spans share trace `5902a7809174a2f5b7bf2967156717ca`.
+The run used six searches and five total model calls. Peak observed research
+memory was 326 MiB, coordinator 130 MiB, with about 1,978 MiB host memory available
+at the lowest sample and no pod restarts.
+
+Release `b50d6a099099-c919469a363d` fixes the report format and derives final
+rationale/coverage notes from accepted findings, avoiding stale candidate prose.
+The saved acceptance report's presentation was regenerated without new provider
+calls or changes to its sources, findings or citations; an event records that
+repair. Its prior state is retained in backup
+`20261007T233543Z-a2384338a956`. The original failed run and execution checkpoints
+remain intact. Local verification: 154 Python tests, 21 Bun tests, TypeScript and
+Ruff passed; 13 Postgres contract tests were skipped without a dedicated test DB.
