@@ -10,9 +10,9 @@ from uuid import UUID, uuid4
 
 import aiosqlite
 import psycopg
+import pytest
 from psycopg import sql
 from psycopg.conninfo import conninfo_to_dict, make_conninfo
-import pytest
 
 from apps.orchestrator.models.research import (
     Brief,
@@ -26,6 +26,7 @@ from apps.orchestrator.models.research import (
 from apps.orchestrator.storage.ports import Conflict
 from apps.orchestrator.storage.postgres import PostgresRunRepository
 from apps.orchestrator.storage.sqlite import SQLiteRunRepository
+
 
 @pytest.fixture(scope="session")
 def postgres_url():

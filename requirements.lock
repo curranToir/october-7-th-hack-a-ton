@@ -188,8 +188,13 @@ langgraph-checkpoint==4.2.0 \
     --hash=sha256:51a593b6bee684b0818e5d6e58e28ab340c6db7794575056ce7bd1b746a84ed7
     # via
     #   langgraph
+    #   langgraph-checkpoint-postgres
     #   langgraph-checkpoint-sqlite
     #   langgraph-prebuilt
+langgraph-checkpoint-postgres==3.1.2 \
+    --hash=sha256:1cd404803ff895a2b79f3ac04ce92b775e6b999715f8333fce674c6d927bba95 \
+    --hash=sha256:6a7e38ef16985b54e356cba7bdaf447943aae33d5aaf290026c593bb6b4a6264
+    # via company-brain
 langgraph-checkpoint-sqlite==3.1.1 \
     --hash=sha256:6fcb20db4c37ef7aad52f29b539eb98c38e2dad6fab7c2446a2a9db24f37a70e \
     --hash=sha256:8505c54c94a658080525d7e6780fdd4e0c078ff2566b30d399c02cc9f9af1c63
@@ -267,6 +272,7 @@ orjson==3.13.0 \
     --hash=sha256:fb8644dc6d705e1269ed2842bf4dbe2b4e50d670de503bf79d5cef3a5148a4c7 \
     --hash=sha256:fbbad6b9b1da43f25c1f5b20cd5a268e028a2fc95d5a8d1ade6059973bc71584
     # via
+    #   langgraph-checkpoint-postgres
     #   langgraph-sdk
     #   langsmith
 ormsgpack==1.12.2 \
@@ -288,6 +294,31 @@ packaging==26.3 \
     #   langchain-core
     #   langsmith
     #   opentelemetry-instrumentation
+psycopg==3.3.6 \
+    --hash=sha256:a1db9f7148b06a28606767efaca51fa6f9398c5c0a3810519be69d7000bdb631 \
+    --hash=sha256:c081f2250df751a943036e42db6df4571c66cd0aabe8291a7a506512b12007d2
+    # via
+    #   company-brain
+    #   langgraph-checkpoint-postgres
+psycopg-binary==3.3.6 ; implementation_name != 'pypy' \
+    --hash=sha256:1679a1cb93fbe5a6d1fd58d82cbddcc6fcb8c61446ba7cae6eb2a7b19bc585de \
+    --hash=sha256:289aadd6a00e151203c081f708348ec89f1e483c9b510ef4ac3981f847f01f79 \
+    --hash=sha256:366db6e97e66b37211475f20c4c1324a2dc0dd825e46d4e87f9d599304d276f9 \
+    --hash=sha256:37d40450659401600e6d043ff586c89a71a69f33cbb8bcdba6cdb2569beecdbe \
+    --hash=sha256:3f84dab25e0385692ee13274c68678377e0b1a70ab9d14e56264cbf61f60c62d \
+    --hash=sha256:612382ac3ed13651c7fa44b5fee9fbf7baaa2ddbc6f500391672682c5f1df9e0 \
+    --hash=sha256:a4ee3bdd5468a725f2a4d9aab8a74b6d0279f768c8b5d3aeb102c5307ff3d59c \
+    --hash=sha256:a5165300324efd5a772c48a88ab3a928513ab3979fca76553e62ee815f7b2b9c \
+    --hash=sha256:d636338c8f21b0df2f84657b00bc34f9313f826ef93f1155bc743607e4a0c5eb \
+    --hash=sha256:e23a66a763fbe83fcc210bc77c27e5a5ea380ebf091c06f34d8561b695e5a40f \
+    --hash=sha256:f21d057f3e5f5491067e5b292498073b73847d48799b099803fef100775fcc52
+    # via psycopg
+psycopg-pool==3.3.3 \
+    --hash=sha256:9b9cd6a4fcec47a410f7e82d408540e7f77b478509e91b44c1a5457a13e5ff37 \
+    --hash=sha256:df87b5d9d0ad7db37f6cdad4fa8ce113d250f5997f6db38e9a99192fb67f9e1d
+    # via
+    #   langgraph-checkpoint-postgres
+    #   psycopg
 pydantic==2.13.5 \
     --hash=sha256:346a034f080da3755d8e9cb5e00e8b07de1d39e4f6e2c87d8ab7cafa0b269a73 \
     --hash=sha256:51a9c5f7b2f8e636f04c6cada605d9b6a3bf1348fdf945a3d8869b19bba0ee08
@@ -492,6 +523,8 @@ typing-extensions==4.16.0 \
     #   opentelemetry-api
     #   opentelemetry-sdk
     #   opentelemetry-semantic-conventions
+    #   psycopg
+    #   psycopg-pool
     #   pydantic
     #   pydantic-core
     #   respan-sdk
@@ -507,7 +540,9 @@ typing-inspection==0.4.4 \
 tzdata==2026.5 ; sys_platform == 'win32' \
     --hash=sha256:8cc73c0a0bfca7dbfa59235d60b2eff82231dee33f53d206db1acd9173cfc0a7 \
     --hash=sha256:b683bd1b6659ddcd810ff02ad09ba821d4bf1065072805063eb35c49617905ac
-    # via tzlocal
+    # via
+    #   psycopg
+    #   tzlocal
 tzlocal==5.4.4 \
     --hash=sha256:8dbb8660838688a7b6ba4fed31d18dedf842afb4d47ca050d6d891c2c15f3be4 \
     --hash=sha256:aae09f0126a8a86fa736be266eb4a471380d26a0de3bc14844e7821fee3e2a15

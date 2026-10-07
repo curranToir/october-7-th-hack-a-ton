@@ -117,7 +117,9 @@ class PostgresRunRepository:
 
     async def get(self, run_id: str) -> Run | None:
         async with self.lock:
-            cursor = await self.connection.execute("SELECT payload FROM runs WHERE id=%s", (run_id,))
+            cursor = await self.connection.execute(
+                "SELECT payload FROM runs WHERE id=%s", (run_id,),
+            )
             row = await cursor.fetchone()
         return Run.model_validate(row["payload"]) if row else None
 
