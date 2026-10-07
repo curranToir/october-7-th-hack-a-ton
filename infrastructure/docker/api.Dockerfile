@@ -5,6 +5,8 @@ COPY requirements.lock ./
 RUN pip install --no-cache-dir --require-hashes -r requirements.lock
 COPY apps/__init__.py ./apps/__init__.py
 COPY apps/api ./apps/api
+COPY apps/orchestrator/__init__.py ./apps/orchestrator/__init__.py
+COPY apps/orchestrator/models ./apps/orchestrator/models
 USER 1000:1000
 EXPOSE 8000
 CMD ["python", "-m", "uvicorn", "apps.api.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1", "--no-proxy-headers"]

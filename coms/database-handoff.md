@@ -1,9 +1,9 @@
 # Toir research persistence — database engineer handoff
 
-This document is being published ahead of the research implementation so database
-work can start immediately. The interfaces below are the integration contract for
-the implementation in progress; they are not a claim that the full feature is
-already deployed. The existing TypeScript demo adapters in this directory are a
+This document was published first so database work could start immediately. The
+SQLite adapter, repository interfaces, validated models and contract tests below
+are now implemented in this repository. Live research still requires the Scalekit
+Exa connection. The existing TypeScript demo adapters in this directory are a
 separate browser demo and are not the research system of record.
 
 ## Ownership and data flow
@@ -32,6 +32,7 @@ adapter is `apps/orchestrator/storage/sqlite.py`; select the replacement in the
 storage factory used by the coordinator lifespan, not in routers or graph nodes.
 
 ```python
+async def replay(brief: Brief, key: str, parent_id: str | None = None) -> Run | None: ...
 async def create(brief: Brief, key: str, parent_id: str | None = None) -> Run: ...
 async def get(run_id: str) -> Run | None: ...
 async def list(limit: int = 50) -> list[Run]: ...
@@ -48,6 +49,10 @@ async def events(run_id: str) -> list[RunEvent]: ...
    raises `Conflict` (HTTP 409). Never dispatch paid work before the row commits.
 2. Only one run may have status `queued` or `running`. A competing creation raises
    `Conflict`. Enforce this in the database, not just a process-local lock.
+
+`replay` performs the same key/hash check without creating or dispatching work.
+The coordinator checks it before maintenance/provider readiness, so an accepted
+request remains readable even when new paid work is temporarily blocked.
 
 Retry creates a new UUID run with `parent_id` pointing to the original. It carries
 saved research evidence forward but never overwrites the original report.

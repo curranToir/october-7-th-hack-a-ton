@@ -14,6 +14,7 @@ from pathlib import Path
 
 from aws_ops import Aws
 from releases import DEPLOYMENT, ROOT, build, sha256
+from runtime_ops import SECRET_FIELDS, set_secret, stack_update
 
 HERE = Path(__file__).resolve().parent
 BOOTSTRAP_CHECK = """set -eu
@@ -42,10 +43,17 @@ def provision(aws: Aws):
         if "does not exist" not in (error.stderr or ""):
             raise
         aws.call(
-            "cloudformation", "deploy", "--template-file",
+            "cloudformation",
+            "deploy",
+            "--template-file",
             str(HERE.parent / "cloudformation/stack.yaml"),
-            "--stack-name", aws.stack, "--capabilities", "CAPABILITY_IAM",
-            "--tags", "Project=company-brain-hackathon", "--no-fail-on-empty-changeset",
+            "--stack-name",
+            aws.stack,
+            "--capabilities",
+            "CAPABILITY_IAM",
+            "--tags",
+            "Project=company-brain-hackathon",
+            "--no-fail-on-empty-changeset",
             capture=False,
         )
         outputs = aws.outputs()
@@ -61,11 +69,26 @@ def remote_script(arguments: list[str]) -> str:
     encoded = base64.b64encode(content).decode()
     runner = f"/var/lib/company-brain/runner-{hashlib.sha256(content).hexdigest()[:16]}.py"
     # Every argument is quoted as a shell token; never interpolate raw user input.
-    return "\n".join([
-        "set -eu", "umask 077", "mkdir -p /var/lib/company-brain",
-        f"printf %s {shlex.quote(encoded)} | base64 -d > {shlex.quote(runner)}",
-        shlex.join(["python3", "-u", runner, *arguments]),
-    ])
+    return "\n".join(
+        [
+            "set -eu",
+            "umask 077",
+            "mkdir -p /var/lib/company-brain",
+            f"printf %s {shlex.quote(encoded)} | base64 -d > {shlex.quote(runner)}",
+            shlex.join(["python3", "-u", runner, *arguments]),
+        ]
+    )
+
+
+def runtime_arguments(aws: Aws, outputs: dict) -> list[str]:
+    args = ["--region", aws.region, "--bucket", outputs["ArtifactBucket"]]
+    for output, flag in (
+        ("RespanSecretArn", "--respan-secret"),
+        ("ScalekitSecretArn", "--scalekit-secret"),
+    ):
+        if outputs.get(output):
+            args.extend([flag, outputs[output]])
+    return args
 
 
 def deploy(aws: Aws, archive: Path | None):
@@ -85,11 +108,28 @@ def deploy(aws: Aws, archive: Path | None):
     bucket = outputs["ArtifactBucket"]
     instance = outputs["InstanceId"]
     aws.wait_online(instance)
-    aws.call("s3", "cp", str(archive), f"s3://{bucket}/releases/{release_id}.tar.gz",
-             "--only-show-errors", capture=False)
-    aws.run_ssm(instance, remote_script([
-        "deploy", "--release-id", release_id, "--bucket", bucket, "--sha256", digest,
-    ]), timeout=1200)
+    aws.call(
+        "s3",
+        "cp",
+        str(archive),
+        f"s3://{bucket}/releases/{release_id}.tar.gz",
+        "--only-show-errors",
+        capture=False,
+    )
+    aws.run_ssm(
+        instance,
+        remote_script(
+            [
+                "deploy",
+                "--release-id",
+                release_id,
+                "--sha256",
+                digest,
+                *runtime_arguments(aws, outputs),
+            ]
+        ),
+        timeout=2400,
+    )
     print(f"Deployed {release_id}. Run the tunnel command to open the app.")
 
 
@@ -105,15 +145,20 @@ def verify(aws: Aws, agent_template: bool):
         "k3s kubectl -n company-brain rollout status deployment/web --timeout=210s",
         "k3s kubectl -n company-brain rollout status deployment/api --timeout=210s",
         "k3s kubectl -n company-brain rollout status deployment/orchestrator --timeout=210s",
-        "curl -fsS --max-time 10 http://127.0.0.1/ | grep -o 'No agents configured'",
+        "if k3s kubectl -n company-brain get deployment research >/dev/null 2>&1; then "
+        "k3s kubectl -n company-brain rollout status deployment/research --timeout=210s; "
+        "curl -fsS --max-time 10 http://127.0.0.1/research | grep -o 'Research' | head -n 1; "
+        "else curl -fsS --max-time 10 http://127.0.0.1/ | "
+        "grep -o 'No agents configured'; fi",
         "curl -fsS --max-time 10 http://127.0.0.1/api/health",
         "curl -fsS --max-time 10 http://127.0.0.1/api/ready",
-        "k3s kubectl -n company-brain exec deployment/api -- python -c " + shlex.quote(
+        "k3s kubectl -n company-brain exec deployment/api -- python -c "
+        + shlex.quote(
             "import urllib.request; print(urllib.request.urlopen("
             "'http://orchestrator:8000/ready', timeout=5).read().decode())"
         ),
-        "test \"$(k3s kubectl auth can-i create deployments "
-        "--as=system:serviceaccount:company-brain:application -n company-brain)\" = no",
+        'test "$(k3s kubectl auth can-i create deployments '
+        '--as=system:serviceaccount:company-brain:application -n company-brain)" = no',
         "k3s kubectl -n company-brain get deployment,pods,services,ingress",
         "k3s kubectl top nodes",
         "k3s kubectl top pods -A",
@@ -128,12 +173,14 @@ def verify(aws: Aws, agent_template: bool):
             "trap 'k3s kubectl -n company-brain delete deployment/agent-template-check "
             "service/agent-template-check networkpolicy/agent-template-check-ingress "
             '--ignore-not-found; rm -f "$agent_manifest"\' EXIT',
-            f"printf %s {shlex.quote(encoded)} | base64 -d > \"$agent_manifest\"",
+            f'printf %s {shlex.quote(encoded)} | base64 -d > "$agent_manifest"',
             "agent_image=$(k3s kubectl -n company-brain get deployment orchestrator "
             "-o jsonpath='{.spec.template.spec.containers[0].image}')",
-            "sed -i \"s|__AGENT_NAME__|agent-template-check|g; "
-            "s|__AGENT_IMAGE__|$agent_image|g\" \"$agent_manifest\"",
+            'sed -i "s|__AGENT_NAME__|agent-template-check|g; '
+            's|__AGENT_IMAGE__|$agent_image|g" "$agent_manifest"',
             'k3s kubectl apply -f "$agent_manifest"',
+            "k3s kubectl -n company-brain set env deployment/agent-template-check "
+            "TOIR_DATA_DIR=/tmp/toir-template",
             "k3s kubectl -n company-brain rollout status deployment/agent-template-check "
             "--timeout=210s",
             "k3s kubectl -n company-brain exec deployment/orchestrator -- python -c "
@@ -152,6 +199,27 @@ def main():
     parser.add_argument("--stack", default=os.getenv("STACK_NAME", "company-brain-hackathon"))
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("provision", help="Create a new stack, or verify an existing one")
+    commands.add_parser("stack-update", help="Add runtime secrets/IAM and backup lifecycle safely")
+    secret = commands.add_parser(
+        "secret-set", help="Store a secret from hidden prompts or JSON stdin"
+    )
+    secret.add_argument("--name", choices=tuple(SECRET_FIELDS), required=True)
+    secret.add_argument(
+        "--stdin", action="store_true", help="Read the complete JSON object from stdin"
+    )
+    sync = commands.add_parser("secret-sync", help="Synchronize AWS runtime secrets to Kubernetes")
+    sync.add_argument(
+        "--restart", action="store_true", help="Drain and restart pods to activate values"
+    )
+    commands.add_parser("backup", help="Drain and upload a consistent SQLite backup to private S3")
+    restore_command = commands.add_parser(
+        "restore", help="Preserve current state then restore a backup"
+    )
+    restore_command.add_argument("--backup-id", required=True)
+    maintenance_command = commands.add_parser(
+        "maintenance", help="Show or clear admission maintenance"
+    )
+    maintenance_command.add_argument("--resume", action="store_true")
     commands.add_parser("build", help="Build linux/amd64 images and a checked release archive")
     deployment = commands.add_parser("deploy", help="Deploy a built release through SSM")
     deployment.add_argument("--archive", type=Path)
@@ -170,30 +238,60 @@ def main():
     aws.verify_account()
     if args.command == "provision":
         provision(aws)
+    elif args.command == "stack-update":
+        stack_update(aws, HERE.parent / "cloudformation/stack.yaml")
+    elif args.command == "secret-set":
+        set_secret(aws, args.name, args.stdin)
+    elif args.command in {"secret-sync", "backup", "restore", "maintenance"}:
+        outputs = aws.outputs()
+        arguments = [args.command, *runtime_arguments(aws, outputs)]
+        if args.command == "secret-sync" and args.restart:
+            arguments.append("--restart")
+        if args.command == "restore":
+            arguments.extend(["--backup-id", args.backup_id])
+        if args.command == "maintenance" and args.resume:
+            arguments.append("--resume")
+        aws.run_ssm(outputs["InstanceId"], remote_script(arguments), timeout=1800)
     elif args.command == "deploy":
         deploy(aws, args.archive)
     elif args.command == "rollback":
-        arguments = ["rollback"] + (["--previous"] if args.previous else [])
-        aws.run_ssm(aws.outputs()["InstanceId"], remote_script(arguments), timeout=1200)
+        outputs = aws.outputs()
+        arguments = ["rollback", *runtime_arguments(aws, outputs)]
+        if args.previous:
+            arguments.append("--previous")
+        aws.run_ssm(outputs["InstanceId"], remote_script(arguments), timeout=2400)
     elif args.command == "tunnel":
         if not 1024 <= args.port <= 65535:
             raise ValueError("Choose a local port between 1024 and 65535")
         print(f"Open http://localhost:{args.port}; leave this command running.", flush=True)
         aws.call(
-            "ssm", "start-session", "--target", aws.outputs()["InstanceId"],
-            "--document-name", "AWS-StartPortForwardingSession",
-            "--parameters", json.dumps({"portNumber": ["80"], "localPortNumber": [str(args.port)]}),
+            "ssm",
+            "start-session",
+            "--target",
+            aws.outputs()["InstanceId"],
+            "--document-name",
+            "AWS-StartPortForwardingSession",
+            "--parameters",
+            json.dumps({"portNumber": ["80"], "localPortNumber": [str(args.port)]}),
             capture=False,
         )
     elif args.command == "verify":
         verify(aws, args.agent_template)
     else:
-        aws.run_ssm(aws.outputs()["InstanceId"], "\n".join([
-            "set -eu", "k3s kubectl get nodes -o wide",
-            "k3s kubectl -n company-brain get deployment,pods,services,ingress",
-            "k3s kubectl top nodes", "k3s kubectl top pods -A",
-            "df -h /", "cat /var/lib/company-brain/state.json",
-        ]))
+        aws.run_ssm(
+            aws.outputs()["InstanceId"],
+            "\n".join(
+                [
+                    "set -eu",
+                    "k3s kubectl get nodes -o wide",
+                    "k3s kubectl -n company-brain get deployment,pods,services,ingress",
+                    "k3s kubectl top nodes",
+                    "k3s kubectl top pods -A",
+                    "df -h /",
+                    "cat /var/lib/company-brain/state.json",
+                ]
+            ),
+        )
 
 
 if __name__ == "__main__":

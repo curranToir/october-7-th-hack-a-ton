@@ -1,0 +1,326 @@
+{
+  "$defs": {
+    "Citation": {
+      "additionalProperties": false,
+      "properties": {
+        "source_id": {
+          "title": "Source Id",
+          "type": "string"
+        },
+        "quote": {
+          "maxLength": 1000,
+          "minLength": 12,
+          "title": "Quote",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_id",
+        "quote"
+      ],
+      "title": "Citation",
+      "type": "object"
+    },
+    "CompetitorFact": {
+      "additionalProperties": false,
+      "properties": {
+        "company": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Company",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "advertisement",
+            "marketing",
+            "pricing",
+            "customer"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "claim": {
+          "maxLength": 1500,
+          "minLength": 10,
+          "title": "Claim",
+          "type": "string"
+        },
+        "citations": {
+          "items": {
+            "$ref": "#/$defs/Citation"
+          },
+          "maxItems": 5,
+          "minItems": 1,
+          "title": "Citations",
+          "type": "array"
+        },
+        "positioning_hypothesis": {
+          "maxLength": 1500,
+          "title": "Positioning Hypothesis",
+          "type": "string"
+        }
+      },
+      "required": [
+        "company",
+        "kind",
+        "claim",
+        "citations",
+        "positioning_hypothesis"
+      ],
+      "title": "CompetitorFact",
+      "type": "object"
+    },
+    "Lead": {
+      "additionalProperties": false,
+      "properties": {
+        "company": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Company",
+          "type": "string"
+        },
+        "domain": {
+          "maxLength": 253,
+          "minLength": 3,
+          "title": "Domain",
+          "type": "string"
+        },
+        "country": {
+          "const": "US",
+          "title": "Country",
+          "type": "string"
+        },
+        "employee_count": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Employee Count"
+        },
+        "identity_citations": {
+          "items": {
+            "$ref": "#/$defs/Citation"
+          },
+          "maxItems": 5,
+          "minItems": 1,
+          "title": "Identity Citations",
+          "type": "array"
+        },
+        "decision_maker": {
+          "anyOf": [
+            {
+              "maxLength": 300,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Decision Maker"
+        },
+        "signals": {
+          "items": {
+            "$ref": "#/$defs/Signal"
+          },
+          "maxItems": 5,
+          "minItems": 1,
+          "title": "Signals",
+          "type": "array"
+        },
+        "ai_use_case": {
+          "maxLength": 1500,
+          "minLength": 10,
+          "title": "Ai Use Case",
+          "type": "string"
+        },
+        "rationale": {
+          "maxLength": 1500,
+          "minLength": 10,
+          "title": "Rationale",
+          "type": "string"
+        },
+        "outreach_angle": {
+          "maxLength": 1500,
+          "minLength": 10,
+          "title": "Outreach Angle",
+          "type": "string"
+        },
+        "fit_score": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Fit Score",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "company",
+        "domain",
+        "country",
+        "identity_citations",
+        "signals",
+        "ai_use_case",
+        "rationale",
+        "outreach_angle",
+        "fit_score"
+      ],
+      "title": "Lead",
+      "type": "object"
+    },
+    "Signal": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "leadership",
+            "funding",
+            "partnership",
+            "business_need"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "claim": {
+          "maxLength": 1500,
+          "minLength": 10,
+          "title": "Claim",
+          "type": "string"
+        },
+        "event_date": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Event Date"
+        },
+        "citations": {
+          "items": {
+            "$ref": "#/$defs/Citation"
+          },
+          "maxItems": 5,
+          "minItems": 1,
+          "title": "Citations",
+          "type": "array"
+        }
+      },
+      "required": [
+        "kind",
+        "claim",
+        "event_date",
+        "citations"
+      ],
+      "title": "Signal",
+      "type": "object"
+    },
+    "Source": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^src_[a-f0-9]{16}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "url": {
+          "format": "uri",
+          "maxLength": 2083,
+          "minLength": 1,
+          "title": "Url",
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 500,
+          "title": "Title",
+          "type": "string"
+        },
+        "retrieved_at": {
+          "format": "date-time",
+          "title": "Retrieved At",
+          "type": "string"
+        },
+        "published_at": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Published At"
+        },
+        "text": {
+          "maxLength": 12000,
+          "minLength": 1,
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "url",
+        "title",
+        "retrieved_at",
+        "text"
+      ],
+      "title": "Source",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "leads": {
+      "items": {
+        "$ref": "#/$defs/Lead"
+      },
+      "maxItems": 30,
+      "title": "Leads",
+      "type": "array"
+    },
+    "competitors": {
+      "items": {
+        "$ref": "#/$defs/CompetitorFact"
+      },
+      "maxItems": 20,
+      "title": "Competitors",
+      "type": "array"
+    },
+    "sources": {
+      "items": {
+        "$ref": "#/$defs/Source"
+      },
+      "maxItems": 100,
+      "title": "Sources",
+      "type": "array"
+    },
+    "gaps": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 40,
+      "title": "Gaps",
+      "type": "array"
+    },
+    "summary": {
+      "default": "",
+      "maxLength": 3000,
+      "title": "Summary",
+      "type": "string"
+    }
+  },
+  "title": "ResearchReport",
+  "type": "object"
+}

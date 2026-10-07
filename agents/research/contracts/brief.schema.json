@@ -1,0 +1,64 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "request": {
+      "maxLength": 4000,
+      "minLength": 10,
+      "title": "Request",
+      "type": "string"
+    },
+    "geography": {
+      "const": "US",
+      "default": "US",
+      "title": "Geography",
+      "type": "string"
+    },
+    "employee_min": {
+      "default": 20,
+      "maximum": 100000,
+      "minimum": 1,
+      "title": "Employee Min",
+      "type": "integer"
+    },
+    "employee_max": {
+      "default": 1000,
+      "maximum": 100000,
+      "minimum": 1,
+      "title": "Employee Max",
+      "type": "integer"
+    },
+    "target_count": {
+      "default": 10,
+      "maximum": 10,
+      "minimum": 1,
+      "title": "Target Count",
+      "type": "integer"
+    },
+    "leadership_days": {
+      "default": 180,
+      "maximum": 365,
+      "minimum": 1,
+      "title": "Leadership Days",
+      "type": "integer"
+    },
+    "signal_days": {
+      "default": 90,
+      "maximum": 365,
+      "minimum": 1,
+      "title": "Signal Days",
+      "type": "integer"
+    },
+    "deadline_seconds": {
+      "default": 600,
+      "maximum": 600,
+      "minimum": 60,
+      "title": "Deadline Seconds",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "request"
+  ],
+  "title": "Brief",
+  "type": "object"
+}
