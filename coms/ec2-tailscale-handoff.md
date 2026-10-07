@@ -2,7 +2,8 @@
 
 Verified October 7, 2026 (America/Los_Angeles). The EC2 node has joined the
 `neptuneops.com` tailnet and the coordinator pod can reach the confirmed Spark
-host. PostgreSQL is not accepting TCP connections on its Tailscale address yet.
+host. After the Spark owner rebound PostgreSQL, both the host and pod passed
+PostgreSQL connectivity and certificate verification over Tailscale.
 
 ## Connection details
 
@@ -51,31 +52,39 @@ standard cluster/public DNS configuration is preserved.
 | Tailscale ping to Spark | 3/3 succeeded, direct path |
 | Coordinator pod MagicDNS | Spark FQDN resolves to `100.87.113.122` |
 | Host and coordinator pod → Spark TCP 22 | Connected; no SSH authentication attempted |
-| Host and coordinator pod → Spark TCP 5432 | **Connection refused**, errno 111 |
+| Host and coordinator pod → Spark TCP 5432 | **Connected** after the Spark rebind |
+| PostgreSQL SSLRequest and TLS handshake | **Passed** on host and pod: TLS 1.3, system CA trust, exact Spark FQDN verification |
 | Host and coordinator pod → Spark TCP 8200 | **Connection refused**, errno 111 |
 
 The successful pod TCP connection proves the outbound/return path through the
-host. The refusals are not a successful database or brain-api test: those
-services are not accepting connections on the tested Spark address/ports. A
-missing listener, loopback-only/container binding, or an explicit firewall
-reject can cause this; the Spark configuration has not been changed or inspected.
+host. The earlier PostgreSQL refusal was superseded by the successful recheck
+after the Spark owner's rebind. The TLS certificate's SAN matches
+`waffle-spark.taild4c940.ts.net` and expires January 5, 2027 at 22:15:15 UTC.
+SSM verification command: `bec37c5f-0226-43b2-b4e0-cbb07fc710e7`.
+
+Host system DNS remains unchanged; the host check connected to the Tailscale IP
+and used the FQDN for SNI/certificate verification. Normal pod DNS resolves the
+FQDN. Port 8200 still refuses connections and `/health` is unavailable. A missing
+listener, loopback-only/container binding, or an explicit firewall reject can
+cause that refusal; the Spark configuration was not changed or inspected here.
 
 ## Next steps for the database engineer
 
-1. Start/bind PostgreSQL on the Spark Tailscale interface at
-   `100.87.113.122:5432`; check container port publication or host firewall rules
-   if the service is already running. Allow the EC2 source `100.86.7.62/32`.
+1. PostgreSQL is reachable on `100.87.113.122:5432`. The EC2 source is
+   `100.86.7.62/32` if narrowing the Spark access rule.
 2. Use the previously agreed database and restricted role, both `toir_runs`,
    with `hostssl`/SCRAM and verified TLS. Use
    `waffle-spark.taild4c940.ts.net` as the certificate hostname; pod DNS is ready.
 3. Supply the connection configuration through the project AWS Secrets Manager
    handoff. Do not paste credentials into `/coms`. The coordinator still uses
-   SQLite until the Postgres adapter/checkpointer replacement is installed.
+   SQLite until a deliberate storage migration/cutover. The Postgres adapter
+   has landed on `main`; its presence does not migrate existing SQLite history
+   or enable `DATABASE_URL` in the deployed coordinator.
 4. Publish `brain-api` on port `8200` if that remains the agreed API port, then
-   confirm its `/health` endpoint over the tailnet.
+   confirm its `/health` endpoint over the tailnet; this is still pending.
 5. Repeat the network check below, then validate database login and TLS using
-   the actual runtime credentials. Database authentication, certificate
-   verification and a SQL query have **not** been tested yet.
+   the actual runtime credentials. Certificate verification passed; database
+   authentication and a SQL query have **not** been tested from EC2 yet.
 
 ```sh
 .venv/bin/python infrastructure/deployment/scripts/tailscale_host.py verify \

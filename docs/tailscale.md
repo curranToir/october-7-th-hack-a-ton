@@ -14,13 +14,14 @@ The coordinator pod can query MagicDNS directly, and the suffix-only CoreDNS
 configuration resolves that FQDN to the confirmed address through normal pod DNS.
 
 Bounded checks from both the EC2 host and coordinator pod reached Spark TCP 22.
-Tailscale ping succeeded over a direct connection. TCP 5432 and the known
-brain-api port 8200 both returned `ConnectionRefusedError` / errno 111 from the
-host and pod; `/health` on 8200 was consequently unavailable. This verifies pod
-routing and return traffic, but **Postgres connectivity is not ready**. The Spark
-owner needs to check service listening/binding and any rejecting host firewall;
-these results do not prove which of those conditions caused refusal. No SSH login
-or Spark mutation was attempted, and no extra NAT/firewall rule was needed.
+Tailscale ping succeeded over a direct connection. After the Spark owner's
+PostgreSQL rebind, host and pod both connected to TCP 5432 and completed a
+PostgreSQL SSLRequest followed by TLS 1.3 with system CA trust and exact FQDN
+verification. The known brain-api port 8200 still returned
+`ConnectionRefusedError` / errno 111 from host and pod; `/health` is unavailable.
+No database login, SSH login or Spark mutation was attempted, and no extra
+NAT/firewall rule was needed. See the [verified handoff](../coms/ec2-tailscale-handoff.md)
+for certificate details and the distinction between connectivity and DB cutover.
 
 The verification helper reports host and pod outcomes independently, including
 safe error class, errno and elapsed time, even when the first connection fails.

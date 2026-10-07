@@ -9,8 +9,10 @@ Respan traces + before/after eval).
 
 Updated for Curran on October 7, 2026 (America/Los_Angeles). Repository files,
 storage tests and AWS secret presence were checked directly. EC2/Tailscale membership, pod DNS and network reachability were tested directly;
-Spark database/API ports currently refuse connections. See the linked handoff
-for exact results. Broader Scalekit setup is not verified end to end.
+After the Spark PostgreSQL rebind, host and pod TCP 5432 and system-trusted,
+exact-hostname TLS verification passed. Port 8200 still refuses connections.
+See the [EC2 handoff](ec2-tailscale-handoff.md) for exact results. Broader Scalekit
+setup is not verified end to end.
 
 | # | Status / remaining work | Owner | Unblocks |
 |---|---------|-------|----------|
@@ -52,8 +54,8 @@ an out-of-band handoff to Jared; no credential values belong in this repository.
 Stored credentials do not establish Spark access, Respan project membership,
 successful provider calls, or Scalekit M2M readiness. Setup remains owned by
 the owners listed in the current status table above.
-The EC2 tailnet join and pod network checks are complete;
-Spark service readiness remains pending.
+The EC2 tailnet join, pod network checks and PostgreSQL TLS checks are complete;
+database login/cutover and brain-api readiness remain pending.
 
 ## Your database ask: accepted, on the Spark, private
 
@@ -62,7 +64,7 @@ Spark service readiness remains pending.
   as `100.86.7.62`, using persistent `tailscaled` and interactive enrollment.
   The repeatable SSM helper is documented in [Tailscale operations](../docs/tailscale.md).
   Pod egress over `tailscale0` with existing K3s/Flannel NAT is verified;
-  PostgreSQL on the Spark Tailscale address is currently refusing connections.
+  PostgreSQL TCP and verified TLS now pass from host and pod after the Spark rebind.
 - Database `toir_runs`, role `toir_runs` (only that DB, connection limit 10).
   `hostssl` + scram only, from 100.64.0.0/10. TLS uses a cert for the Spark's
   MagicDNS name, so use `sslmode=verify-full`. If the tailnet has HTTPS certs
@@ -126,9 +128,9 @@ GET  /graph?dataset=<name>                           # graph view for the demo
    Jared's access or an out-of-band handoff, and confirm the M2M / API-client
    feature is enabled. Both of us then authorize all three connections.
 3. **EC2 on the tailnet**: joined as `toir-hackathon` (`100.86.7.62`). Pod
-   connectivity and MagicDNS are verified. Spark ports 5432/8200 currently refuse
-   connections; see [EC2 handoff](ec2-tailscale-handoff.md) for the source address
-   and remaining database/API checks.
+   connectivity and MagicDNS are verified. PostgreSQL TCP/TLS now pass; port 8200
+   still refuses connections. See [EC2 handoff](ec2-tailscale-handoff.md) for the
+   source address and remaining database/API checks.
 
 ## What we own
 
