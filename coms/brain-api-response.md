@@ -8,9 +8,9 @@ Respan traces + before/after eval).
 ## Integration status (single list)
 
 Updated for Curran on October 7, 2026 (America/Los_Angeles). Repository files,
-storage tests and AWS secret presence were checked directly. Scalekit connection
-setup and the EC2/Tailscale work below reflect Curran's current progress; they
-have not been independently tested end to end.
+storage tests and AWS secret presence were checked directly. EC2/Tailscale membership, pod DNS and network reachability were tested directly;
+Spark database/API ports currently refuse connections. See the linked handoff
+for exact results. Broader Scalekit setup is not verified end to end.
 
 | # | Status / remaining work | Owner | Unblocks |
 |---|---------|-------|----------|
@@ -23,7 +23,7 @@ have not been independently tested end to end.
 | 7 | GitHub org `toir-fde-demo`; Curran added as collaborator per the access matrix | Jared | GitHub seed + pull |
 | 8 | Notion workspace `Toir FDE` + seeding integration; pages shared per the access matrix | Jared | Notion seed + pull (the "after" run) |
 | 9 | Both users must authorize `slack`, `github`, `notion` through the Scalekit links. Per-user authorization is not verified; GitHub and Notion also await connection setup. | Jared + Curran | per-user pulls, actions as the user |
-| 10 | **In progress (Curran update):** Curran is moving EC2 onto Tailscale. Tailnet join and pod egress over `tailscale0` are not yet verified. | Curran | your pods reaching brain-api and Postgres |
+| 10 | **EC2 joined and pod network verified:** `toir-hackathon` / `100.86.7.62` in `neptuneops.com`; pod DNS resolves `waffle-spark` and host/pod TCP 22 succeeds. Spark `100.87.113.122:5432` and `:8200` return connection refused; database/API service readiness is still pending. See [EC2 handoff](ec2-tailscale-handoff.md). | Curran (network done), Jared (Spark listeners) | your pods reaching brain-api and Postgres |
 | 11 | **Done, verified on GitHub:** all three requested files are on `main` in `5d66e70`; SQLite storage suite passes **14 tests**. Jared can start the Postgres adapter. | Curran (published), Jared (adapter) | our Postgres RunRepository adapter |
 | 12 | Triage agent endpoint shared with us | Curran | scoring action scenarios |
 
@@ -48,16 +48,18 @@ versions, without displaying values. Use authorized Secrets Manager access or
 an out-of-band handoff to Jared; no credential values belong in this repository.
 Stored credentials do not establish Spark access, Respan project membership,
 successful provider calls, or Scalekit M2M readiness. Setup remains owned by
-Curran, with GitHub/Notion connections and EC2/Tailscale work still in progress
-as listed above.
+Curran, with GitHub/Notion connections still in progress as listed above.
+The EC2 tailnet join and pod network checks are complete;
+Spark service readiness remains pending.
 
 ## Your database ask: accepted, on the Spark, private
 
 - Postgres 17 on the Spark, reached **over Tailscale only**. Nothing public, no
-  Funnel, no inbound EC2 rule. **Your EC2 node joins our tailnet**: add
-  `tailscaled` + an auth key to the CloudFormation bootstrap. Pods reach the
-  Spark through node NAT; please verify pod egress over `tailscale0` under
-  K3s/flannel.
+  Funnel, no public inbound EC2 rule. **The EC2 node has joined the tailnet**
+  as `100.86.7.62`, using persistent `tailscaled` and interactive enrollment.
+  The repeatable SSM helper is documented in [Tailscale operations](../docs/tailscale.md).
+  Pod egress over `tailscale0` with existing K3s/Flannel NAT is verified;
+  PostgreSQL on the Spark Tailscale address is currently refusing connections.
 - Database `toir_runs`, role `toir_runs` (only that DB, connection limit 10).
   `hostssl` + scram only, from 100.64.0.0/10. TLS uses a cert for the Spark's
   MagicDNS name, so use `sslmode=verify-full`. If the tailnet has HTTPS certs
@@ -120,8 +122,10 @@ GET  /graph?dataset=<name>                           # graph view for the demo
    credentials are verified in `/company-brain-hackathon/scalekit`; arrange
    Jared's access or an out-of-band handoff, and confirm the M2M / API-client
    feature is enabled. Both of us then authorize all three connections.
-3. **EC2 on the tailnet**: in progress with Curran; verify the node join and pod
-   connectivity before marking this complete.
+3. **EC2 on the tailnet**: joined as `toir-hackathon` (`100.86.7.62`). Pod
+   connectivity and MagicDNS are verified. Spark ports 5432/8200 currently refuse
+   connections; see [EC2 handoff](ec2-tailscale-handoff.md) for the source address
+   and remaining database/API checks.
 
 ## What we own
 
