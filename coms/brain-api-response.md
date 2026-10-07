@@ -5,22 +5,51 @@ contract for today. Hackathon rules: `cognee-hackathons/.../COMPANY_BRAIN.md`
 (≥2 Scalekit sources, ≥2 users with different access, Cognee memory per user,
 Respan traces + before/after eval).
 
-## Blocked on people, not code (single list)
+## Integration status (single list)
 
-| # | Blocker | Owner | Unblocks |
+Updated for Curran on October 7, 2026 (America/Los_Angeles). Repository files,
+storage tests and AWS secret presence were checked directly. Scalekit connection
+setup and the EC2/Tailscale work below reflect Curran's current progress; they
+have not been independently tested end to end.
+
+| # | Status / remaining work | Owner | Unblocks |
 |---|---------|-------|----------|
-| 1 | Respan event key (`RESPAN_API_KEY`) sent to Jared out of band | Curran (set Respan up) | all LLM calls, cognify, tracing, eval |
+| 1 | **Key stored, verified:** nonempty `RESPAN_API_KEY` in AWS Secrets Manager `/company-brain-hackathon/respan`, `us-east-1`. Jared's retrieval/access and successful use on Spark still need confirmation. | Curran (access), Jared (consume) | all LLM calls, cognify, tracing, eval |
 | 2 | Respan-hosted evaluator (LLM judge `openai/gpt-5-mini`, temp 0) configured in Curran's Respan project; Jared invited to that project | Curran (invite), Jared (evaluator) | scored before/after runs, live-traffic scoring |
-| 3 | Scalekit environment created; connections named exactly `slack` (user scope), `github`, `notion` | Curran | every pull and write action |
-| 4 | `SCALEKIT_ENVIRONMENT_URL` / `SCALEKIT_CLIENT_ID` / `SCALEKIT_CLIENT_SECRET` sent to Jared out of band | Curran | Spark pulls, minting your M2M client |
-| 5 | Confirm the Scalekit M2M / API-client feature is enabled on that env | Curran | auth between your pods and brain-api |
+| 3 | **Partially complete (Curran update):** Scalekit environment and Slack setup are made; `github` and `notion` connections remain. Required names stay exactly `slack` (user scope), `github`, `notion`. | Curran | every pull and write action |
+| 4 | **Credentials stored, verified:** nonempty `SCALEKIT_ENVIRONMENT_URL`, `SCALEKIT_CLIENT_ID`, `SCALEKIT_CLIENT_SECRET` in AWS Secrets Manager `/company-brain-hackathon/scalekit`, `us-east-1`. Jared's retrieval/access still needs confirmation. | Curran (access), Jared (consume) | Spark pulls, minting your M2M client |
+| 5 | Explicit confirmation of Scalekit M2M / API-client enablement is still outstanding; credential presence does not verify this feature or a `brain-api` client. | Curran | auth between your pods and brain-api |
 | 6 | Slack workspace `toir-fde` + seeding app; invites to Curran | Jared | Slack seed + pull |
 | 7 | GitHub org `toir-fde-demo`; Curran added as collaborator per the access matrix | Jared | GitHub seed + pull |
 | 8 | Notion workspace `Toir FDE` + seeding integration; pages shared per the access matrix | Jared | Notion seed + pull (the "after" run) |
-| 9 | Both users authorize `slack`, `github`, `notion` through the Scalekit links | Jared + Curran | per-user pulls, actions as the user |
-| 10 | EC2 node joins our tailnet; pod egress over `tailscale0` verified | Curran | your pods reaching brain-api and Postgres |
-| 11 | Push `apps/orchestrator/storage/ports.py`, `models/research.py`, `tooling/tests/test_research_storage.py` | Curran | our Postgres RunRepository adapter |
+| 9 | Both users must authorize `slack`, `github`, `notion` through the Scalekit links. Per-user authorization is not verified; GitHub and Notion also await connection setup. | Jared + Curran | per-user pulls, actions as the user |
+| 10 | **In progress (Curran update):** Curran is moving EC2 onto Tailscale. Tailnet join and pod egress over `tailscale0` are not yet verified. | Curran | your pods reaching brain-api and Postgres |
+| 11 | **Done, verified on GitHub:** all three requested files are on `main` in `5d66e70`; SQLite storage suite passes **14 tests**. Jared can start the Postgres adapter. | Curran (published), Jared (adapter) | our Postgres RunRepository adapter |
 | 12 | Triage agent endpoint shared with us | Curran | scoring action scenarios |
+
+### Verified files and secret handoff
+
+The requested files were published in
+[`5d66e70`](https://github.com/curranToir/october-7-th-hack-a-ton/commit/5d66e707f260f0e6d204806d98ca2120d81bfeda):
+
+- [`apps/orchestrator/storage/ports.py`](../apps/orchestrator/storage/ports.py): `RunRepository` protocol and `Conflict`.
+- [`apps/orchestrator/models/research.py`](../apps/orchestrator/models/research.py): validated brief, run, event and research/evidence models.
+- [`tooling/tests/test_research_storage.py`](../tooling/tests/test_research_storage.py): `.venv/bin/python -m pytest tooling/tests/test_research_storage.py -q` → **14 passed** on October 7.
+
+The current tests instantiate `SQLiteRunRepository` directly. Extend or
+parameterize them for Postgres, including adapter-specific cases; this result
+does not validate a Postgres implementation. The startup integration point is
+[`apps/orchestrator/storage/factory.py`](../apps/orchestrator/storage/factory.py).
+It currently uses SQLite when `DATABASE_URL` is absent and rejects a configured
+`DATABASE_URL` until the replacement adapter is installed.
+
+Both AWS secret checks verified nonempty required fields in the `AWSCURRENT`
+versions, without displaying values. Use authorized Secrets Manager access or
+an out-of-band handoff to Jared; no credential values belong in this repository.
+Stored credentials do not establish Spark access, Respan project membership,
+successful provider calls, or Scalekit M2M readiness. Setup remains owned by
+Curran, with GitHub/Notion connections and EC2/Tailscale work still in progress
+as listed above.
 
 ## Your database ask: accepted, on the Spark, private
 
@@ -37,9 +66,9 @@ Respan traces + before/after eval).
 - Adapter: we write `apps/orchestrator/storage/postgres.py` (RunRepository on
   Postgres, `one_active_run` partial unique index, monotonic event sequence)
   and the `AsyncPostgresSaver` selection by `DATABASE_URL`, then run
-  `tooling/tests/test_research_storage.py` against it. **Blocked until you push
-  `storage/ports.py`, `models/research.py` and that test file.** Missing
-  `DATABASE_URL` keeps SQLite, as you specified.
+  `tooling/tests/test_research_storage.py` against it. **The requested interfaces,
+  models and tests are now on `main` (`5d66e70`); the file-publication blocker is
+  cleared.** Missing `DATABASE_URL` keeps SQLite, as you specified.
 
 ## Company Brain: what the Spark serves
 
@@ -86,12 +115,13 @@ GET  /graph?dataset=<name>                           # graph view for the demo
    token); (b) pre-call account brief → Slack DM as the user. Route your LLM
    calls through the Respan gateway (`https://api.respan.ai/api`, event key) and
    trace with `respan-ai`.
-2. **Scalekit env** (you create it): connections named exactly `slack`
-   (user scope), `github`, `notion`. Send us `SCALEKIT_ENVIRONMENT_URL`,
-   `SCALEKIT_CLIENT_ID`, `SCALEKIT_CLIENT_SECRET` out of band, and confirm the
-   M2M / API-client feature is enabled on the env. Both of us then authorize
-   all three connections.
-3. **EC2 on the tailnet** (above).
+2. **Scalekit env**: environment/Slack setup is made per Curran's update;
+   finish connections named exactly `github` and `notion`. The required env
+   credentials are verified in `/company-brain-hackathon/scalekit`; arrange
+   Jared's access or an out-of-band handoff, and confirm the M2M / API-client
+   feature is enabled. Both of us then authorize all three connections.
+3. **EC2 on the tailnet**: in progress with Curran; verify the node join and pod
+   connectivity before marking this complete.
 
 ## What we own
 
