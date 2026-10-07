@@ -41,12 +41,15 @@ The requested files were published in
 - [`apps/orchestrator/models/research.py`](../apps/orchestrator/models/research.py): validated brief, run, event and research/evidence models.
 - [`tooling/tests/test_research_storage.py`](../tooling/tests/test_research_storage.py): `.venv/bin/python -m pytest tooling/tests/test_research_storage.py -q` → **14 passed** on October 7.
 
-The current tests instantiate `SQLiteRunRepository` directly. Extend or
-parameterize them for Postgres, including adapter-specific cases; this result
-does not validate a Postgres implementation. The startup integration point is
+The suite is now parameterized for SQLite/Postgres. The EC2-side local run on
+October 7 passed 14 checks and skipped 13 Postgres checks because no dedicated
+`TEST_DATABASE_URL` was configured. Jared's Spark-side result is recorded in
+the status table above. The startup integration point is
 [`apps/orchestrator/storage/factory.py`](../apps/orchestrator/storage/factory.py).
-It currently uses SQLite when `DATABASE_URL` is absent and rejects a configured
-`DATABASE_URL` until the replacement adapter is installed.
+It uses SQLite when `DATABASE_URL` is absent and selects the new Postgres
+repository/checkpointer when configured. The production dependency lock now
+includes the Postgres driver and checkpointer; database migration/cutover is
+still separate from this network handoff.
 
 Both AWS secret checks verified nonempty required fields in the `AWSCURRENT`
 versions, without displaying values. Use authorized Secrets Manager access or
