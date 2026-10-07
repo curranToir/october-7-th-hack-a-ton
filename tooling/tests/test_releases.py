@@ -103,8 +103,8 @@ def test_release_id_cannot_be_used_as_a_path(release_id):
         remote_apply.validate_id(release_id)
 
 
-def test_render_only_deploys_foundation():
-    names = ("web", "api", "orchestrator")
+def test_render_deploys_foundation_and_research():
+    names = ("web", "api", "orchestrator", "research")
     images = {name: f"company-brain.local/{name}:test" for name in names}
     rendered = render(ROOT / "infrastructure/deployment/kubernetes/foundation.json",
                       images, "source-sha", "source-hash")

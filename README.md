@@ -6,8 +6,15 @@ TypeScript, and FastAPI on one dedicated AWS `t3.medium` running K3s.
 The web app includes light/dark chat, sessions, task approvals and user settings.
 Its fictional demo data stays in browser storage behind the root-level
 [`coms/` data adapter](coms/README.md), ready for database integration.
-The API and orchestration host provide health probes only. The foundation has
-no live task execution, database, AI provider, login, or predefined agent.
+The separate **Toir research workspace at `/research`** uses the API and a custom
+LangGraph coordinator to run an Oh My Pi research agent in its own pod. It saves
+research history and grounded evidence in local SQLite. Models use the Respan
+gateway; public-web retrieval uses Exa through Scalekit. The chat/approval demo
+remains browser-local and does not execute its example actions.
+
+Research setup: [Scalekit connection](docs/scalekit-setup.md),
+[server operations](docs/operations.md), and
+[database engineer handoff](coms/database-handoff.md).
 
 The separate [RAG service](rag-db-api/README.md) has its own setup instructions
 and is not included in the foundation's Kubernetes deployment.
@@ -18,13 +25,13 @@ and is not included in the foundation's Kubernetes deployment.
 apps/
   web/                 Next.js application shell
   api/                 Browser-facing FastAPI host
-  orchestrator/        Internal orchestration placeholder
-agents/                Reserved for agent implementations
+  orchestrator/        Internal LangGraph coordinator and SQLite adapters
+agents/research/       Internal Oh My Pi research agent (Bun)
 products/              Reserved for product boundaries
 compositions/          Reserved for workflows
 rag-db-api/            Separate RAG service with its own setup
 infrastructure/
-  docker/              Three production Dockerfiles
+  docker/              Four production Dockerfiles
   deployment/
     cloudformation/    Dedicated AWS resources and bootstrap
     kubernetes/        Deployments, Services, ingress, network policies
@@ -36,7 +43,7 @@ docs/                  Architecture and operations
 ```
 
 Each future agent gets **its own always-running pod**, image, Deployment, and
-internal Service. Agent types remain undefined.
+internal Service. The first implemented capability is Toir sales research.
 
 ## Deploy and open
 
@@ -86,7 +93,10 @@ npm run dev:web
 .venv/bin/python -m uvicorn apps.orchestrator.main:app --host 127.0.0.1 --port 8001 --reload
 ```
 
-The web scaffold makes no backend calls yet, so no local proxy is needed.
+The browser-local workspace demo does not require the backend. For live research,
+use the deployed SSM tunnel at `http://localhost:8080/research`; the ingress sends
+`/api/*` to FastAPI. Runtime secrets stay on the server. See operations for local
+service ports and the secure secret-entry commands.
 
 ```sh
 .venv/bin/pytest -q

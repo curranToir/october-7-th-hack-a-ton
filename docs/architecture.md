@@ -1,54 +1,81 @@
-# Foundation architecture
+# Toir research architecture
 
-This project follows Athena's organization and stack. It has no source imports,
-shared credentials, business features, or runtime dependencies on Athena/Rhea.
+The initial customer is Toir's internal sales team. The application follows
+Athena's folder conventions without importing its credentials or application
+logic. Rhea's evidence-first research pattern informs the new research harness;
+Rhea queues, services and deployment are independent.
 
 ```text
-Team browser → SSM encrypted tunnel → server port 80 → Traefik
-  /       → web:3000         (one pod)
-  /api/*  → api:8000         (one pod)
+Team browser → SSM tunnel → server port 80 → Traefik
+  /       → web:3000 → /api/* → api:8000
+                                ↓
+                      orchestrator:8000
+                        LangGraph/Python
+                                ↓
+                         research:8000
+                          Oh My Pi/Bun
+                                ↓
+                         Scalekit → Exa
 
-Internal only:
-  orchestrator:8000          (one pod)
-  future agent-name:8000     (one separate pod per agent)
+Coordinator + research → Respan gateway and tracing
+Coordinator → persistent local SQLite volume → encrypted S3 backups
 ```
 
-No task flow is implemented. The API owns `/api/health` and `/api/ready`;
-the orchestrator owns `/health` and `/ready`. They return `status: ok` and a
-service name. No database/provider is needed for readiness.
+The API proxies research requests; the custom coordinator owns admission,
+planning, dispatch, evidence review, follow-up and reports. The research agent
+owns its temporary Oh My Pi session and permitted search/retrieval tools. It has
+no shell tools or nested agent spawning. Each future agent gets its own image,
+one-replica Deployment and internal Service.
 
-## Workload boundaries
+## Workload and access boundaries
 
-- Three application Deployments live in `company-brain`; K3s system pods are
-  additional and live in `kube-system`.
-- Containers use UID/GID 1000, read-only root filesystems, and bounded writable
-  `/tmp`. Service-account token mounting is disabled; no application RBAC is granted.
-- Ingress is denied by default. Network policies permit Traefik → web/API,
-  web → API, API → orchestrator, and orchestrator → future agent Services.
-  No blanket egress policy is imposed yet.
-- Deployments use one replica, `maxSurge: 0`, and `maxUnavailable: 1`. Updates
-  may interrupt service. Separate pods share one machine; this is not high
-  availability or a sandbox for untrusted code.
-- Web requests/limits: 128/384 MiB. API/orchestrator: 128/256 MiB each. CPU:
-  100m request and 500m limit per application. Kubelet reserves 2 GiB memory
-  and 500m CPU for host/cluster services, with a 200 MiB eviction buffer.
-- T3 uses Standard credits to avoid surplus credit charges. Sustained CPU use
-  above baseline can throttle. Builds happen off the server.
+Four application pods run in the `company-brain` namespace. Kubernetes system
+pods run separately in `kube-system`. All application pods run as UID/GID 1000,
+use read-only root filesystems and have bounded writable `/tmp`. Service-account
+tokens are disabled, with no application RBAC. Only the coordinator mounts the
+2 GiB `coordinator-data` claim at `/data`.
 
-## Adding an agent later
+Ingress is denied by default. Allowed paths are Traefik → web/API, web → API,
+API → coordinator, and coordinator → research. Neither coordinator nor research
+has a public ingress route. Outbound HTTPS is available for provider calls;
+IMDSv2 hop limit 1 prevents normal pod access to the instance metadata role.
+No blanket egress network policy is imposed.
 
-Leave `agents/`, `products/`, and `compositions/` empty except for their READMEs
-until the team defines capabilities. A new agent gets its own source directory
-and Dockerfile. Render `tooling/templates/agent.yaml` with a DNS-safe name and
-immutable image reference. Its process listens on `0.0.0.0:8000` and implements
-`/health` and `/ready`.
+The same dedicated `t3.medium` supplies 2 vCPU and 4 GiB RAM. The application
+memory requests/limits are web 128/384 MiB, API 128/256 MiB, coordinator
+256/384 MiB and research 256/512 MiB. Each requests 100m CPU with a 500m limit.
+Kubelet reserves 2 GiB and 500m CPU for the host/cluster, with a 200 MiB memory
+eviction buffer. One research run is active at a time. External model calls do
+not require a local GPU; the independent Spark RAG service is not deployed here.
 
-Extend the release image list/builds and foundation manifests when adding a
-real agent. Import its image before applying because pull policy is `Never`.
-The template runs continuously and starts with 128/256 MiB requests/limits;
-adjust this based on actual workload measurements. It is not applied by normal
-deployments. The optional live template check temporarily uses the orchestrator
-image, proves it runs in its own pod, then removes it.
+Every Deployment uses one replica, zero surge and one unavailable pod during
+updates. Separate pods share one machine; updates can interrupt service and
+this deployment is not highly available. T3 Standard avoids surplus CPU-credit
+charges but sustained work can throttle after credits are exhausted.
 
-Task contracts, routing, providers, persistence, retries, and inter-agent
-communication will be designed once the first agent capabilities are specified.
+## State and credentials
+
+The coordinator exclusively owns `runs.sqlite` and `checkpoints.sqlite` on its
+local-path persistent volume. Pod replacement and server reboot preserve these
+files. Instance replacement or root-disk loss requires restoring an S3 backup.
+The run repository and LangGraph checkpointer have separate replacement seams;
+see [the database handoff](../coms/database-handoff.md).
+
+AWS Secrets Manager is the source of runtime credentials. A host-side SSM runner
+reads only the exact Respan and Scalekit secret ARNs and synchronizes separate
+Kubernetes Secrets. The coordinator receives Respan; the research agent receives
+Respan and Scalekit. Exa's setup key is stored in AWS and in Scalekit's connected
+account vault, but is not granted to the EC2 runtime role or application pods.
+K3s encrypts Kubernetes secret data at rest on the encrypted root disk.
+
+Secret values never enter release archives or SSM command parameters. Rotation
+requires secret synchronization and pod restart because environment variables
+are loaded at startup. Provider setup state is distinct from process health:
+missing credentials keep the application inspectable while research capability
+reports the missing configuration.
+
+The coordinator's internal maintenance endpoint blocks new work and lets an
+active run finish. Deployment and secret rotation use it before replacing pods.
+The persisted admission flag remains set after a failed deployment; operators
+repair or roll back, then explicitly resume when necessary. Consistent snapshots
+use SQLite's online backup API after admission is blocked and work is drained.

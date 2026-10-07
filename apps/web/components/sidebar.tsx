@@ -110,6 +110,10 @@ export function Sidebar({
           </button>
         </div>
         <nav className="primary-nav" aria-label="Main navigation">
+          <a className="nav-item" href="/research">
+            <Icon name="search" />
+            <span>Research</span>
+          </a>
           <button
             className={`nav-item ${view === "tasks" ? "active" : ""}`}
             onClick={onTasks}

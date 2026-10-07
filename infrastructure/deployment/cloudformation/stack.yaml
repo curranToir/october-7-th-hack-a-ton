@@ -72,6 +72,11 @@ Resources:
       VersioningConfiguration: {Status: Enabled}
       LifecycleConfiguration:
         Rules:
+          - Id: ExpireBackups
+            Prefix: backups/
+            Status: Enabled
+            ExpirationInDays: 30
+            NoncurrentVersionExpiration: {NoncurrentDays: 30}
           - Id: AbortIncompleteUploads
             Status: Enabled
             AbortIncompleteMultipartUpload: {DaysAfterInitiation: 1}
@@ -87,6 +92,27 @@ Resources:
             Action: s3:*
             Resource: [!GetAtt Artifacts.Arn, !Sub '${Artifacts.Arn}/*']
             Condition: {Bool: {'aws:SecureTransport': false}}
+  RespanSecret:
+    Type: AWS::SecretsManager::Secret
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      Name: !Sub '/${AWS::StackName}/respan'
+      Description: Respan gateway runtime JSON; set values with manage.py secret-set.
+  ScalekitSecret:
+    Type: AWS::SecretsManager::Secret
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      Name: !Sub '/${AWS::StackName}/scalekit'
+      Description: Scalekit runtime JSON; set values with manage.py secret-set.
+  ExaSecret:
+    Type: AWS::SecretsManager::Secret
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      Name: !Sub '/${AWS::StackName}/exa'
+      Description: Exa setup credential; never supplied to application pods.
   HostRole:
     Type: AWS::IAM::Role
     Properties:
@@ -105,6 +131,16 @@ Resources:
               - Effect: Allow
                 Action: s3:GetObject
                 Resource: !Sub '${Artifacts.Arn}/releases/*'
+        - PolicyName: RuntimeSecretsAndBackups
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource: [!Ref RespanSecret, !Ref ScalekitSecret]
+              - Effect: Allow
+                Action: [s3:GetObject, s3:PutObject]
+                Resource: !Sub '${Artifacts.Arn}/backups/*'
   HostProfile:
     Type: AWS::IAM::InstanceProfile
     Properties:
@@ -178,3 +214,9 @@ Outputs:
     Value: !Ref 'AWS::Region'
   VpcId:
     Value: !Ref Vpc
+  RespanSecretArn:
+    Value: !Ref RespanSecret
+  ScalekitSecretArn:
+    Value: !Ref ScalekitSecret
+  ExaSecretArn:
+    Value: !Ref ExaSecret
