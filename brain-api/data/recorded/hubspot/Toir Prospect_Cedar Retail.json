@@ -1,0 +1,190 @@
+{
+  "company": {
+    "properties": {
+      "hs_lastmodifieddate": "2026-10-07T23:23:14.582Z",
+      "domain": "cedarretail.example",
+      "name": "Toir Prospect: Cedar Retail",
+      "createdate": "2026-10-07T23:16:58.333Z",
+      "description": "Fictional Toir FDE hackathon sandbox engagement.",
+      "industry": null,
+      "hs_object_id": "351369986748"
+    },
+    "updatedAt": "2026-10-07T23:23:14.582Z",
+    "url": "https://app-na2.hubspot.com/contacts/247630342/record/0-2/351369986748",
+    "createdAt": "2026-10-07T23:16:58.333Z",
+    "archived": false,
+    "id": "351369986748"
+  },
+  "deals": [
+    {
+      "properties": {
+        "dealname": "Toir Prospect: Cedar Retail discovery",
+        "closedate": "2026-12-01T00:00:00Z",
+        "amount": "75000",
+        "createdate": "2026-10-07T23:16:59.041Z",
+        "hs_lastmodifieddate": "2026-10-07T23:18:11.682Z",
+        "dealstage": "4411362032",
+        "hs_object_id": "353422052028",
+        "hubspot_owner_id": null
+      },
+      "propertiesWithHistory": {
+        "closedate": [
+          {
+            "timestamp": "2026-10-07T23:16:59.041Z",
+            "sourceId": "40203579",
+            "sourceType": "INTEGRATION",
+            "value": "2026-12-01T00:00:00Z"
+          }
+        ],
+        "dealstage": [
+          {
+            "sourceId": "40203579",
+            "timestamp": "2026-10-07T23:16:59.041Z",
+            "sourceType": "INTEGRATION",
+            "value": "4411362032"
+          }
+        ],
+        "amount": [
+          {
+            "sourceId": "40203579",
+            "timestamp": "2026-10-07T23:16:59.041Z",
+            "sourceType": "INTEGRATION",
+            "value": "75000"
+          }
+        ],
+        "hubspot_owner_id": [],
+        "dealname": [
+          {
+            "timestamp": "2026-10-07T23:16:59.041Z",
+            "sourceId": "40203579",
+            "sourceType": "INTEGRATION",
+            "value": "Toir Prospect: Cedar Retail discovery"
+          }
+        ]
+      },
+      "updatedAt": "2026-10-07T23:18:11.682Z",
+      "url": "https://app-na2.hubspot.com/contacts/247630342/record/0-3/353422052028",
+      "id": "353422052028",
+      "createdAt": "2026-10-07T23:16:59.041Z",
+      "archived": false
+    }
+  ],
+  "contacts": [
+    {
+      "properties": {
+        "jobtitle": "VP Operations",
+        "email": "jordan-cedar@example.com",
+        "lastmodifieddate": "2026-10-07T23:17:10.316Z",
+        "hs_object_id": "566314895096",
+        "lastname": "Lee",
+        "createdate": "2026-10-07T23:16:58.523Z",
+        "firstname": "Jordan"
+      },
+      "propertiesWithHistory": {
+        "jobtitle": [
+          {
+            "sourceId": "40203579",
+            "timestamp": "2026-10-07T23:16:58.523Z",
+            "sourceType": "INTEGRATION",
+            "value": "VP Operations"
+          }
+        ],
+        "email": [
+          {
+            "sourceId": "40203579",
+            "timestamp": "2026-10-07T23:16:58.523Z",
+            "sourceType": "INTEGRATION",
+            "value": "jordan-cedar@example.com"
+          }
+        ],
+        "lastname": [
+          {
+            "timestamp": "2026-10-07T23:16:58.523Z",
+            "sourceId": "40203579",
+            "sourceType": "INTEGRATION",
+            "value": "Lee"
+          }
+        ],
+        "firstname": [
+          {
+            "timestamp": "2026-10-07T23:16:58.523Z",
+            "sourceId": "40203579",
+            "sourceType": "INTEGRATION",
+            "value": "Jordan"
+          }
+        ]
+      },
+      "updatedAt": "2026-10-07T23:17:10.316Z",
+      "url": "https://app-na2.hubspot.com/contacts/247630342/record/0-1/566314895096",
+      "createdAt": "2026-10-07T23:16:58.523Z",
+      "archived": false,
+      "id": "566314895096"
+    }
+  ],
+  "notes": [
+    {
+      "properties": {
+        "hs_lastmodifieddate": "2026-10-07T23:23:13.160Z",
+        "hs_timestamp": "2026-10-07T23:23:12.767Z",
+        "hs_createdate": "2026-10-07T23:23:12.842Z",
+        "hs_note_body": "Toir Prospect: Cedar Retail scope and qualification notes\nFictional Toir FDE prospect qualification record\nProspect: Toir Prospect: Cedar Retail\nCurrent stage: discovery.\nDiscovery opportunity: 75000 USD; target close date: 2026-12-01.\nCommercial owner: Jared Lyon.\nNo signed SOW exists and no go-live date or delivery commitment has been promised. A signed SOW is required before engineering work begins.\nQualified contact: Jordan Lee, VP Operations.",
+        "hs_object_id": "405725242059"
+      },
+      "propertiesWithHistory": {
+        "hs_timestamp": [
+          {
+            "sourceId": "40203579",
+            "timestamp": "2026-10-07T23:23:12.842Z",
+            "sourceType": "INTEGRATION",
+            "value": "2026-10-07T23:23:12.767Z"
+          }
+        ],
+        "hs_note_body": [
+          {
+            "sourceId": "40203579",
+            "timestamp": "2026-10-07T23:23:12.842Z",
+            "sourceType": "INTEGRATION",
+            "value": "Toir Prospect: Cedar Retail scope and qualification notes\nFictional Toir FDE prospect qualification record\nProspect: Toir Prospect: Cedar Retail\nCurrent stage: discovery.\nDiscovery opportunity: 75000 USD; target close date: 2026-12-01.\nCommercial owner: Jared Lyon.\nNo signed SOW exists and no go-live date or delivery commitment has been promised. A signed SOW is required before engineering work begins.\nQualified contact: Jordan Lee, VP Operations."
+          }
+        ]
+      },
+      "updatedAt": "2026-10-07T23:23:13.160Z",
+      "url": "https://app-na2.hubspot.com/contacts/247630342/objects/0-46/views/all/list?filters=%5B%7B%22property%22%3A%22hs_object_id%22%2C%22operator%22%3A%22EQ%22%2C%22value%22%3A%22405725242059%22%7D%5D",
+      "createdAt": "2026-10-07T23:23:12.842Z",
+      "archived": false,
+      "id": "405725242059"
+    },
+    {
+      "properties": {
+        "hs_lastmodifieddate": "2026-10-07T23:16:59.859Z",
+        "hs_timestamp": "2026-10-07T23:16:59.366Z",
+        "hs_createdate": "2026-10-07T23:16:59.447Z",
+        "hs_note_body": "Toir Prospect: Cedar Retail qualification\nDiscovery only; no delivery commitment until a signed SOW.",
+        "hs_object_id": "405747349226"
+      },
+      "propertiesWithHistory": {
+        "hs_timestamp": [
+          {
+            "sourceId": "40203579",
+            "timestamp": "2026-10-07T23:16:59.447Z",
+            "sourceType": "INTEGRATION",
+            "value": "2026-10-07T23:16:59.366Z"
+          }
+        ],
+        "hs_note_body": [
+          {
+            "timestamp": "2026-10-07T23:16:59.447Z",
+            "sourceId": "40203579",
+            "sourceType": "INTEGRATION",
+            "value": "Toir Prospect: Cedar Retail qualification\nDiscovery only; no delivery commitment until a signed SOW."
+          }
+        ]
+      },
+      "updatedAt": "2026-10-07T23:16:59.859Z",
+      "url": "https://app-na2.hubspot.com/contacts/247630342/objects/0-46/views/all/list?filters=%5B%7B%22property%22%3A%22hs_object_id%22%2C%22operator%22%3A%22EQ%22%2C%22value%22%3A%22405747349226%22%7D%5D",
+      "createdAt": "2026-10-07T23:16:59.447Z",
+      "archived": false,
+      "id": "405747349226"
+    }
+  ]
+}

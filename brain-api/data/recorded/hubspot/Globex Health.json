@@ -1,0 +1,240 @@
+{
+  "company": {
+    "properties": {
+      "hs_lastmodifieddate": "2026-10-07T23:18:43.730Z",
+      "domain": "globex.example",
+      "name": "Globex Health",
+      "hs_object_id": "351371745011",
+      "createdate": "2026-10-07T23:16:52.121Z",
+      "industry": null,
+      "description": "Fictional Toir FDE hackathon sandbox engagement."
+    },
+    "updatedAt": "2026-10-07T23:18:43.730Z",
+    "url": "https://app-na2.hubspot.com/contacts/247630342/record/0-2/351371745011",
+    "createdAt": "2026-10-07T23:16:52.121Z",
+    "archived": false,
+    "id": "351371745011"
+  },
+  "deals": [
+    {
+      "properties": {
+        "dealname": "Globex clinical pilot",
+        "closedate": "2026-10-30T00:00:00Z",
+        "amount": "180000",
+        "createdate": "2026-10-07T23:16:53.450Z",
+        "hs_lastmodifieddate": "2026-10-07T23:33:06.490Z",
+        "dealstage": "4411362033",
+        "hs_object_id": "353393422051",
+        "hubspot_owner_id": null
+      },
+      "propertiesWithHistory": {
+        "closedate": [
+          {
+            "timestamp": "2026-10-07T23:16:53.450Z",
+            "sourceId": "40203579",
+            "sourceType": "INTEGRATION",
+            "value": "2026-10-30T00:00:00Z"
+          }
+        ],
+        "dealstage": [
+          {
+            "sourceId": "40203579",
+            "timestamp": "2026-10-07T23:16:53.450Z",
+            "sourceType": "INTEGRATION",
+            "value": "4411362033"
+          }
+        ],
+        "amount": [
+          {
+            "timestamp": "2026-10-07T23:16:53.450Z",
+            "sourceId": "40203579",
+            "sourceType": "INTEGRATION",
+            "value": "180000"
+          }
+        ],
+        "hubspot_owner_id": [],
+        "dealname": [
+          {
+            "timestamp": "2026-10-07T23:16:53.450Z",
+            "sourceId": "40203579",
+            "sourceType": "INTEGRATION",
+            "value": "Globex clinical pilot"
+          }
+        ]
+      },
+      "updatedAt": "2026-10-07T23:33:06.490Z",
+      "url": "https://app-na2.hubspot.com/contacts/247630342/record/0-3/353393422051",
+      "createdAt": "2026-10-07T23:16:53.450Z",
+      "archived": false,
+      "id": "353393422051"
+    }
+  ],
+  "contacts": [
+    {
+      "properties": {
+        "jobtitle": "Technical lead",
+        "email": "samir-shah-globex@example.com",
+        "lastmodifieddate": "2026-10-07T23:17:05.016Z",
+        "createdate": "2026-10-07T23:16:52.926Z",
+        "lastname": "Shah",
+        "hs_object_id": "566162598601",
+        "firstname": "Samir"
+      },
+      "propertiesWithHistory": {
+        "jobtitle": [
+          {
+            "sourceId": "40203579",
+            "timestamp": "2026-10-07T23:16:52.926Z",
+            "sourceType": "INTEGRATION",
+            "value": "Technical lead"
+          }
+        ],
+        "email": [
+          {
+            "sourceId": "40203579",
+            "timestamp": "2026-10-07T23:16:52.926Z",
+            "sourceType": "INTEGRATION",
+            "value": "samir-shah-globex@example.com"
+          }
+        ],
+        "lastname": [
+          {
+            "timestamp": "2026-10-07T23:16:52.926Z",
+            "sourceId": "40203579",
+            "sourceType": "INTEGRATION",
+            "value": "Shah"
+          }
+        ],
+        "firstname": [
+          {
+            "timestamp": "2026-10-07T23:16:52.926Z",
+            "sourceId": "40203579",
+            "sourceType": "INTEGRATION",
+            "value": "Samir"
+          }
+        ]
+      },
+      "updatedAt": "2026-10-07T23:17:05.016Z",
+      "url": "https://app-na2.hubspot.com/contacts/247630342/record/0-1/566162598601",
+      "id": "566162598601",
+      "createdAt": "2026-10-07T23:16:52.926Z",
+      "archived": false
+    },
+    {
+      "properties": {
+        "jobtitle": "Executive sponsor",
+        "email": "nadia-brooks-globex@example.com",
+        "lastmodifieddate": "2026-10-07T23:17:05.581Z",
+        "createdate": "2026-10-07T23:16:52.366Z",
+        "lastname": "Nadia Brooks",
+        "hs_object_id": "566328627910",
+        "firstname": "Dr."
+      },
+      "propertiesWithHistory": {
+        "jobtitle": [
+          {
+            "sourceId": "40203579",
+            "timestamp": "2026-10-07T23:16:52.366Z",
+            "sourceType": "INTEGRATION",
+            "value": "Executive sponsor"
+          }
+        ],
+        "email": [
+          {
+            "sourceId": "40203579",
+            "timestamp": "2026-10-07T23:16:52.366Z",
+            "sourceType": "INTEGRATION",
+            "value": "nadia-brooks-globex@example.com"
+          }
+        ],
+        "lastname": [
+          {
+            "sourceId": "40203579",
+            "timestamp": "2026-10-07T23:16:52.366Z",
+            "sourceType": "INTEGRATION",
+            "value": "Nadia Brooks"
+          }
+        ],
+        "firstname": [
+          {
+            "timestamp": "2026-10-07T23:16:52.366Z",
+            "sourceId": "40203579",
+            "sourceType": "INTEGRATION",
+            "value": "Dr."
+          }
+        ]
+      },
+      "updatedAt": "2026-10-07T23:17:05.581Z",
+      "url": "https://app-na2.hubspot.com/contacts/247630342/record/0-1/566328627910",
+      "createdAt": "2026-10-07T23:16:52.366Z",
+      "archived": false,
+      "id": "566328627910"
+    }
+  ],
+  "notes": [
+    {
+      "properties": {
+        "hs_lastmodifieddate": "2026-10-07T23:18:42.482Z",
+        "hs_timestamp": "2026-10-07T23:18:41.908Z",
+        "hs_createdate": "2026-10-07T23:18:41.984Z",
+        "hs_note_body": "Globex Health SOW\nGlobex Health signed SOW\nPilot date: 2026-11-16.\nWeekly clinical reviews are included. Scope excludes PHI.\nCommercial owner: Jared Lyon. This SOW is the authoritative commercial milestone and scope record.",
+        "hs_object_id": "405725237948"
+      },
+      "propertiesWithHistory": {
+        "hs_timestamp": [
+          {
+            "sourceId": "40203579",
+            "timestamp": "2026-10-07T23:18:41.984Z",
+            "sourceType": "INTEGRATION",
+            "value": "2026-10-07T23:18:41.908Z"
+          }
+        ],
+        "hs_note_body": [
+          {
+            "timestamp": "2026-10-07T23:18:41.984Z",
+            "sourceId": "40203579",
+            "sourceType": "INTEGRATION",
+            "value": "Globex Health SOW\nGlobex Health signed SOW\nPilot date: 2026-11-16.\nWeekly clinical reviews are included. Scope excludes PHI.\nCommercial owner: Jared Lyon. This SOW is the authoritative commercial milestone and scope record."
+          }
+        ]
+      },
+      "updatedAt": "2026-10-07T23:18:42.482Z",
+      "url": "https://app-na2.hubspot.com/contacts/247630342/objects/0-46/views/all/list?filters=%5B%7B%22property%22%3A%22hs_object_id%22%2C%22operator%22%3A%22EQ%22%2C%22value%22%3A%22405725237948%22%7D%5D",
+      "id": "405725237948",
+      "createdAt": "2026-10-07T23:18:41.984Z",
+      "archived": false
+    },
+    {
+      "properties": {
+        "hs_lastmodifieddate": "2026-10-07T23:16:54.366Z",
+        "hs_timestamp": "2026-10-07T23:16:53.780Z",
+        "hs_createdate": "2026-10-07T23:16:53.857Z",
+        "hs_note_body": "Globex Health commercial review\nExecutive sponsor is Dr. Nadia Brooks; technical lead is Samir Shah. Globex clinical pilot is at negotiation. Approval depends on resolving the engineering blocker.",
+        "hs_object_id": "405747349220"
+      },
+      "propertiesWithHistory": {
+        "hs_timestamp": [
+          {
+            "sourceId": "40203579",
+            "timestamp": "2026-10-07T23:16:53.857Z",
+            "sourceType": "INTEGRATION",
+            "value": "2026-10-07T23:16:53.780Z"
+          }
+        ],
+        "hs_note_body": [
+          {
+            "timestamp": "2026-10-07T23:16:53.857Z",
+            "sourceId": "40203579",
+            "sourceType": "INTEGRATION",
+            "value": "Globex Health commercial review\nExecutive sponsor is Dr. Nadia Brooks; technical lead is Samir Shah. Globex clinical pilot is at negotiation. Approval depends on resolving the engineering blocker."
+          }
+        ]
+      },
+      "updatedAt": "2026-10-07T23:16:54.366Z",
+      "url": "https://app-na2.hubspot.com/contacts/247630342/objects/0-46/views/all/list?filters=%5B%7B%22property%22%3A%22hs_object_id%22%2C%22operator%22%3A%22EQ%22%2C%22value%22%3A%22405747349220%22%7D%5D",
+      "archived": false,
+      "id": "405747349220",
+      "createdAt": "2026-10-07T23:16:53.857Z"
+    }
+  ]
+}

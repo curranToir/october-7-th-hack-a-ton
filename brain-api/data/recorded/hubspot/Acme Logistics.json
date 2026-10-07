@@ -1,0 +1,240 @@
+{
+  "company": {
+    "properties": {
+      "hs_lastmodifieddate": "2026-10-07T23:18:42.998Z",
+      "domain": "acme.example",
+      "name": "Acme Logistics",
+      "hs_object_id": "351366519529",
+      "createdate": "2026-10-07T23:16:11.060Z",
+      "industry": null,
+      "description": "Fictional Toir FDE hackathon sandbox engagement."
+    },
+    "updatedAt": "2026-10-07T23:18:42.998Z",
+    "url": "https://app-na2.hubspot.com/contacts/247630342/record/0-2/351366519529",
+    "id": "351366519529",
+    "createdAt": "2026-10-07T23:16:11.060Z",
+    "archived": false
+  },
+  "deals": [
+    {
+      "properties": {
+        "dealname": "Acme annual renewal",
+        "closedate": "2026-10-23T00:00:00Z",
+        "createdate": "2026-10-07T23:16:51.097Z",
+        "amount": "240000",
+        "hs_lastmodifieddate": "2026-10-07T23:33:01.691Z",
+        "dealstage": "4411362035",
+        "hs_object_id": "353379263222",
+        "hubspot_owner_id": null
+      },
+      "propertiesWithHistory": {
+        "closedate": [
+          {
+            "timestamp": "2026-10-07T23:16:51.097Z",
+            "sourceId": "40203579",
+            "sourceType": "INTEGRATION",
+            "value": "2026-10-23T00:00:00Z"
+          }
+        ],
+        "dealstage": [
+          {
+            "timestamp": "2026-10-07T23:16:51.097Z",
+            "sourceId": "40203579",
+            "sourceType": "INTEGRATION",
+            "value": "4411362035"
+          }
+        ],
+        "amount": [
+          {
+            "timestamp": "2026-10-07T23:16:51.097Z",
+            "sourceId": "40203579",
+            "sourceType": "INTEGRATION",
+            "value": "240000"
+          }
+        ],
+        "hubspot_owner_id": [],
+        "dealname": [
+          {
+            "sourceId": "40203579",
+            "timestamp": "2026-10-07T23:16:51.097Z",
+            "sourceType": "INTEGRATION",
+            "value": "Acme annual renewal"
+          }
+        ]
+      },
+      "updatedAt": "2026-10-07T23:33:01.691Z",
+      "url": "https://app-na2.hubspot.com/contacts/247630342/record/0-3/353379263222",
+      "id": "353379263222",
+      "createdAt": "2026-10-07T23:16:51.097Z",
+      "archived": false
+    }
+  ],
+  "contacts": [
+    {
+      "properties": {
+        "jobtitle": "Executive sponsor",
+        "email": "elena-ruiz-acme@example.com",
+        "lastmodifieddate": "2026-10-07T23:17:05.842Z",
+        "createdate": "2026-10-07T23:16:49.916Z",
+        "lastname": "Ruiz",
+        "hs_object_id": "566297303785",
+        "firstname": "Elena"
+      },
+      "propertiesWithHistory": {
+        "jobtitle": [
+          {
+            "sourceId": "40203579",
+            "timestamp": "2026-10-07T23:16:49.916Z",
+            "sourceType": "INTEGRATION",
+            "value": "Executive sponsor"
+          }
+        ],
+        "email": [
+          {
+            "timestamp": "2026-10-07T23:16:49.916Z",
+            "sourceId": "40203579",
+            "sourceType": "INTEGRATION",
+            "value": "elena-ruiz-acme@example.com"
+          }
+        ],
+        "lastname": [
+          {
+            "timestamp": "2026-10-07T23:16:49.916Z",
+            "sourceId": "40203579",
+            "sourceType": "INTEGRATION",
+            "value": "Ruiz"
+          }
+        ],
+        "firstname": [
+          {
+            "timestamp": "2026-10-07T23:16:49.916Z",
+            "sourceId": "40203579",
+            "sourceType": "INTEGRATION",
+            "value": "Elena"
+          }
+        ]
+      },
+      "updatedAt": "2026-10-07T23:17:05.842Z",
+      "url": "https://app-na2.hubspot.com/contacts/247630342/record/0-1/566297303785",
+      "createdAt": "2026-10-07T23:16:49.916Z",
+      "archived": false,
+      "id": "566297303785"
+    },
+    {
+      "properties": {
+        "jobtitle": "Technical lead",
+        "email": "owen-patel-acme@example.com",
+        "lastmodifieddate": "2026-10-07T23:17:05.731Z",
+        "createdate": "2026-10-07T23:16:50.542Z",
+        "lastname": "Patel",
+        "hs_object_id": "566325065447",
+        "firstname": "Owen"
+      },
+      "propertiesWithHistory": {
+        "jobtitle": [
+          {
+            "timestamp": "2026-10-07T23:16:50.542Z",
+            "sourceId": "40203579",
+            "sourceType": "INTEGRATION",
+            "value": "Technical lead"
+          }
+        ],
+        "email": [
+          {
+            "sourceId": "40203579",
+            "timestamp": "2026-10-07T23:16:50.542Z",
+            "sourceType": "INTEGRATION",
+            "value": "owen-patel-acme@example.com"
+          }
+        ],
+        "lastname": [
+          {
+            "timestamp": "2026-10-07T23:16:50.542Z",
+            "sourceId": "40203579",
+            "sourceType": "INTEGRATION",
+            "value": "Patel"
+          }
+        ],
+        "firstname": [
+          {
+            "sourceId": "40203579",
+            "timestamp": "2026-10-07T23:16:50.542Z",
+            "sourceType": "INTEGRATION",
+            "value": "Owen"
+          }
+        ]
+      },
+      "updatedAt": "2026-10-07T23:17:05.731Z",
+      "url": "https://app-na2.hubspot.com/contacts/247630342/record/0-1/566325065447",
+      "id": "566325065447",
+      "createdAt": "2026-10-07T23:16:50.542Z",
+      "archived": false
+    }
+  ],
+  "notes": [
+    {
+      "properties": {
+        "hs_lastmodifieddate": "2026-10-07T23:18:41.310Z",
+        "hs_timestamp": "2026-10-07T23:18:40.720Z",
+        "hs_createdate": "2026-10-07T23:18:40.790Z",
+        "hs_note_body": "Acme Logistics SOW\nAcme Logistics signed SOW\nGo-live date: 2026-11-02.\nChange requests over 40 engineering hours need written sponsor approval. Includes a 14-day hypercare window.\nCommercial owner: Jared Lyon. This SOW is the authoritative commercial milestone and scope record.",
+        "hs_object_id": "405718403812"
+      },
+      "propertiesWithHistory": {
+        "hs_timestamp": [
+          {
+            "timestamp": "2026-10-07T23:18:40.790Z",
+            "sourceId": "40203579",
+            "sourceType": "INTEGRATION",
+            "value": "2026-10-07T23:18:40.720Z"
+          }
+        ],
+        "hs_note_body": [
+          {
+            "timestamp": "2026-10-07T23:18:40.790Z",
+            "sourceId": "40203579",
+            "sourceType": "INTEGRATION",
+            "value": "Acme Logistics SOW\nAcme Logistics signed SOW\nGo-live date: 2026-11-02.\nChange requests over 40 engineering hours need written sponsor approval. Includes a 14-day hypercare window.\nCommercial owner: Jared Lyon. This SOW is the authoritative commercial milestone and scope record."
+          }
+        ]
+      },
+      "updatedAt": "2026-10-07T23:18:41.310Z",
+      "url": "https://app-na2.hubspot.com/contacts/247630342/objects/0-46/views/all/list?filters=%5B%7B%22property%22%3A%22hs_object_id%22%2C%22operator%22%3A%22EQ%22%2C%22value%22%3A%22405718403812%22%7D%5D",
+      "archived": false,
+      "id": "405718403812",
+      "createdAt": "2026-10-07T23:18:40.790Z"
+    },
+    {
+      "properties": {
+        "hs_lastmodifieddate": "2026-10-07T23:16:51.956Z",
+        "hs_timestamp": "2026-10-07T23:16:51.487Z",
+        "hs_createdate": "2026-10-07T23:16:51.566Z",
+        "hs_note_body": "Acme Logistics commercial review\nExecutive sponsor is Elena Ruiz; technical lead is Owen Patel. Acme annual renewal is at procurement approval. Approval depends on resolving the engineering blocker.",
+        "hs_object_id": "405756655333"
+      },
+      "propertiesWithHistory": {
+        "hs_timestamp": [
+          {
+            "timestamp": "2026-10-07T23:16:51.566Z",
+            "sourceId": "40203579",
+            "sourceType": "INTEGRATION",
+            "value": "2026-10-07T23:16:51.487Z"
+          }
+        ],
+        "hs_note_body": [
+          {
+            "sourceId": "40203579",
+            "timestamp": "2026-10-07T23:16:51.566Z",
+            "sourceType": "INTEGRATION",
+            "value": "Acme Logistics commercial review\nExecutive sponsor is Elena Ruiz; technical lead is Owen Patel. Acme annual renewal is at procurement approval. Approval depends on resolving the engineering blocker."
+          }
+        ]
+      },
+      "updatedAt": "2026-10-07T23:16:51.956Z",
+      "url": "https://app-na2.hubspot.com/contacts/247630342/objects/0-46/views/all/list?filters=%5B%7B%22property%22%3A%22hs_object_id%22%2C%22operator%22%3A%22EQ%22%2C%22value%22%3A%22405756655333%22%7D%5D",
+      "archived": false,
+      "id": "405756655333",
+      "createdAt": "2026-10-07T23:16:51.566Z"
+    }
+  ]
+}
