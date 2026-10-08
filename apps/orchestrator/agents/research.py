@@ -10,6 +10,10 @@ class AgentFailure(Exception):
     pass
 
 
+class AgentCancelled(AgentFailure):
+    pass
+
+
 class SessionLost(AgentFailure):
     pass
 

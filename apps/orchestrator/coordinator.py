@@ -7,7 +7,7 @@ from pathlib import Path
 
 from opentelemetry import trace
 
-from apps.orchestrator.agents.research import AgentFailure, SessionLost
+from apps.orchestrator.agents.research import AgentCancelled, AgentFailure, SessionLost
 from apps.orchestrator.integrations.models import ModelUnavailable
 from apps.orchestrator.models.research import Brief, Run
 from apps.orchestrator.storage.ports import Conflict
@@ -143,6 +143,8 @@ class Coordinator:
             )
         except SessionLost as error:
             status, message = "interrupted", str(error)
+        except AgentCancelled as error:
+            status, message = "cancelled", str(error)
         except (AgentFailure, ModelUnavailable) as error:
             status, message = "failed", str(error)
         except Exception:
