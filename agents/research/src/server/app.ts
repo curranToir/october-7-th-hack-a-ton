@@ -7,6 +7,7 @@ import {
 } from "../research/contracts";
 import { Budget, ResearchError, safeError } from "../research/budget";
 import { Sources } from "../research/sources";
+import { WORKER_LIMITS } from "../research/limits";
 import type { Harness } from "../harness/omp";
 import { tracedTask } from "../telemetry/respan";
 export interface Options {
@@ -102,13 +103,7 @@ export function createApp(options: Options) {
         configured: !options.missing?.().length,
         missing_credentials: options.missing?.() ?? [],
         capabilities: ["company_research"],
-        limits: {
-          active_tasks: 1,
-          searches: 30,
-          pages: 60,
-          model_turns: 30,
-          deadline_seconds: 600,
-        },
+        limits: WORKER_LIMITS,
       });
     if (request.method === "POST" && path === "/v1/tasks") {
       if (closing) return json({ error: "Research agent is stopping." }, 503);

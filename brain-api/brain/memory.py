@@ -5,8 +5,6 @@ from pathlib import Path
 import cognee
 from respan import task, workflow, respan_span_attributes
 from opentelemetry import trace
-from openai import AsyncOpenAI
-import os
 from cognee.modules.users.methods import create_user, get_user_by_email
 from cognee.modules.data.methods import create_authorized_dataset, get_authorized_existing_datasets, has_dataset_data
 from cognee.modules.users.permissions.methods import authorized_give_permission_on_datasets, authorized_revoke_permission_on_datasets
@@ -15,6 +13,7 @@ from .registry import DATASETS, USERS, LEAD, user_name, dataset_name, withheld, 
 from .graph_model import CompanyGraph, EXTRACTION_PROMPT
 from .initial_grants import apply_initial_grants as grant_initial_permissions
 from .research_cognee import remember_document, resolve_pipeline_target
+from .synthesis import synthesize
 
 # ponytail: one process-local lock; move to a dedicated writer only if throughput requires it.
 writer_lock = asyncio.Lock()
@@ -127,26 +126,6 @@ async def recall(user, question, mode="answer", session_id=None, top_k=10):
         if session_id:
             await cognee.remember(f"Q: {question}\nA: {response['answer']}", session_id=session_id, user=_users[user])
     return response
-
-ANSWER_PROMPT = (
-    "You are Toir Inc's company brain. Answer ONLY from the context blocks below; each block is labelled with "
-    "the dataset it came from. Stitch facts across blocks when they refer to the same client or project. "
-    "Never attribute facts from one client to another. If the context does not contain the answer, say what "
-    "is missing in one sentence. Be concise; end with the sources used, e.g. (source:slack, source:hubspot)."
-)
-_llm = None
-
-@task(name="brain.synthesize")
-async def synthesize(question, context):
-    global _llm
-    _llm = _llm or AsyncOpenAI(base_url=os.environ["LLM_ENDPOINT"], api_key=os.environ["LLM_API_KEY"])
-    blocks = "\n\n".join(f"[dataset={item['dataset']}]\n{item['text']}" for item in context)
-    result = await _llm.chat.completions.create(
-        model=os.environ["LLM_MODEL"].removeprefix("openai/"), temperature=0, max_tokens=600,
-        messages=[{"role": "system", "content": ANSWER_PROMPT},
-                  {"role": "user", "content": f"Context:\n{blocks}\n\nQuestion: {question}"}],
-    )
-    return result.choices[0].message.content
 
 async def forget(email, dataset=None):
     user_name(email)

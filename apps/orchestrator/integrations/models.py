@@ -20,10 +20,12 @@ class RespanModels:
             ChatOpenAI(
                 api_key=self.key,
                 base_url=GATEWAY,
-                model=os.environ.get("RESPAN_MODEL", "gpt-5.4"),
+                model=os.environ.get("RESPAN_MODEL", "gpt-5-mini"),
                 timeout=60,
                 max_retries=1,
-                max_tokens=4096,
+                use_responses_api=False,
+                reasoning_effort="low",
+                max_completion_tokens=16384,
             )
             if self.key
             else None

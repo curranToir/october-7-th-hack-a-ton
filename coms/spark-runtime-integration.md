@@ -119,6 +119,50 @@ the provider committed it.
   60-page budget. Its original failure and evidence remain unchanged. A follow-up
   budget handling fix and bounded acceptance requests are being verified.
 
-Continuous automation, CRM writes, outbound messages, and private client dataset
-access are outside these research acceptance runs. Explicit company-only
-requests can bound the target count and disable contact enrichment.
+## Requested model and prospecting update
+
+Application release `b9730136262d-7eae5ee824ee` uses `gpt-5-mini` through Respan for planning,
+review, chat routing, research and contact research. A live EC2 gateway probe
+returned `gpt-5-mini-2025-08-07` successfully. Worker and coordinator limits are
+now 60 searches, 200 retrieved-page slots and 60 model turns per run, still
+cumulative across follow-up passes and bounded by the ten-minute deadline.
+Reviewed findings survive a later usage-budget failure with an explicit report
+gap. Historical failed runs are not relabeled.
+
+HubSpot identity and permission verification on October 8 UTC:
+
+- Scalekit account `ca_146541202500485386`, connection
+  `conn_146541157638209802`, named `hubspot` / `curran@toirinc.com`, is ACTIVE.
+- The authenticated read-only `/integrations/v1/me` proxy returned ToirInc
+  portal `247630342`. Real company/contact search calls returned 34 companies
+  and 43 contacts; no customer record contents were copied into this handoff.
+- HubSpot's [connected-app grant screen](https://app-na2.hubspot.com/connected-apps/247630342/installed/basic/40203579/overview)
+  for “Scalekit Test Account” explicitly grants company and contact View and
+  Create/delete/change permissions. These match the connection's mandatory
+  company/contact read/write scopes; optional scopes are empty. All eleven
+  required connector tools are available.
+- This evidence supports `SCALEKIT_HUBSPOT_WRITE_SCOPES_VERIFIED=true` in the
+  project deployment manifest. It is permission attestation, not evidence of
+  a successful CRM write. No CRM records were changed during verification.
+
+Continuous prospecting was enabled through the authenticated application after
+the smaller-model rollout. Persisted settings permit ten discovery batches and
+25 company enrichments daily, with a minimum fit score of 70. The first real
+background job is `5f9132dc-7159-4446-b74b-b2f60badaeaa`, research run
+`cf6794b7-8f18-402e-b7b7-521532aadc31`, in
+[the continuous prospecting session](https://toir-hackathon.taild4c940.ts.net/#chat/284510b7-eef4-5474-8520-a0d0628e9642).
+Its trace ID is `c4d734e5536379a48d40456c1f1c7250`. Target: ten companies, with
+contact enrichment and proposed CRM updates. CRM mutations still require
+explicit proposal approval; none were executed during connection verification.
+Outbound messages and private client dataset access remain outside this rollout.
+
+Brain code on `main` also selects GPT-5 mini for its text LLM stages, synthesis
+and judging; its embedding model remains `nemotron-embed`. The live Spark
+model switch is explicitly deferred: the user instructed **keep Spark unchanged
+for now**. Its existing Cognee runtime remains on its loaded configuration;
+no Spark files, services or embeddings were changed. Do not confuse the committed
+model policy with the model already loaded by the running Spark process.
+
+The release passed all five Deployment readiness checks, API/coordinator and
+ingress probes, with zero pod restarts. Its pre-deployment PostgreSQL backup is
+`20261008T004829Z-6afb55a7e8be`.

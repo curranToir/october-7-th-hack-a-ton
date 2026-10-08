@@ -1,4 +1,5 @@
 import type { Usage } from "./contracts";
+import { WORKER_LIMITS } from "./limits";
 export class ResearchError extends Error {
   constructor(
     public code: string,
@@ -20,7 +21,7 @@ export class Budget {
         (k) => [k, prior[k] ?? 0],
       ),
     ) as Usage;
-    this.deadline = Math.min(Date.parse(deadline), Date.now() + 600_000);
+    this.deadline = Math.min(Date.parse(deadline), Date.now() + WORKER_LIMITS.deadline_seconds * 1000);
   }
   check() {
     if (this.signal.aborted)
@@ -31,10 +32,16 @@ export class Budget {
         "Research reached its deadline. Saved evidence is available for an explicit retry.",
       );
   }
+  remaining() {
+    return {
+      searches: Math.max(0, WORKER_LIMITS.searches - this.usage.searches),
+      pages: Math.max(0, WORKER_LIMITS.pages - this.usage.pages),
+      model_turns: Math.max(0, WORKER_LIMITS.model_turns - this.usage.model_turns),
+    };
+  }
   consume(kind: "searches" | "pages" | "model_turns", amount = 1) {
     this.check();
-    const limits = { searches: 30, pages: 60, model_turns: 30 };
-    if (this.usage[kind] + amount > limits[kind])
+    if (this.usage[kind] + amount > WORKER_LIMITS[kind])
       throw new ResearchError(
         "budget",
         `Research exhausted its ${kind.replace("_", " ")} budget.`,

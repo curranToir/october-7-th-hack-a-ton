@@ -12,10 +12,10 @@ from apps.orchestrator.models.research import ResearchPlan, ResearchReport, Revi
 
 # Research-agent v1 limits and exact Budget error messages. Never classify an
 # arbitrary provider/authentication failure as recoverable budget exhaustion.
-USAGE_LIMITS = {"searches": 30, "pages": 60, "model_turns": 30}
+USAGE_LIMITS = {"searches": 60, "pages": 200, "model_turns": 60}
 BUDGET_ERRORS = {
     f"Research exhausted its {kind.replace('_', ' ')} budget." for kind in USAGE_LIMITS
-}
+} | {"Research exhausted its input context budget. Saved evidence is available."}
 BUDGET_GAP = (
     "Research usage budget was exhausted; further research was stopped. "
     "This report contains only findings accepted by evidence review."

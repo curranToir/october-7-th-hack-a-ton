@@ -1,11 +1,11 @@
 # Team Submission
 
-Coverage: functionality on GitHub `main` at `bec63f8`. Implementation, recorded evaluations and live deployment evidence are distinguished below; the latest code is not assumed to be deployed on every service.
+Coverage: functionality on GitHub `main` through `c45495e`, including the GPT-5 mini rollout, increased research budgets and enabled continuous prospecting. Implementation, recorded evaluations and live deployment evidence are distinguished below; the latest code is not assumed to be deployed on every service.
 
 ## Team
 
-- Team name: Toir Inc
-- Participants: Curran McLaughlin, Jared Lyon
+- Team name: Toir Inc (confirmed)
+- Participants: Curran McLaughlin, Jared Lyon (confirmed)
 - Company Brain / project name: Toir FDE Brain: the institutional memory of a forward-deployed-engineering firm
 
 ## Company Brain Overview
@@ -35,9 +35,10 @@ The application has a Next.js/React/TypeScript frontend, a browser-facing FastAP
 
 ### Continuous prospecting and bounded execution
 
-- Continuous prospecting is implemented as an opt-in durable scheduler and starts disabled. Explicit chat work has priority. One discovery slot and one contact slot can run concurrently; pending approvals occupy neither slot.
+- Continuous prospecting is an opt-in durable scheduler. New installations start disabled; the deployed workspace was explicitly enabled after the GPT-5 mini rollout. Explicit chat work has priority. One discovery slot and one contact slot can run concurrently; pending approvals occupy neither slot.
 - Default background limits are 10 discovery batches and 25 enrichment attempts per Los Angeles day, a fit threshold of 70, and US companies with 20–1000 employees. Provider, auth, storage and memory readiness gate continuous dispatch.
-- Each research/contact task has cumulative limits of 30 searches, 60 retrieved-page slots, 30 research model turns and a ten-minute absolute deadline, including follow-up work and failed provider attempts. Coordinator planning/review calls are tracked separately. Only the three read-only Exa tools are registered in the workers; they have no CRM write or database access.
+- Each research/contact task has cumulative limits of 60 searches, 200 retrieved-page slots, 60 research model turns and a ten-minute absolute deadline, including follow-up work and failed provider attempts. Coordinator planning/review calls are tracked separately. Only the three read-only Exa tools are registered in the workers; they have no CRM write or database access.
+- Workers use low reasoning and a 16,384 completion-token budget. Model context uses bounded evidence excerpts while the source registry retains original text; token thresholds reserve a final report turn before the configured input ceiling. Pending proposals are reused by company domain, with seven-day research and 30-day denial suppression for background work; explicit requests can override those repeat-work limits.
 - Source IDs derive from canonical URLs, and citation quotes must match the retrieved text. Deterministic validation checks identity, company size and dated signals; model-assisted review checks whether the evidence actually supports each claim. Unsupported fields are dropped, and proposed use cases/outreach angles stay labeled as hypotheses. No prospect outreach is sent.
 - The LangGraph research workflow performs planning, research, evidence review and up to two follow-up passes before report finalization. The latest budget fix preserves an already reviewed report when a follow-up exhausts its usage budget, marks the limitation and stops further paid work. It does not disguise unrelated provider failures as success.
 - Lost worker sessions and interrupted work remain visible and require explicit retry. Retries retain their parent run and saved evidence; the original result is preserved.
@@ -96,7 +97,8 @@ Implementation: [coordinator outbox and recall](../apps/orchestrator/sales/brain
   - LangGraph coordinator: interprets chat, plans discovery, reviews evidence, schedules workers, prepares approval-controlled CRM operations, and recalls/syncs shared company memory.
   - Oh My Pi research worker: public company discovery and competitor evidence. Separate contacts worker: company resolution and stakeholder enrichment. Both use Exa through Scalekit.
   - The brain itself answers `/recall`.
-- LLM calls routed through the Respan gateway? Yes. Coordinator and workers default to `gpt-5.4` (`RESPAN_MODEL`); Cognee extraction and answer synthesis default to `claude-haiku-4-5`; the independent judge uses `gpt-5-mini`. The gateway is `https://api.respan.ai/api/`; worker direct-provider fallbacks are disabled. Nemotron embeddings stay local on Spark.
+- LLM calls routed through the Respan gateway? Yes. Current coordinator/worker configuration and Brain text-generation/judging code use `gpt-5-mini` through `https://api.respan.ai/api/`, with low reasoning and explicit completion budgets. Worker direct-provider fallbacks are disabled. The EC2 application model rollout is verified; Spark's running Brain model switch is deferred, so its loaded configuration and the historical evaluation models must not be relabeled. Nemotron embeddings stay local on Spark.
+- Public agent evidence: [research run in Respan](https://api.respan.ai/api/3f37a437-bd40-4bcb-9e37-f5f2686d5622/traces/5902a7809174a2f5b7bf2967156717ca/) (23 spans, 5 LLM calls). This historical trace is research evidence, not proof of a CRM mutation.
 - How the runs are traced:
   - Coordinator: `respan-ai` plus LangChain instrumentation, with content capture disabled.
   - Workers: OpenTelemetry task/tool and native SDK GenAI spans exported to Respan, with propagated W3C trace context and run/task identifiers. Custom attributes omit prompt/source content and credentials.
@@ -104,7 +106,7 @@ Implementation: [coordinator outbox and recall](../apps/orchestrator/sales/brain
 - Scenario file: `brain-api/eval/scenarios.json` (**14 scenarios: 7 Q&A, 4 access, 1 grant, 2 action**). The 11 Q&A/access scenarios form the recorded before/after comparison. The grant scenario was run separately; the two GitHub action scenarios remain pending their agent endpoint.
 - Evaluator:
   - Deterministic Python checks: every `must_mention` present, no `must_not_mention` leak, `expected_sources` ⊆ returned `source:*` tags.
-  - LLM judge `gpt-5-mini` at temperature 0 via the Respan gateway.
+  - Independent LLM judge `gpt-5-mini` via the Respan gateway. Current code uses low reasoning and an 8,192 completion-token budget without a temperature parameter; the stored before/after results retain their original run configuration.
   - Neither is the agent.
 - Code entry points: [coordinator model gateway](../apps/orchestrator/integrations/models.py), [worker telemetry](../agents/research/src/telemetry/respan.ts), [Brain configuration](brain/config.py), and [evaluation runner](eval/run.py).
 
@@ -112,7 +114,7 @@ Implementation: [coordinator outbox and recall](../apps/orchestrator/sales/brain
 
 ### Baseline Run
 
-- Respan trace / eval run link: Respan project → workflow `eval.scenario`, `run_label=before`
+- Respan trace: [public baseline s01](https://api.respan.ai/api/3f37a437-bd40-4bcb-9e37-f5f2686d5622/traces/042daa65fe1d2060f8aacce699f5b112/). In the Respan platform, filter Logs → Traces by `run_label=before`.
 - Scenarios run: 11 (grant run separately; 2 action scenarios skipped pending an agent endpoint).
 - Mean score: **4/11 pass**; judge mean 0.48; must-mention coverage 0.74
 - Worst scenario and why it failed:
@@ -126,7 +128,7 @@ score:    judge 0.0, mention 0/1
 
 ### Improved Run
 
-- Respan trace / eval run link: Respan project → workflow `eval.scenario`, `run_label=after`
+- Respan trace: [public improved s01](https://api.respan.ai/api/3f37a437-bd40-4bcb-9e37-f5f2686d5622/traces/d68d3cbef3f7ae98b9dc3b0a3ac0e907/). In the Respan platform, filter Logs → Traces by `run_label=after`.
 - What changed: **Added HubSpot (CRM: deals, contacts, SOW notes) as a third Scalekit source.** Same code, same questions.
 - Mean score: **11/11 pass**; judge mean 0.64; must-mention coverage 1.00
 
@@ -138,12 +140,12 @@ Grant scenario s11 (curran, after acme-eng grant): PASS, judge 1.0
 
 Results: `brain-api/eval/results/{before,after,grant}.json`.
 
-These are recorded company-brain Q&A/access evaluations, not new public prospecting acceptance runs or proof of live CRM writes. Direct Respan trace URLs still need to be added; the workflow names and run labels above identify the recorded runs without inventing links.
+These are recorded company-brain Q&A/access evaluations, not new public prospecting acceptance runs or proof of live CRM writes. The three public Respan URLs in this submission were checked without authentication and returned HTTP 200 JSON. Action scenarios `s12` and `s13` require a GitHub triage endpoint that is not implemented and remain unscored. The chosen action demonstration is the existing version-approved HubSpot workflow; it is not counted as a passing GitHub action evaluation.
 
 ## Access Story
 
 - User A: `jared@neptuneops.com`. Recorded source connections: slack, github-connect. Readable: all `*-commercial`, `acme-eng`, `initech-eng`, `toir-firm`, `toir-pipeline`.
-- User B: `curran@toirinc.com`. Recorded source connection: hubspot; pulls fall back to Jared for GitHub until Curran's connection is ACTIVE. Readable: `globex-eng`, `toir-firm`, `toir-pipeline`. The intended GitHub access is limited to `globex-clinical-rag` and `toir-playbooks`; the handoff still asks Curran to accept those invitations.
+- User B: `curran@toirinc.com`. Recorded source connection: hubspot; pulls fall back to Jared for GitHub until Curran's connection is ACTIVE. Readable: `globex-eng`, `toir-firm`, `toir-pipeline`. Both GitHub invitations were accepted during submission preparation: `curranToir` can access `globex-clinical-rag` and `toir-playbooks`; an authenticated lookup of `acme-agent-rollout` returns 404. GitHub repository membership is verified, while authorizing Curran's separate Scalekit GitHub connection remains optional and is not implied by accepting the invitations.
 - Slack pulls use Jared's shared source connection for all seven channels. The demo does not claim a Slack-token access difference between the two users; Cognee dataset ACLs enforce the recall boundary after ingestion.
 - Question asked by both: "Who owns the Acme rollout and what is blocking go-live?"
 - Result for A: Maya Chen (Acme technical DRI). The duplicate-shipment replay bug blocks go-live (dedupe on `shipment_id` + `event_version`; rollback above 0.2% for 15 min). Go-live 2026-11-02 per the signed SOW. Sources: github, hubspot, slack.
@@ -228,11 +230,14 @@ The following is checked-in evidence, not a claim that every path was rerun for 
 | Prospecting/CRM implementation | Local Python workflow, scheduler, CRM, persistence, authorization and evidence checks; 13 contacts + 21 research Bun tests; browser proposal/edit/approval smoke | [Implementation report](../coms/prospecting-implementation.md). Providers were faked for mutation tests; live HubSpot reads and 11 tool catalog entries were checked. |
 | Google sign-in/session management | Recorded 374-pass Python suite, 14 browser contract tests, production frontend build and isolated live Google sign-in/session revocation | [Auth handoff](../coms/auth-handoff.md); this is its recorded validation snapshot, not the test count for the latest combined main. |
 | Deployed application | Five healthy deployments, private HTTPS health from a second tailnet device, normal Google/Scalekit sign-in verified | [Runtime handoff](../coms/spark-runtime-integration.md), release `8c0fb9cadeaf-02703df864ec`. |
+| Latest model and prospecting rollout | Release `b9730136262d-7eae5ee824ee` uses GPT-5 mini; a live gateway probe succeeded; all five deployments passed readiness; research limits increased | [Latest rollout record](../coms/spark-runtime-integration.md#requested-model-and-prospecting-update). Spark's model/configuration was deliberately left unchanged. |
+| Continuous prospecting | Enabled in the authenticated app; first background research run `cf6794b7-8f18-402e-b7b7-521532aadc31` recorded | [Continuous prospecting session](https://toir-hackathon.taild4c940.ts.net/#chat/284510b7-eef4-5474-8520-a0d0628e9642); initiation is verified, successful completion is not claimed here. |
+| HubSpot permissions | ACTIVE connection, real company/contact reads, required tool availability and connected-app company/contact write grants verified | Deployment attestation is enabled. This proves provider readiness, not that a CRM mutation succeeded. |
 | Production persistence | TLS 1.3 Postgres connection; cutover preserved 2 historical runs, 29 events and 1 sales record with matching hashes | Same runtime handoff; these are historical records, not newly successful prospecting runs. |
 | Backup and rollback | Actual encrypted S3 Postgres backup restored into isolated PostgreSQL 17; all nine table counts/hashes matched; application rollback retained Postgres and history | [Runtime handoff](../coms/spark-runtime-integration.md) and [Postgres operations](../infrastructure/deployment/POSTGRES.md). |
 | Spark research-memory handshake | Running capabilities advertise ingestion and both sales members; Curran pipeline reads and the earlier completed-ack retry behavior were verified | Running Spark used `research_ingestions.json`; the new per-document ledger/status implementation is on `main`, awaiting coordinated upgrade. |
 
-Remaining boundaries are explicit: continuous automation was not enabled by the recorded acceptance runs; live HubSpot mutation acceptance and write-scope verification remain pending. `SCALEKIT_HUBSPOT_WRITE_SCOPES_VERIFIED` defaults false and never replaces per-proposal approval. The first fresh research acceptance request retained four reviewed companies but failed on follow-up page-budget exhaustion. The fix is on `main`; that failed run is not rewritten as a successful run, and a successful post-fix live acceptance result is not recorded here. GitHub issue execution and direct Respan trace URLs also remain outstanding.
+Remaining boundaries are explicit: live HubSpot mutation acceptance is pending, even though provider write permissions and deployment attestation are verified. `SCALEKIT_HUBSPOT_WRITE_SCOPES_VERIFIED` defaults false for new configurations and never replaces per-proposal approval. The first fresh research acceptance request retained four reviewed companies but failed on follow-up page-budget exhaustion. The fix and larger budgets are deployed; that failed run is not rewritten as a successful run. The newer background run is recorded as started, without inventing its final result. GitHub issue/Slack-post execution are not implemented by the application. A fresh browser attempt during submission preparation was blocked at the login callback by Chrome (`ERR_BLOCKED_BY_CLIENT`), so no new CRM write is claimed from that attempt.
 
 ## Reproduction
 
@@ -310,9 +315,16 @@ bun test agents/research/tests agents/contacts/tests
 
 Only demonstrate a live HubSpot write after provider readiness and an explicit application approval. Use the recorded workflow evidence when that path is not ready; do not substitute the pending GitHub action scenario for a completed demo. Settings → Profile can additionally show durable browser sign-ins and revocation.
 
+### Concrete action demonstration
+
+Use the existing **HubSpot company/contact proposal workflow**. In a signed-in sales conversation, request research on a specific company and preparation of CRM updates. Open the resulting task, inspect its sources and exact changed fields, exclude unwanted contacts/operations, and approve that persisted version. Show execution separately from the decision: successful operations expose their returned HubSpot IDs, while memory sync has its own status. No outreach or Slack messages are part of this demonstration. A prepared proposal, an approved decision and a successful external write are distinct outcomes and must be presented as such.
+
+The current submission includes verified provider permissions and local approval/execution tests. A newly executed live mutation still requires completion of the browser sign-in described above; it is not represented as already demonstrated.
+
 ## Links
 
 - [Repository](https://github.com/curranToir/october-7-th-hack-a-ton): full application plus `brain-api/`.
-- Respan traces / eval runs: event-key project → workflows `eval.scenario`, `brain.recall`. Direct share links still need to be supplied.
+- Public Respan traces: [before s01](https://api.respan.ai/api/3f37a437-bd40-4bcb-9e37-f5f2686d5622/traces/042daa65fe1d2060f8aacce699f5b112/), [after s01](https://api.respan.ai/api/3f37a437-bd40-4bcb-9e37-f5f2686d5622/traces/d68d3cbef3f7ae98b9dc3b0a3ac0e907/), and [research run](https://api.respan.ai/api/3f37a437-bd40-4bcb-9e37-f5f2686d5622/traces/5902a7809174a2f5b7bf2967156717ca/).
 - [Seeded world](seed/world.json), [scenario definitions](eval/scenarios.json), [recorded results](eval/results/), and [recorded source responses](data/recorded/).
 - [Architecture](../docs/architecture.md), [sales workflow contract](../coms/prospecting-contract.md), [Google/session implementation](../coms/auth-handoff.md), and [latest recorded runtime evidence](../coms/spark-runtime-integration.md).
+- [Cognee technical feedback](cognee-feedback.md): reported integration issues, implemented workarounds and concrete improvements, without private data or invented incident timings.

@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { canonicalJSON } from "../../../research/src/research/contracts";
 import { Budget, ResearchError, safeError } from "../../../research/src/research/budget";
 import { Sources } from "../../../research/src/research/sources";
+import { WORKER_LIMITS } from "../../../research/src/research/limits";
 import { tracedTask } from "../../../research/src/telemetry/respan";
 import type { ContactHarness } from "../harness/omp";
 import { validTask, type ContactStatus, type ContactTask } from "../research/contracts";
@@ -71,7 +72,7 @@ export function createApp(options: Options) {
       return json({ version: 1, agent: "contacts", configured: missing.length === 0, ready: !closing && !missing.length,
         draining: closing, active_tasks: active ? 1 : 0, missing_credentials: missing,
         capabilities: ["company_resolution", "contact_research"],
-        limits: { active_tasks: 1, contacts: 5, searches: 30, pages: 60, model_turns: 30, deadline_seconds: 600, retained_tasks: retention } });
+        limits: { ...WORKER_LIMITS, contacts: 5, retained_tasks: retention } });
     }
     if (request.method === "POST" && path === "/v1/tasks") {
       if (closing) return json({ error: "Contact agent is stopping." }, 503);

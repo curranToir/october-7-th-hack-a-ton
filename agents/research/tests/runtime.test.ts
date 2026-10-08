@@ -185,7 +185,7 @@ test("rejects invented citation even when model supplies fake source text", () =
 });
 test("shared budgets stop subsequent passes and private URLs are blocked", async () => {
   const budget = new Budget(
-    { searches: 30 },
+    { searches: 60 },
     new Date(Date.now() + 60000).toISOString(),
     new AbortController().signal,
   );
@@ -224,6 +224,10 @@ test("real OMP SDK constructs restricted session without calling a model", async
   );
   expect(runtime.session.agent.state.model.provider).toBe("respan");
   expect(runtime.session.agent.state.model.api).toBe("openai-completions");
+  expect(runtime.session.agent.state.model.id).toBe("gpt-5-mini");
+  expect(runtime.session.agent.state.model.contextWindow).toBe(272000);
+  expect(runtime.session.agent.state.model.maxTokens).toBe(16384);
+  expect(String(runtime.session.agent.state.thinkingLevel)).toBe("low");
   expect(runtime.session.agent.state.tools.map((t) => t.name).sort()).toEqual([
     "exa_crawl",
     "exa_find_similar",
@@ -257,7 +261,7 @@ test("real OMP loop calls only Respan and custom Scalekit tools with a fake gate
     expect(endpoint).toBe("https://api.respan.ai/api/chat/completions");
     const body = JSON.parse(init.body);
     requestBodies.push(body);
-    expect(body.model).toBe("gpt-5.4");
+    expect(body.model).toBe("gpt-5-mini");
     expect(body.tools.map((t: any) => t.function.name).sort()).toEqual([
       "exa_crawl",
       "exa_find_similar",
@@ -286,7 +290,7 @@ test("real OMP loop calls only Respan and custom Scalekit tools with a fake gate
       id: "chat-test",
       object: "chat.completion.chunk",
       created: 1,
-      model: "gpt-5.4",
+      model: "gpt-5-mini",
       choices,
       ...extra,
     });
@@ -329,6 +333,10 @@ test("real OMP loop calls only Respan and custom Scalekit tools with a fake gate
     )(task, { budget, sources, signal, progress: () => {} });
     expect(outbound).toHaveLength(2);
     for (const requestBody of requestBodies) {
+      expect(requestBody).toMatchObject({model: "gpt-5-mini", max_completion_tokens: 16384, reasoning_effort: "low"});
+      expect(requestBody).not.toHaveProperty("max_tokens");
+      expect(requestBody).not.toHaveProperty("temperature");
+      expect(requestBody).not.toHaveProperty("top_p");
       expect(JSON.stringify(requestBody)).not.toContain(task.focus);
       expect(JSON.stringify(requestBody)).toContain("research execution agent");
     }
@@ -423,7 +431,7 @@ test("W3C coordinator context reaches real OMP model spans without content captu
   const originalFetch = globalThis.fetch;
   const fake = async () =>
     new Response(
-      `data: ${JSON.stringify({ id: "test", object: "chat.completion.chunk", created: 1, model: "gpt-5.4", choices: [{ index: 0, delta: { role: "assistant", content: JSON.stringify(EMPTY_REPORT) }, finish_reason: null }] })}\n\ndata: ${JSON.stringify({ id: "test", object: "chat.completion.chunk", created: 1, model: "gpt-5.4", choices: [{ index: 0, delta: {}, finish_reason: "stop" }] })}\n\ndata: [DONE]\n\n`,
+      `data: ${JSON.stringify({ id: "test", object: "chat.completion.chunk", created: 1, model: "gpt-5-mini", choices: [{ index: 0, delta: { role: "assistant", content: JSON.stringify(EMPTY_REPORT) }, finish_reason: null }] })}\n\ndata: ${JSON.stringify({ id: "test", object: "chat.completion.chunk", created: 1, model: "gpt-5-mini", choices: [{ index: 0, delta: {}, finish_reason: "stop" }] })}\n\ndata: [DONE]\n\n`,
       { headers: { "Content-Type": "text/event-stream" } },
     );
   globalThis.fetch = Object.assign(fake, {
@@ -461,7 +469,7 @@ test("W3C coordinator context reaches real OMP model spans without content captu
     expect(spans.length).toBeGreaterThan(2);
     expect(spans.every((s) => s.spanContext().traceId === traceID)).toBe(true);
     expect(
-      spans.some((s) => s.attributes["gen_ai.request.model"] === "gpt-5.4"),
+      spans.some((s) => s.attributes["gen_ai.request.model"] === "gpt-5-mini"),
     ).toBe(true);
     const allAttributes = JSON.stringify(spans.map((s) => s.attributes));
     expect(allAttributes).not.toContain("fake-test-key");
@@ -513,3 +521,24 @@ test("schema diagnostics expose safe paths and rules, never rejected data", () =
   expect((extraFailure as Error).message).toContain("additionalProperties");
   expect((extraFailure as Error).message).not.toContain("private-");
 });
+
+
+test("real OMP preserves a hard context budget failure through the research harness", async () => {
+  const { ompHarness } = await import("../src/harness/omp");
+  const originalFetch = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = Object.assign(async () => {
+    calls++;
+    throw new Error("The context guard must prevent outbound calls");
+  }, { preconnect: originalFetch.preconnect }) as typeof fetch;
+  const task = request();
+  // Exercise the internal boundary directly with synthetic oversized history.
+  task.brief.request = "x ".repeat(275_000);
+  const signal = new AbortController().signal;
+  try {
+    await expect(ompHarness({ execute: async () => { throw new Error("No tools expected"); } }, "fake-test-key")(
+      task, { budget: new Budget({}, task.deadline_at, signal), sources: new Sources(), signal, progress: () => {} },
+    )).rejects.toMatchObject({ code: "budget", message: "Research exhausted its input context budget. Saved evidence is available." });
+    expect(calls).toBe(0);
+  } finally { globalThis.fetch = originalFetch; }
+}, 30000);
