@@ -15,8 +15,9 @@ from .research_contract import IngestionError, canonical
 
 
 class ResearchLedger:
-    def __init__(self, path: Path):
+    def __init__(self, path: Path, legacy_path: Path | None = None):
         self.path = path
+        self.legacy_path = legacy_path or path.parent / "research_ingestions.json"
         self._owner = None
 
     @contextmanager
@@ -35,14 +36,26 @@ class ResearchLedger:
         self._owner = self.path.with_suffix(self.path.suffix + ".lock").open("a+")
         try:
             fcntl.flock(self._owner, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            legacy = self.path.parent / "research_ingestions.json"
-            if legacy.exists() and json.loads(legacy.read_text()):
-                # The alternate JSON implementation saved acknowledgments only,
-                # without request hashes or evidence of interrupted provider work.
-                # Never blindly replay or re-ingest those IDs in a fresh ledger.
-                raise RuntimeError("legacy_research_receipts_require_reconciliation")
+            legacy_ids = []
+            if self.legacy_path.exists():
+                try:
+                    legacy = json.loads(self.legacy_path.read_text())
+                    if not isinstance(legacy, dict):
+                        raise ValueError()
+                    legacy_ids = list(legacy)
+                except (ValueError, UnicodeError):
+                    raise RuntimeError("legacy_research_receipts_invalid") from None
             with self.connection() as db:
                 db.execute("PRAGMA journal_mode=WAL")
+                db.execute("""CREATE TABLE IF NOT EXISTS legacy_research_ids (
+                    ingestion_id TEXT PRIMARY KEY
+                )""")
+                # Import only protected IDs, never unverifiable acknowledgments.
+                # Protection survives an accidental later removal of the JSON file.
+                db.executemany(
+                    "INSERT OR IGNORE INTO legacy_research_ids (ingestion_id) VALUES (?)",
+                    ((ingestion_id,) for ingestion_id in legacy_ids),
+                )
                 db.execute("""CREATE TABLE IF NOT EXISTS research_ingestions (
                     ingestion_id TEXT PRIMARY KEY,
                     request_hash TEXT NOT NULL,
@@ -73,6 +86,11 @@ class ResearchLedger:
     def reserve(self, ingestion_id, request_hash, payload, documents):
         with self.connection() as db:
             db.execute("BEGIN IMMEDIATE")
+            if db.execute(
+                "SELECT 1 FROM legacy_research_ids WHERE ingestion_id=?",
+                (ingestion_id,),
+            ).fetchone():
+                raise IngestionError(409, "legacy_research_ingestion_requires_reconciliation")
             row = db.execute(
                 "SELECT * FROM research_ingestions WHERE ingestion_id=?", (ingestion_id,)
             ).fetchone()
@@ -146,6 +164,17 @@ class ResearchLedger:
 
     def status(self, ingestion_id):
         with self.connection() as db:
+            if db.execute(
+                "SELECT 1 FROM legacy_research_ids WHERE ingestion_id=?",
+                (ingestion_id,),
+            ).fetchone():
+                return {
+                    "ingestion_id": ingestion_id,
+                    "status": "legacy",
+                    "completed": 0,
+                    "active_document": None,
+                    "provider_completions": [],
+                }
             row = db.execute(
                 """SELECT ingestion_id,status,completed,active_document,
                 completion_json FROM research_ingestions WHERE ingestion_id=?""",

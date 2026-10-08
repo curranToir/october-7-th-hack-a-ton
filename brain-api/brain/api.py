@@ -26,7 +26,10 @@ tasks = set()
 async def lifespan(app):
     respan = Respan()
     ingestion = ResearchIngestion(
-        ResearchLedger(Path(os.environ["BRAIN_RESEARCH_LEDGER"])),
+        ResearchLedger(
+            Path(os.environ["BRAIN_RESEARCH_LEDGER"]),
+            legacy_path=config.ROOT / "data/research_ingestions.json",
+        ),
         memory.remember_research_document, memory.research_access, memory.writer_lock,
     )
     app.state.research_ingestion = ingestion

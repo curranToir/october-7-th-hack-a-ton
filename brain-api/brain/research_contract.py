@@ -33,7 +33,7 @@ class ResearchCapabilities(BaseModel):
 
 class ResearchIngestionStatus(BaseModel):
     ingestion_id: str
-    status: Literal["prepared", "completed", "uncertain", "forgotten"]
+    status: Literal["prepared", "completed", "uncertain", "forgotten", "legacy"]
     completed: int
     active_document: int | None
     provider_completions: list[dict[str, str]]
