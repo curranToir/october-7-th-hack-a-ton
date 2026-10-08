@@ -16,10 +16,14 @@ at `POST /v1/analyses`. `GET /v1/capabilities` reports model configuration;
 ```
 
 Set the coordinator's local `MEETING_AGENT_URL=http://127.0.0.1:8004`.
-`RESPAN_MODEL` defaults to `gpt-5.4`. Kubernetes runs this worker on private port
+`RESPAN_MODEL` defaults to `gpt-5-mini`. Kubernetes runs this worker on private port
 8000 using `infrastructure/docker/meetings.Dockerfile`, the Respan-only
 `meetings-runtime` secret, no durable volume and coordinator-only network ingress.
 It must never receive Recall, GitHub, database or Scalekit credentials.
+
+Meeting analysis uses the Respan gateway, but this worker does not yet initialize
+LangChain tracing or propagate meeting trace context across the HTTP boundary.
+Correlated coordinator-to-meeting analysis traces remain unverified.
 
 See [the meeting integration runbook](../../docs/meeting-agent.md) for the design,
 Recall setup, demo, approval gate, public callback requirements and recovery.
