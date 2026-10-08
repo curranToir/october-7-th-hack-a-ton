@@ -51,7 +51,13 @@ def test_invalid_migration_never_reaches_import(migration_bundle, change):
     else:
         bundle["runs"].append(copy.deepcopy(bundle["runs"][0]))
     if change != "checksum":
-        bundle["sha256"] = digest({"runs": bundle["runs"], "events": bundle["events"]})
+        bundle["sha256"] = digest(
+            {
+                "runs": bundle["runs"],
+                "events": bundle["events"],
+                "sales_records": bundle["sales_records"],
+            }
+        )
     with pytest.raises(ValueError):
         validate(bundle)
 
@@ -66,7 +72,12 @@ def test_import_preserves_hashes_and_rejects_second_import(migration_bundle, req
 
     async def scenario():
         result = await import_postgres(migration_bundle, url)
-        assert result == {"runs": 1, "events": 2, "sha256": migration_bundle["sha256"]}
+        assert result == {
+            "runs": 1,
+            "events": 2,
+            "sales_records": 0,
+            "sha256": migration_bundle["sha256"],
+        }
         with pytest.raises(ValueError, match="Destination has research"):
             await import_postgres(migration_bundle, url)
         from apps.orchestrator.storage.postgres import PostgresRunRepository
@@ -91,3 +102,40 @@ def test_live_backup_module_cannot_export_stale_sqlite_when_postgres_active(tmp_
         with pytest.raises(RuntimeError, match="Postgres is active"):
             function(tmp_path / "should-not-exist")
     assert not (tmp_path / "should-not-exist").exists()
+
+
+def test_sales_records_survive_export_validation_and_import(migration_bundle, tmp_path, request):
+    import json
+    import sqlite3
+
+    import psycopg
+
+    from apps.orchestrator.sales.store import schema
+
+    with sqlite3.connect(tmp_path / "runs.sqlite") as db:
+        db.executescript(schema(False))
+        for kind in ("auth_session", "outbox", "automation", "decision"):
+            payload = {
+                "workspace_id": "toir",
+                "id": kind,
+                "status": "completed",
+                "source": "preserved",
+            }
+            db.execute(
+                "INSERT INTO sales_records VALUES (?,?,?,?)",
+                ("toir", kind, kind, json.dumps(payload)),
+            )
+    bundle = export_sqlite(tmp_path / "runs.sqlite", tmp_path / "with-sales.json")
+    assert len(bundle["sales_records"]) == 4
+    assert validate(bundle) == bundle
+    url = request.getfixturevalue("postgres_url")
+    with psycopg.connect(url, autocommit=True) as db:
+        db.execute("TRUNCATE runs,run_events,sales_records RESTART IDENTITY")
+    first = asyncio.run(import_postgres(bundle, url))
+    assert first["sales_records"] == 4
+    repeated = asyncio.run(import_postgres(bundle, url, allow_identical=True))
+    assert repeated["sha256"] == first["sha256"]
+    assert repeated["already_imported"]
+    with psycopg.connect(url, autocommit=True) as db:
+        assert db.execute("SELECT count(*) FROM sales_records").fetchone()[0] == 4
+        db.execute("TRUNCATE runs,run_events,sales_records RESTART IDENTITY")

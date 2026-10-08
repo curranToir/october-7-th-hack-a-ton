@@ -102,7 +102,14 @@ def prepare(body: ResearchRequest, ingestion_id: str):
                 pending.extend(value)
         cited = [sources[source_id] for source_id in sorted(cited_ids)]
         title = str(lead.get("company", lead.get("name", lead.get("title", f"Lead {index + 1}"))))
-        content = canonical({"ingestion_id": ingestion_id, "lead": lead, "cited_sources": cited})
+        content = canonical(
+            {
+                "ingestion_id": ingestion_id,
+                "lead": lead,
+                "sources": raw_sources,
+                "cited_sources": cited,
+            }
+        )
         docs.append(
             document(
                 "research",

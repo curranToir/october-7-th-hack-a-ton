@@ -13,8 +13,8 @@ from cognee.modules.users.permissions.methods import authorized_give_permission_
 from cognee.modules.search.types import SearchType
 from .registry import DATASETS, USERS, LEAD, user_name, dataset_name, withheld, sources_in
 from .graph_model import CompanyGraph, EXTRACTION_PROMPT
-from .initial_grants import apply_initial_read_grants
-from .research_cognee import remember_document
+from .initial_grants import apply_initial_grants as grant_initial_permissions
+from .research_cognee import remember_document, resolve_pipeline_target
 
 # ponytail: one process-local lock; move to a dedicated writer only if throughput requires it.
 writer_lock = asyncio.Lock()
@@ -50,16 +50,18 @@ async def access(email):
     return {"readable": sorted(ds.name for ds in datasets), "owned": sorted(ds.name for ds in datasets if DATASETS[ds.name].owner == email)}
 
 async def apply_initial_grants():
-    await apply_initial_read_grants(grant)
+    await grant_initial_permissions(grant)
 
-async def grant(owner, grantee, dataset):
-    return await permission(owner, grantee, dataset, False)
+async def grant(owner, grantee, dataset, permission_name="read"):
+    return await permission(owner, grantee, dataset, False, permission_name)
 
 async def revoke(owner, grantee, dataset):
     return await permission(owner, grantee, dataset, True)
 
-async def permission(owner, grantee, dataset, revoke):
+async def permission(owner, grantee, dataset, revoke, permission_name="read"):
     user_name(owner); user_name(grantee); dataset_name(dataset)
+    if permission_name not in {"read", "write"}:
+        raise PermissionError("not_dataset_owner")
     if DATASETS[dataset].owner != owner or owner == grantee:
         raise PermissionError("not_dataset_owner")
     await ensure_users()
@@ -67,7 +69,7 @@ async def permission(owner, grantee, dataset, revoke):
     if not ds:
         ds = [await create_authorized_dataset(dataset, _users[owner])]
     method = authorized_revoke_permission_on_datasets if revoke else authorized_give_permission_on_datasets
-    await method(_users[grantee].id, [ds[0].id], "read", _users[owner].id)
+    await method(_users[grantee].id, [ds[0].id], permission_name, _users[owner].id)
     return {"readable": (await access(grantee))["readable"]}
 
 @task(name="brain.remember")
@@ -151,11 +153,24 @@ async def forget(email, dataset=None):
         await cognee.forget(dataset_id=ds.id, user=_users[email])
     return {"forgotten": sorted(ds.name for ds in datasets)}
 
-async def remember_research_document(doc):
+async def research_access(email):
+    result = await access(email)
+    try:
+        await resolve_pipeline_target(email, users=_users, resolve=get_authorized_existing_datasets)
+    except PermissionError:
+        result["writable"] = []
+    else:
+        result["writable"] = ["toir-pipeline"]
+    return result
+
+async def remember_research_document(doc, email):
     """Caller holds writer_lock and has durably marked this specific document started."""
     await ensure_users()
+    actor, dataset_id = await resolve_pipeline_target(
+        email, users=_users, resolve=get_authorized_existing_datasets,
+    )
     return await remember_document(
-        doc, remember=cognee.remember, owner=_users[LEAD],
+        doc, remember=cognee.remember, actor=actor, dataset_id=dataset_id,
         graph_model=CompanyGraph, prompt=EXTRACTION_PROMPT,
     )
 

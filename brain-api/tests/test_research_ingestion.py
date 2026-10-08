@@ -6,10 +6,10 @@ from types import SimpleNamespace
 import httpx
 import pytest
 from brain.auth import bearer
-from brain.initial_grants import apply_initial_read_grants
+from brain.initial_grants import apply_initial_grants
 from brain.registry import DATASETS, ENG, LEAD
 from brain.research_api import get_research_service, ingestion_failure, router
-from brain.research_cognee import remember_document
+from brain.research_cognee import remember_document, resolve_pipeline_target
 from brain.research_contract import IngestionError, ResearchRequest, prepare
 from brain.research_ingestion import ResearchIngestion
 from brain.research_ledger import ResearchLedger
@@ -57,14 +57,16 @@ def payload(user=ENG):
 async def access(user):
     return {
         "readable": [name for name, spec in DATASETS.items() if spec.owner == user]
-        + ["toir-firm", "toir-pipeline"]
+        + ["toir-firm", "toir-pipeline"],
+        "writable": ["toir-pipeline"],
     }
 
 
 def service(tmp_path, callback=None, access_callback=access):
     calls = []
 
-    async def remember(doc):
+    async def remember(doc, email):
+        assert email in (ENG, LEAD)
         calls.append(doc)
         return {"pipeline_run_id": "pipeline-1"}
 
@@ -238,7 +240,7 @@ def test_provider_failure_and_cancellation_cannot_create_ack_or_repeat_calls(tmp
         for kind in ("error", "cancel"):
             calls = []
 
-            async def fail(doc):
+            async def fail(doc, email):
                 calls.append(doc)
                 if kind == "cancel":
                     raise asyncio.CancelledError()
@@ -267,7 +269,7 @@ def test_concurrent_duplicate_requests_share_one_durable_result(tmp_path):
     async def scenario():
         entered, release, calls = asyncio.Event(), asyncio.Event(), []
 
-        async def slow(doc):
+        async def slow(doc, email):
             calls.append(doc)
             entered.set()
             await release.wait()
@@ -294,6 +296,7 @@ def test_nested_citations_and_full_source_metadata_are_preserved():
     content = json.loads(docs[0]["text"].split("\n\n", 1)[1])
     assert content["lead"] == body.report["leads"][0]
     assert content["cited_sources"] == body.report["sources"]
+    assert content["sources"] == body.report["sources"]
     assert json.loads(raw)["report"] == body.report
 
 
@@ -331,12 +334,21 @@ def test_exact_initial_read_grants_and_revoked_writer_access(tmp_path):
         async def record(*args):
             grants.append(args)
 
-        await apply_initial_read_grants(record)
-        assert grants == [(LEAD, ENG, "toir-firm"), (LEAD, ENG, "toir-pipeline")]
-        assert all(not name.startswith(("acme-", "initech-", "globex-")) for _, _, name in grants)
+        await apply_initial_grants(record)
+        assert grants == [
+            (LEAD, ENG, "toir-firm", "read"),
+            (LEAD, ENG, "toir-pipeline", "read"),
+            (LEAD, ENG, "toir-pipeline", "write"),
+        ]
+        assert all(
+            not name.startswith(("acme-", "initech-", "globex-")) for _, _, name, _ in grants
+        )
 
         async def restricted(user):
-            return {"readable": ["toir-pipeline"] if user == LEAD else ["globex-eng", "toir-firm"]}
+            return {
+                "readable": ["toir-pipeline"] if user == LEAD else ["globex-eng", "toir-firm"],
+                "writable": ["toir-pipeline"] if user == LEAD else [],
+            }
 
         ingestion, calls = service(tmp_path, access_callback=restricted)
         await ingestion.open()
@@ -389,13 +401,14 @@ def test_forget_invalidates_receipts_only_for_owned_pipeline(tmp_path):
 def test_cognee_adapter_requires_completed_target_dataset(status, dataset, success):
     async def scenario():
         recorded = []
-        owner = object()
+        actor = object()
 
         async def remember(*args, **kwargs):
             recorded.append((args, kwargs))
             return SimpleNamespace(
                 status=status,
                 dataset_name=dataset,
+                dataset_id="canonical-dataset",
                 pipeline_run_id="pipeline",
                 error="sensitive-provider-error",
             )
@@ -403,17 +416,19 @@ def test_cognee_adapter_requires_completed_target_dataset(status, dataset, succe
         call = remember_document(
             {"text": "source", "node_set": ["client:toir"]},
             remember=remember,
-            owner=owner,
+            actor=actor,
+            dataset_id="canonical-dataset",
             graph_model="graph",
             prompt="prompt",
         )
         if success:
-            assert await call == {"pipeline_run_id": "pipeline"}
+            assert await call == {"pipeline_run_id": "pipeline", "dataset_id": "canonical-dataset"}
         else:
             with pytest.raises(RuntimeError, match="research_document_not_completed"):
                 await call
         kwargs = recorded[0][1]
-        assert kwargs["user"] is owner
+        assert kwargs["user"] is actor
+        assert kwargs["dataset_id"] == "canonical-dataset"
         assert kwargs["dataset_name"] == "toir-pipeline"
         assert kwargs["run_in_background"] is False and kwargs["self_improvement"] is False
 
@@ -436,7 +451,7 @@ def test_disconnected_http_waiter_leaves_ingestion_running_and_replayable(tmp_pa
     async def scenario():
         entered, release, calls = asyncio.Event(), asyncio.Event(), []
 
-        async def slow(doc):
+        async def slow(doc, email):
             calls.append(doc)
             entered.set()
             await release.wait()
@@ -468,7 +483,7 @@ def test_partial_multiple_document_ingestion_is_not_acknowledged_or_repeated(tmp
     async def scenario():
         calls = []
 
-        async def write(doc):
+        async def write(doc, email):
             calls.append(doc)
             if len(calls) == 2:
                 raise RuntimeError("second document failed after a possible partial write")
@@ -576,7 +591,7 @@ def test_route_validation_conflict_and_error_contracts(tmp_path, monkeypatch):
                 new_body = payload()
                 new_body["report"]["ingestion_id"] = key2
 
-                async def fail(doc):
+                async def fail(doc, email):
                     raise RuntimeError("vendor-body-secret")
 
                 ingestion.remember_document = fail
@@ -589,3 +604,92 @@ def test_route_validation_conflict_and_error_contracts(tmp_path, monkeypatch):
             await ingestion.close()
 
     asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("email", [ENG, LEAD])
+def test_pipeline_target_uses_actual_requester_and_canonical_dataset_id(email):
+    async def scenario():
+        users = {ENG: object(), LEAD: object()}
+        dataset = SimpleNamespace(id="shared-pipeline-id", name="toir-pipeline")
+        calls = []
+
+        async def resolve(identifiers, permission, actor):
+            calls.append((identifiers, permission, actor))
+            return [dataset]
+
+        actor, identifier = await resolve_pipeline_target(email, users=users, resolve=resolve)
+        assert actor is users[email] and identifier == dataset.id
+        assert calls == [
+            (["toir-pipeline"], "share", users[LEAD]),
+            ([dataset.id], "read", users[email]),
+            ([dataset.id], "write", users[email]),
+        ]
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("failure", ["missing", "ambiguous", "no_read", "no_write", "wrong_id"])
+def test_pipeline_target_never_falls_back_to_owner_privileges_or_same_named_dataset(failure):
+    async def scenario():
+        users = {ENG: object(), LEAD: object()}
+        dataset = SimpleNamespace(id="canonical", name="toir-pipeline")
+
+        async def resolve(identifiers, permission, actor):
+            if permission == "share" and failure == "missing":
+                return []
+            if permission == "share" and failure == "ambiguous":
+                return [dataset, dataset]
+            if (permission == "read" and failure == "no_read") or (
+                permission == "write" and failure == "no_write"
+            ):
+                return []
+            if permission == "write" and failure == "wrong_id":
+                return [SimpleNamespace(id="other-user-owned", name="toir-pipeline")]
+            return [dataset]
+
+        with pytest.raises(PermissionError):
+            await resolve_pipeline_target(ENG, users=users, resolve=resolve)
+
+    asyncio.run(scenario())
+
+
+def test_capabilities_does_not_wait_for_long_running_ingestion(tmp_path):
+    async def scenario():
+        entered, release = asyncio.Event(), asyncio.Event()
+
+        async def slow(doc, email):
+            entered.set()
+            await release.wait()
+            return {}
+
+        ingestion, _ = service(tmp_path, slow)
+        await ingestion.open()
+        try:
+            task = asyncio.create_task(ingestion.submit(ResearchRequest(**payload()), KEY))
+            await entered.wait()
+            result = await asyncio.wait_for(ingestion.capabilities(), timeout=0.2)
+            assert result["research_writers"] == [LEAD, ENG]
+            release.set()
+            await task
+        finally:
+            release.set()
+            await ingestion.close()
+
+    asyncio.run(scenario())
+
+
+def test_legacy_json_receipts_require_reconciliation_before_new_writes(tmp_path):
+    legacy = tmp_path / "research_ingestions.json"
+    legacy.write_text(
+        json.dumps({KEY: {"dataset": "toir-pipeline", "documents": 1, "ingestion_id": KEY}})
+    )
+    ledger = ResearchLedger(tmp_path / "receipts.sqlite3")
+    with pytest.raises(RuntimeError, match="legacy_research_receipts_require_reconciliation"):
+        ledger.open()
+    assert not ledger.path.exists()
+    assert json.loads(legacy.read_text())[KEY]["documents"] == 1
+    # An unused alternate ledger is compatible; it is preserved on disk.
+    legacy.write_text("{}")
+    ledger.open()
+    ledger.close()
+    assert legacy.read_text() == "{}"

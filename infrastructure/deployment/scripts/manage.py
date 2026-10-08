@@ -233,7 +233,13 @@ def main():
     sync.add_argument(
         "--restart", action="store_true", help="Drain and restart pods to activate values"
     )
-    commands.add_parser("backup", help="Drain and upload a consistent SQLite backup to private S3")
+    commands.add_parser(
+        "backup", help="Drain and upload a consistent active-database backup to private S3"
+    )
+    commands.add_parser(
+        "storage-cutover",
+        help="Back up both stores, migrate SQLite history, verify and activate PostgreSQL",
+    )
     restore_command = commands.add_parser(
         "restore", help="Preserve current state then restore a backup"
     )
@@ -264,7 +270,7 @@ def main():
         stack_update(aws, HERE.parent / "cloudformation/stack.yaml")
     elif args.command == "secret-set":
         set_secret(aws, args.name, args.stdin)
-    elif args.command in {"secret-sync", "backup", "restore", "maintenance"}:
+    elif args.command in {"secret-sync", "backup", "restore", "maintenance", "storage-cutover"}:
         outputs = aws.outputs()
         arguments = [args.command, *runtime_arguments(aws, outputs)]
         if args.command == "secret-sync" and args.restart:

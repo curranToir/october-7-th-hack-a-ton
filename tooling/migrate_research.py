@@ -17,10 +17,12 @@ from pathlib import Path
 from psycopg.types.json import Jsonb
 
 from apps.orchestrator.models.research import Run, RunEvent, now
+from apps.orchestrator.sales.store import KINDS, SalesStore
 from apps.orchestrator.storage.postgres import PostgresRunRepository
 
 RUN_COLUMNS = ("id", "idempotency_key", "request_hash", "status", "created_at", "payload")
 EVENT_COLUMNS = ("sequence", "run_id", "created_at", "stage", "message")
+SALES_COLUMNS = ("workspace_id", "kind", "id", "payload")
 
 
 def digest(value: object) -> str:
@@ -30,9 +32,16 @@ def digest(value: object) -> str:
 
 
 def validate(bundle: dict) -> dict:
-    if bundle.get("format") != "toir-research-migration-v1" or bundle.get("schema_version") != 1:
+    if (
+        bundle.get("format") not in {"toir-research-migration-v1", "toir-research-migration-v2"}
+        or bundle.get("schema_version") != 1
+    ):
         raise ValueError("Unsupported research migration format")
     records = {"runs": bundle.get("runs"), "events": bundle.get("events")}
+    if bundle["format"] == "toir-research-migration-v2":
+        records["sales_records"] = bundle.get("sales_records")
+        if bundle.get("sales_schema_version") != 1:
+            raise ValueError("Unsupported sales schema")
     if not all(isinstance(v, list) for v in records.values()) or digest(records) != bundle.get(
         "sha256"
     ):
@@ -66,6 +75,31 @@ def validate(bundle: dict) -> dict:
             raise ValueError("Invalid event identity or sequence ordering")
         sequences.add(event.sequence)
         previous = event.sequence
+    sales_ids = set()
+    for row in records.get("sales_records", []):
+        if not isinstance(row, dict) or set(row) != set(SALES_COLUMNS):
+            raise ValueError("Unexpected sales row shape")
+        identity = (row["workspace_id"], row["kind"], row["id"])
+        if (
+            row["workspace_id"] != "toir"
+            or row["kind"] not in KINDS
+            or not isinstance(row["id"], str)
+            or not row["id"]
+        ):
+            raise ValueError("Invalid sales record identity")
+        if (
+            identity in sales_ids
+            or not isinstance(row["payload"], dict)
+            or row["payload"].get("workspace_id") != "toir"
+        ):
+            raise ValueError("Duplicate or invalid sales payload")
+        if row["kind"] in {"job", "crm_operation", "outbox"} and row["payload"].get("status") in {
+            "running",
+            "in_progress",
+            "sending",
+        }:
+            raise ValueError("Drain active sales work before migration")
+        sales_ids.add(identity)
     return bundle
 
 
@@ -86,11 +120,22 @@ def export_sqlite(source: Path, destination: Path) -> dict:
             item["payload"] = json.loads(item["payload"])
             runs.append(item)
         events = [dict(row) for row in db.execute("SELECT * FROM run_events ORDER BY sequence")]
-    records = {"runs": runs, "events": events}
+        sales = []
+        if db.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='sales_records'"
+        ).fetchone():
+            if [r[0] for r in db.execute("SELECT version FROM sales_schema_version")] != [1]:
+                raise ValueError("Unsupported source sales schema")
+            for row in db.execute("SELECT * FROM sales_records ORDER BY workspace_id,kind,id"):
+                item = dict(row)
+                item["payload"] = json.loads(item["payload"])
+                sales.append(item)
+    records = {"runs": runs, "events": events, "sales_records": sales}
     bundle = validate(
         {
-            "format": "toir-research-migration-v1",
+            "format": "toir-research-migration-v2",
             "schema_version": 1,
+            "sales_schema_version": 1,
             "created_at": now(),
             "sha256": digest(records),
             **records,
@@ -104,18 +149,61 @@ def export_sqlite(source: Path, destination: Path) -> dict:
     return bundle
 
 
-async def import_postgres(bundle: dict, url: str) -> dict:
+async def import_postgres(bundle: dict, url: str, *, allow_identical: bool = False) -> dict:
     validate(bundle)
     repo = await PostgresRunRepository.open(url)
+    include_sales = bundle["format"] == "toir-research-migration-v2"
     try:
+        await SalesStore(repo).setup()
         async with repo.lock, repo.connection.transaction():
-            await repo.connection.execute("LOCK TABLE runs,run_events IN ACCESS EXCLUSIVE MODE")
-            cursor = await repo.connection.execute("SELECT count(*) AS n FROM runs")
-            if (await cursor.fetchone())["n"]:
-                raise ValueError("Destination has research records; refusing merge or overwrite")
-            cursor = await repo.connection.execute("SELECT count(*) AS n FROM run_events")
-            if (await cursor.fetchone())["n"]:
-                raise ValueError("Destination has events; refusing merge or overwrite")
+            await repo.connection.execute(
+                "LOCK TABLE runs,run_events,sales_records IN ACCESS EXCLUSIVE MODE"
+            )
+
+            async def records():
+                result = {
+                    "runs": await (
+                        await repo.connection.execute("SELECT * FROM runs ORDER BY created_at,id")
+                    ).fetchall(),
+                    "events": await (
+                        await repo.connection.execute("SELECT * FROM run_events ORDER BY sequence")
+                    ).fetchall(),
+                }
+                sales = await (
+                    await repo.connection.execute(
+                        "SELECT * FROM sales_records ORDER BY workspace_id,kind,id"
+                    )
+                ).fetchall()
+                if include_sales:
+                    result["sales_records"] = sales
+                elif sales:
+                    raise ValueError("Legacy migration cannot overwrite sales records")
+                return result
+
+            existing = await records()
+            for table in ("checkpoints", "checkpoint_writes", "checkpoint_blobs"):
+                if (
+                    await (
+                        await repo.connection.execute("SELECT to_regclass(%s) AS name", (table,))
+                    ).fetchone()
+                )["name"]:
+                    # Identifiers come only from this fixed allowlist.
+                    if (
+                        await (
+                            await repo.connection.execute(f"SELECT count(*) AS n FROM {table}")
+                        ).fetchone()
+                    )["n"]:
+                        raise ValueError("Destination contains checkpoints; refusing migration")
+            if allow_identical and digest(existing) == bundle["sha256"]:
+                return {
+                    **{k: len(v) for k, v in existing.items()},
+                    "sha256": bundle["sha256"],
+                    "already_imported": True,
+                }
+            if any(existing.values()):
+                raise ValueError(
+                    "Destination has research or sales records; refusing merge or overwrite"
+                )
             for row in bundle["runs"]:
                 await repo.connection.execute(
                     "INSERT INTO runs VALUES (%s,%s,%s,%s,%s,%s)",
@@ -127,21 +215,20 @@ async def import_postgres(bundle: dict, url: str) -> dict:
                     "VALUES (%s,%s,%s,%s,%s)",
                     tuple(row[k] for k in EVENT_COLUMNS),
                 )
-            runs = await (
-                await repo.connection.execute("SELECT * FROM runs ORDER BY created_at,id")
-            ).fetchall()
-            events = await (
-                await repo.connection.execute("SELECT * FROM run_events ORDER BY sequence")
-            ).fetchall()
-            if digest({"runs": runs, "events": events}) != bundle["sha256"]:
+            for row in bundle.get("sales_records", []):
+                await repo.connection.execute(
+                    "INSERT INTO sales_records(workspace_id,kind,id,payload) VALUES (%s,%s,%s,%s)",
+                    tuple(Jsonb(row[k]) if k == "payload" else row[k] for k in SALES_COLUMNS),
+                )
+            imported = await records()
+            if digest(imported) != bundle["sha256"]:
                 raise ValueError("Imported record hashes differ; transaction rolled back")
-            # setval is not transactional, but on rollback advancing it is harmless.
-            largest = max((row["sequence"] for row in events), default=0)
+            largest = max((row["sequence"] for row in imported["events"]), default=0)
             await repo.connection.execute(
                 "SELECT setval(pg_get_serial_sequence('run_events','sequence'), %s, %s)",
                 (max(largest, 1), bool(largest)),
             )
-        return {"runs": len(runs), "events": len(events), "sha256": bundle["sha256"]}
+        return {**{k: len(v) for k, v in imported.items()}, "sha256": bundle["sha256"]}
     finally:
         await repo.close()
 
@@ -186,6 +273,7 @@ def main():
                 {
                     "runs": len(result["runs"]),
                     "events": len(result["events"]),
+                    "sales_records": len(result.get("sales_records", [])),
                     "sha256": result["sha256"],
                 }
             )

@@ -23,11 +23,18 @@ def sha256(path: Path) -> str:
 
 def snapshot(destination: Path) -> tuple[str, str]:
     revision = subprocess.check_output(
-        ["git", "rev-parse", "HEAD"], cwd=ROOT, text=True,
+        ["git", "rev-parse", "HEAD"],
+        cwd=ROOT,
+        text=True,
     ).strip()
-    paths = subprocess.check_output(
-        ["git", "ls-files", "--cached", "--others", "--exclude-standard", "-z"], cwd=ROOT,
-    ).decode().split("\0")
+    paths = (
+        subprocess.check_output(
+            ["git", "ls-files", "--cached", "--others", "--exclude-standard", "-z"],
+            cwd=ROOT,
+        )
+        .decode()
+        .split("\0")
+    )
     digest = hashlib.sha256()
     for relative in sorted(set(filter(None, paths))):
         source = ROOT / relative
@@ -53,6 +60,7 @@ def render(template: Path, images: dict[str, str], revision: str, source_hash: s
     for resource in manifest["items"]:
         if resource["kind"] == "Deployment":
             resource["spec"]["template"]["metadata"]["annotations"] = {
+                "company-brain/postgres-backup": "v1",
                 "company-brain/source-revision": revision,
                 "company-brain/source-hash": source_hash,
             }
@@ -71,9 +79,20 @@ def build() -> Path:
         images = {name: f"company-brain.local/{name}:{tag}" for name in SERVICES}
         for name, image in images.items():
             subprocess.run(
-                ["docker", "buildx", "build", "--platform", "linux/amd64", "--load",
-                 "--provenance=false", "--tag", image, "--file",
-                 str(source / f"infrastructure/docker/{name}.Dockerfile"), str(source)],
+                [
+                    "docker",
+                    "buildx",
+                    "build",
+                    "--platform",
+                    "linux/amd64",
+                    "--load",
+                    "--provenance=false",
+                    "--tag",
+                    image,
+                    "--file",
+                    str(source / f"infrastructure/docker/{name}.Dockerfile"),
+                    str(source),
+                ],
                 check=True,
             )
         bundle = work / "bundle"
@@ -82,14 +101,26 @@ def build() -> Path:
             ["docker", "save", "--output", str(bundle / "images.tar"), *images.values()],
             check=True,
         )
-        (bundle / "manifests.json").write_text(render(
-            source / "infrastructure/deployment/kubernetes/foundation.json",
-            images, revision, source_hash,
-        ))
-        (bundle / "release.json").write_text(json.dumps({
-            "source_revision": revision, "source_hash": source_hash,
-            "images": images, "platform": "linux/amd64",
-        }, indent=2) + "\n")
+        (bundle / "manifests.json").write_text(
+            render(
+                source / "infrastructure/deployment/kubernetes/foundation.json",
+                images,
+                revision,
+                source_hash,
+            )
+        )
+        (bundle / "release.json").write_text(
+            json.dumps(
+                {
+                    "source_revision": revision,
+                    "source_hash": source_hash,
+                    "images": images,
+                    "platform": "linux/amd64",
+                },
+                indent=2,
+            )
+            + "\n"
+        )
         checksums = {p.name: sha256(p) for p in sorted(bundle.iterdir())}
         (bundle / "checksums.json").write_text(json.dumps(checksums, indent=2) + "\n")
         archive = work / "release.tar.gz"
@@ -101,8 +132,16 @@ def build() -> Path:
         result = output / f"{release_id}.tar.gz"
         shutil.move(archive, result)
         result.with_suffix(".sha256").write_text(artifact_hash + "\n")
-        (DEPLOYMENT / "latest-build.json").write_text(json.dumps({
-            "release_id": release_id, "archive": str(result), "sha256": artifact_hash,
-        }, indent=2) + "\n")
+        (DEPLOYMENT / "latest-build.json").write_text(
+            json.dumps(
+                {
+                    "release_id": release_id,
+                    "archive": str(result),
+                    "sha256": artifact_hash,
+                },
+                indent=2,
+            )
+            + "\n"
+        )
         print(f"Built {result}\nSHA256 {artifact_hash}", flush=True)
         return result

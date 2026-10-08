@@ -27,7 +27,7 @@ async def lifespan(app):
     respan = Respan()
     ingestion = ResearchIngestion(
         ResearchLedger(Path(os.environ["BRAIN_RESEARCH_LEDGER"])),
-        memory.remember_research_document, memory.access, memory.writer_lock,
+        memory.remember_research_document, memory.research_access, memory.writer_lock,
     )
     app.state.research_ingestion = ingestion
     await ingestion.open()

@@ -35,6 +35,12 @@ class ResearchLedger:
         self._owner = self.path.with_suffix(self.path.suffix + ".lock").open("a+")
         try:
             fcntl.flock(self._owner, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            legacy = self.path.parent / "research_ingestions.json"
+            if legacy.exists() and json.loads(legacy.read_text()):
+                # The alternate JSON implementation saved acknowledgments only,
+                # without request hashes or evidence of interrupted provider work.
+                # Never blindly replay or re-ingest those IDs in a fresh ledger.
+                raise RuntimeError("legacy_research_receipts_require_reconciliation")
             with self.connection() as db:
                 db.execute("PRAGMA journal_mode=WAL")
                 db.execute("""CREATE TABLE IF NOT EXISTS research_ingestions (

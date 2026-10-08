@@ -458,7 +458,9 @@ def test_contacts_has_an_independent_private_worker_and_no_durable_volume():
     ]
 
 
-def test_spark_secret_values_reach_only_coordinator(monkeypatch):
+@pytest.mark.parametrize("backend", ["sqlite", "postgres"])
+def test_spark_secret_values_reach_only_coordinator(monkeypatch, backend):
+    monkeypatch.setattr(remote_apply, "configured_backend", lambda: backend)
     monkeypatch.setattr(
         remote_apply,
         "runtime_config",
@@ -497,10 +499,9 @@ def test_spark_secret_values_reach_only_coordinator(monkeypatch):
     assert set(secrets["orchestrator-runtime"]) == {
         "RESPAN_API_KEY",
         "SCALEKIT_CLIENT_SECRET",
-        "DATABASE_URL",
         "BRAIN_API_URL",
         "BRAIN_API_TOKEN",
-    }
+    } | ({"DATABASE_URL"} if backend == "postgres" else set())
     for worker in ("research-runtime", "contacts-runtime"):
         assert not ({"DATABASE_URL", "BRAIN_API_TOKEN", "BRAIN_API_URL"} & secrets[worker].keys())
         assert "SCALEKIT_CONNECTION_NAME" in secrets[worker]
@@ -536,8 +537,8 @@ def test_postgres_backup_never_copies_retained_sqlite(tmp_path, monkeypatch):
         "snapshot_databases",
         lambda *_: pytest.fail("Cannot snapshot SQLite as a PG backup"),
     )
-    with pytest.raises(RuntimeError, match="Postgres is active"):
-        remote_apply.backup("bucket")
+    monkeypatch.setattr(remote_apply, "backup_postgres", lambda bucket, **kwargs: "pg-backup")
+    assert remote_apply.backup("bucket") == "pg-backup"
 
 
 def test_code_rollback_cannot_bypass_required_postgres_backup(monkeypatch):

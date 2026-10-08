@@ -14,6 +14,7 @@ import tarfile
 import tempfile
 import time
 import uuid
+from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -150,6 +151,23 @@ def deployment_names(folder: Path) -> tuple[str, ...]:
 
 def apply_release(folder: Path):
     services = deployment_names(folder)
+    if configured_backend() == "postgres":
+        manifest = json.loads((folder / "manifests.json").read_text())
+        coordinator = next(
+            r
+            for r in manifest["items"]
+            if r["kind"] == "Deployment" and r["metadata"]["name"] == "orchestrator"
+        )
+        if (
+            coordinator["spec"]["template"]["metadata"]
+            .get("annotations", {})
+            .get("company-brain/postgres-backup")
+            != "v1"
+        ):
+            raise PostgresBackupRequired(
+                "Refusing an old release without PostgreSQL backup support; "
+                "data backend remains Postgres"
+            )
     # Import before changing any workloads; Never prevents accidental registry pulls.
     execute("k3s", "ctr", "-n", "k8s.io", "images", "import", str(folder / "images.tar"))
     if "research" in services:
@@ -340,9 +358,13 @@ def sync_secrets(restart: bool = False):
     )
     database = (
         read_secret(config["database_secret"], {"DATABASE_URL"})
-        if config.get("database_secret")
+        if config.get("database_secret") and configured_backend() == "postgres"
         else {}
     )
+    if configured_backend() == "postgres" and not database.get("DATABASE_URL"):
+        raise PostgresBackupRequired(
+            "PostgreSQL is selected but its credential is missing; runtime secrets were not changed"
+        )
     brain = (
         read_secret(config["brain_api_secret"], {"BRAIN_API_URL", "BRAIN_API_TOKEN"})
         if config.get("brain_api_secret")
@@ -550,7 +572,15 @@ def drain() -> bool:
         time.sleep(5)
 
 
-def require_sqlite_backend():
+def configured_backend() -> str:
+    path = STATE / "storage.json"
+    backend = json.loads(path.read_text()).get("backend") if path.exists() else "sqlite"
+    if backend not in {"sqlite", "postgres"}:
+        raise RuntimeError("Invalid persisted storage selection")
+    return backend
+
+
+def live_backend() -> str:
     """Inspect the live process, so pre-cutover secret rotation cannot misidentify it."""
     script = "import os; print('postgres' if os.environ.get('DATABASE_URL') else 'sqlite')"
     backend = execute(
@@ -565,14 +595,14 @@ def require_sqlite_backend():
         script,
         capture=True,
     ).strip()
-    if backend == "postgres":
-        raise PostgresBackupRequired(
-            "Postgres is active. SQLite backup/restore is disabled; coordinate a verified "
-            "Postgres dump and restore with the Spark owner (docs/operations.md). "
-            "No database files were changed."
-        )
-    if backend != "sqlite":
+    if backend not in {"sqlite", "postgres"}:
         raise RuntimeError("Cannot verify the live storage backend; refusing backup/restore")
+    return backend
+
+
+def require_sqlite_backend():
+    if live_backend() != "sqlite":
+        raise PostgresBackupRequired("Postgres is active; SQLite restoration is disabled")
 
 
 def validate_backup_id(value: str) -> str:
@@ -604,59 +634,65 @@ def backup(bucket: str, *, leave_maintenance: bool = False) -> str | None:
         print("No research persistent volume exists yet; pre-deployment backup skipped.")
         return None
     writer = coordinator_writes_database()
-    if writer:
-        require_sqlite_backend()
+    if writer and live_backend() == "postgres":
+        return backup_postgres(bucket, leave_maintenance=leave_maintenance)
+    if configured_backend() == "postgres":
+        raise PostgresBackupRequired("Persisted backend is Postgres; refusing stale SQLite backup")
     already_paused = maintenance().get("enabled", False) if writer else False
     protected = drain() if writer else False
     if not writer:
         print("Backing up retained research databases while the foundation has no database writer.")
-    backup_id = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ") + "-" + uuid.uuid4().hex[:12]
     try:
-        with tempfile.TemporaryDirectory(prefix="backup-", dir=STATE) as tmp:
-            folder = Path(tmp)
-            hashes = snapshot_databases(source, folder)
-            state_file = STATE / "state.json"
-            state = json.loads(state_file.read_text()) if state_file.exists() else {}
-            atomic_json(
-                folder / "backup.json",
-                {
-                    "version": 1,
-                    "storage_backend": "sqlite",
-                    "schema_version": 1,
-                    "backup_id": backup_id,
-                    "created_at": datetime.now(UTC).isoformat(),
-                    "source_release": state.get("current"),
-                    "checksums": hashes,
-                },
-            )
-            archive = folder / "backup.tar.gz"
-            with tarfile.open(archive, "w:gz") as tar:
-                for name in (*DATABASES, "backup.json"):
-                    tar.add(folder / name, arcname=name)
-            execute(
-                *aws_command(
-                    "s3",
-                    "cp",
-                    str(archive),
-                    f"s3://{bucket}/backups/{backup_id}.tar.gz",
-                    "--sse",
-                    "AES256",
-                    "--only-show-errors",
-                )
-            )
-            atomic_json(
-                STATE / "latest-backup.json",
-                {
-                    "backup_id": backup_id,
-                    "sha256": sha256(archive),
-                    "bucket": bucket,
-                },
-            )
-        print(f"BACKUP_OK {backup_id}", flush=True)
-        return backup_id
+        return publish_sqlite_backup(source, bucket)
     finally:
         if protected and not leave_maintenance and not already_paused:
             maintenance(False)
+
+
+def publish_sqlite_backup(source: Path, bucket: str) -> str:
+    backup_id = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ") + "-" + uuid.uuid4().hex[:12]
+    with tempfile.TemporaryDirectory(prefix="backup-", dir=STATE) as tmp:
+        folder = Path(tmp)
+        hashes = snapshot_databases(source, folder)
+        state_file = STATE / "state.json"
+        state = json.loads(state_file.read_text()) if state_file.exists() else {}
+        atomic_json(
+            folder / "backup.json",
+            {
+                "version": 1,
+                "storage_backend": "sqlite",
+                "schema_version": 1,
+                "backup_id": backup_id,
+                "created_at": datetime.now(UTC).isoformat(),
+                "source_release": state.get("current"),
+                "checksums": hashes,
+            },
+        )
+        archive = folder / "backup.tar.gz"
+        with tarfile.open(archive, "w:gz") as tar:
+            for name in (*DATABASES, "backup.json"):
+                tar.add(folder / name, arcname=name)
+        execute(
+            *aws_command(
+                "s3",
+                "cp",
+                str(archive),
+                f"s3://{bucket}/backups/{backup_id}.tar.gz",
+                "--sse",
+                "AES256",
+                "--only-show-errors",
+            )
+        )
+        atomic_json(
+            STATE / "latest-backup.json",
+            {
+                "backup_id": backup_id,
+                "sha256": sha256(archive),
+                "bucket": bucket,
+            },
+        )
+    print(f"BACKUP_OK {backup_id}", flush=True)
+    return backup_id
 
 
 def prepare_backup(bucket: str | None, recovery: bool = False) -> bool:
@@ -668,8 +704,12 @@ def prepare_backup(bucket: str | None, recovery: bool = False) -> bool:
         try:
             return backup(bucket, leave_maintenance=True) is not None
         except PostgresBackupRequired:
+            if configured_backend() == "postgres":
+                return recovery_postgres_backup(bucket) is not None
             raise
         except (subprocess.CalledProcessError, RuntimeError):
+            if configured_backend() == "postgres":
+                return recovery_postgres_backup(bucket) is not None
             print("Coordinator unavailable for backup; rollback preserves its volume unchanged.")
             return True
     return backup(bucket, leave_maintenance=True) is not None
@@ -708,6 +748,8 @@ def restore(bucket: str, backup_id: str):
     target = data_directory()
     if target is None or not coordinator_writes_database():
         raise RuntimeError("Deploy the research runtime before restoring its persistent volume")
+    if live_backend() == "postgres":
+        return restore_postgres(bucket, backup_id)
     require_sqlite_backend()
     with tempfile.TemporaryDirectory(prefix="restore-", dir=STATE) as tmp:
         folder = Path(tmp)
@@ -758,11 +800,413 @@ def restore(bucket: str, backup_id: str):
         print(f"RESTORE_OK {backup_id}", flush=True)
 
 
+def postgres_command(
+    operation: str, *, pod: str = "deployment/orchestrator", credential: bool = False
+) -> list[str]:
+    command = [
+        *KUBECTL,
+        "-n",
+        "company-brain",
+        "exec",
+        "-i",
+        pod,
+        "--",
+        "python",
+        "/opt/toir/postgres_admin.py",
+        operation,
+    ]
+    if credential:
+        command.append("--credential-stdin")
+    return command
+
+
+def postgres_secret() -> dict:
+    arn = runtime_config().get("database_secret")
+    values = read_secret(arn, {"DATABASE_URL"}) if arn else {}
+    if not values.get("DATABASE_URL"):
+        raise PostgresBackupRequired(
+            "Database secret is absent; PostgreSQL operation was not attempted"
+        )
+    return values
+
+
+def unpack_postgres_backup(archive: Path, destination: Path, backup_id: str | None = None) -> dict:
+    with tarfile.open(archive, "r:gz") as tar:
+        members = tar.getmembers()
+        if len(members) != 2 or {m.name for m in members} != {"database.dump", "backup.json"}:
+            raise ValueError("Unexpected PostgreSQL backup contents")
+        for member in members:
+            if not member.isfile():
+                raise ValueError("PostgreSQL backup contains a nonregular file")
+            with tar.extractfile(member) as src, (destination / member.name).open("wb") as dst:
+                shutil.copyfileobj(src, dst)
+    manifest = json.loads((destination / "backup.json").read_text())
+    if manifest.get("storage_backend") != "postgres" or manifest.get("postgres_major") != 17:
+        raise ValueError("Expected a PostgreSQL17 backup")
+    if backup_id and (manifest.get("backup_id") != backup_id or manifest.get("version") != 2):
+        raise ValueError("PostgreSQL backup identity mismatch")
+    if manifest.get("checksums") != {"database.dump": sha256(destination / "database.dump")}:
+        raise ValueError("PostgreSQL dump checksum mismatch")
+    if not isinstance(manifest.get("tables"), list):
+        raise ValueError("PostgreSQL table inventory is missing")
+    return manifest
+
+
+def backup_postgres(
+    bucket: str,
+    *,
+    leave_maintenance: bool = False,
+    staged: bool = False,
+    operator: str | None = None,
+) -> str:
+    already_paused = maintenance().get("enabled", False) if not operator else True
+    protected = drain() if not operator else False
+    backup_id = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ") + "-" + uuid.uuid4().hex[:12]
+    try:
+        with tempfile.TemporaryDirectory(prefix="postgres-backup-", dir=STATE) as tmp:
+            folder = Path(tmp)
+            archive = folder / "backup.tar.gz"
+            credentials = json.dumps(postgres_secret()).encode() + b"\n" if staged else None
+            with archive.open("wb") as output:
+                result = subprocess.run(
+                    postgres_command(
+                        "snapshot", credential=staged, pod=operator or "deployment/orchestrator"
+                    ),
+                    input=credentials,
+                    stdout=output,
+                    stderr=subprocess.PIPE,
+                    timeout=720,
+                )
+            if result.returncode:
+                raise PostgresBackupRequired(
+                    "Whole-database PostgreSQL snapshot failed; no backup was published"
+                )
+            manifest = unpack_postgres_backup(archive, folder)
+            state_file = STATE / "state.json"
+            state = json.loads(state_file.read_text()) if state_file.exists() else {}
+            manifest.update(
+                {
+                    "version": 2,
+                    "backup_id": backup_id,
+                    "created_at": datetime.now(UTC).isoformat(),
+                    "source_release": state.get("current"),
+                }
+            )
+            atomic_json(folder / "backup.json", manifest)
+            with tarfile.open(archive, "w:gz") as tar:
+                for name in ("database.dump", "backup.json"):
+                    tar.add(folder / name, arcname=name)
+            execute(
+                *aws_command(
+                    "s3",
+                    "cp",
+                    str(archive),
+                    f"s3://{bucket}/backups/{backup_id}.tar.gz",
+                    "--sse",
+                    "AES256",
+                    "--only-show-errors",
+                )
+            )
+            atomic_json(
+                STATE / "latest-backup.json",
+                {
+                    "backup_id": backup_id,
+                    "storage_backend": "postgres",
+                    "sha256": sha256(archive),
+                    "bucket": bucket,
+                },
+            )
+        print(f"POSTGRES_BACKUP_OK {backup_id}", flush=True)
+        return backup_id
+    except PostgresBackupRequired:
+        raise
+    except Exception:
+        raise PostgresBackupRequired(
+            "PostgreSQL backup failed; deployment must not proceed"
+        ) from None
+    finally:
+        if protected and not leave_maintenance and not already_paused:
+            maintenance(False)
+
+
+def recovery_postgres_backup(bucket: str) -> str:
+    """A broken application must not prevent a fresh DB backup before app rollback."""
+    try:
+        state = json.loads((STATE / "state.json").read_text())
+        folder = STATE / "releases" / validate_id(state["current"])
+        checksums = json.loads((folder / "checksums.json").read_text())
+        if sha256(folder / "manifests.json") != checksums["manifests.json"]:
+            raise ValueError("Cached recovery manifest checksum mismatch")
+        resources = json.loads((folder / "manifests.json").read_text())["items"]
+        coordinator = next(
+            r
+            for r in resources
+            if r["kind"] == "Deployment" and r["metadata"]["name"] == "orchestrator"
+        )
+        template = coordinator["spec"]["template"]
+        if template["metadata"].get("annotations", {}).get("company-brain/postgres-backup") != "v1":
+            raise ValueError("Last successful image lacks PostgreSQL backup support")
+        image = template["spec"]["containers"][0]["image"]
+        with database_operator(image=image) as operator:
+            return backup_postgres(bucket, leave_maintenance=True, staged=True, operator=operator)
+    except Exception:
+        raise PostgresBackupRequired(
+            "Isolated PostgreSQL recovery backup failed; rollout remains blocked"
+        ) from None
+
+
+@contextmanager
+def database_operator(*, source_readonly: bool = False, image: str | None = None):
+    """Stop every coordinator writer; the temporary pod has no application server."""
+    deployment = kubernetes_json("-n", "company-brain", "get", "deployment", "orchestrator")
+    pod_spec = deployment["spec"]["template"]["spec"]
+    container = pod_spec["containers"][0]
+    restore_container = {
+        key: value
+        for key, value in container.items()
+        if key in {"image", "imagePullPolicy", "env", "envFrom", "resources", "securityContext"}
+    }
+    restore_container.update(
+        {
+            "name": "restore",
+            "command": ["python", "-c", "import time; time.sleep(1800)"],
+            "volumeMounts": [{"name": "tmp", "mountPath": "/tmp"}],
+        }
+    )
+    if image:
+        restore_container["image"] = image
+    restore_pod = {
+        "apiVersion": "v1",
+        "kind": "Pod",
+        "metadata": {
+            "name": "postgres-admin",
+            "namespace": "company-brain",
+            "labels": {"app.kubernetes.io/name": "orchestrator"},
+        },
+        "spec": {
+            "restartPolicy": "Never",
+            "automountServiceAccountToken": False,
+            "serviceAccountName": "application",
+            "containers": [restore_container],
+            "volumes": [{"name": "tmp", "emptyDir": {"sizeLimit": "512Mi"}}],
+            "securityContext": pod_spec.get("securityContext", {}),
+        },
+    }
+    execute(*KUBECTL, "-n", "company-brain", "scale", "deployment/orchestrator", "--replicas=0")
+    execute(
+        *KUBECTL,
+        "-n",
+        "company-brain",
+        "delete",
+        "pod/postgres-admin",
+        "--ignore-not-found",
+        "--wait=true",
+    )
+    execute(
+        *KUBECTL,
+        "-n",
+        "company-brain",
+        "wait",
+        "--for=delete",
+        "pod",
+        "-l",
+        "app.kubernetes.io/name=orchestrator",
+        "--timeout=90s",
+    )
+    if source_readonly:
+        restore_pod["spec"]["volumes"].append(
+            {
+                "name": "source",
+                "persistentVolumeClaim": {"claimName": "coordinator-data", "readOnly": True},
+            }
+        )
+        restore_container["volumeMounts"].append(
+            {"name": "source", "mountPath": "/data", "readOnly": True}
+        )
+    try:
+        result = subprocess.run(
+            [*KUBECTL, "apply", "-f", "-"],
+            input=json.dumps(restore_pod),
+            text=True,
+            capture_output=True,
+        )
+        if result.returncode:
+            raise RuntimeError("Cannot create isolated PostgreSQL restore pod")
+        execute(
+            *KUBECTL,
+            "-n",
+            "company-brain",
+            "wait",
+            "--for=condition=Ready",
+            "pod/postgres-admin",
+            "--timeout=120s",
+        )
+        yield "pod/postgres-admin"
+    finally:
+        execute(
+            *KUBECTL,
+            "-n",
+            "company-brain",
+            "delete",
+            "pod/postgres-admin",
+            "--ignore-not-found",
+            "--wait=true",
+        )
+
+
+def storage_cutover(bucket: str):
+    """The sole automatic SQLite→PG switch; retries require identical migrated records."""
+    if configured_backend() == "postgres":
+        # A verified receipt permits retry after a failed post-import rollout.
+        sync_secrets()
+        execute(*KUBECTL, "-n", "company-brain", "rollout", "restart", "deployment/orchestrator")
+        execute(*KUBECTL, "-n", "company-brain", "scale", "deployment/orchestrator", "--replicas=1")
+        execute(
+            *KUBECTL,
+            "-n",
+            "company-brain",
+            "rollout",
+            "status",
+            "deployment/orchestrator",
+            "--timeout=210s",
+        )
+        if live_backend() != "postgres":
+            raise RuntimeError("Coordinator did not activate the recorded PostgreSQL cutover")
+        backup_postgres(bucket, leave_maintenance=True)
+        maintenance(False)
+        print("STORAGE_ALREADY_POSTGRES", flush=True)
+        return
+    source = data_directory()
+    if source is None or not coordinator_writes_database():
+        raise RuntimeError("Deploy the research runtime before database cutover")
+    drain()
+    try:
+        postgres_backup = backup_postgres(bucket, leave_maintenance=True, staged=True)
+        with database_operator(source_readonly=True) as operator:
+            sqlite_backup = publish_sqlite_backup(source, bucket)
+            result = subprocess.run(
+                [
+                    *postgres_command("migrate", pod=operator, credential=True),
+                    "--source",
+                    "/data/runs.sqlite",
+                ],
+                input=json.dumps(postgres_secret()) + "\n",
+                text=True,
+                capture_output=True,
+                timeout=300,
+            )
+            if result.returncode:
+                raise RuntimeError(
+                    "Migration failed; SQLite remains selected and maintenance stays enabled"
+                )
+            receipt = json.loads(result.stdout)
+            if not re.fullmatch(r"[a-f0-9]{64}", receipt.get("sha256", "")):
+                raise RuntimeError("Migration did not produce a verified record hash")
+            atomic_json(
+                STATE / "storage.json",
+                {
+                    "backend": "postgres",
+                    "cutover_at": datetime.now(UTC).isoformat(),
+                    "sqlite_backup": sqlite_backup,
+                    "postgres_backup": postgres_backup,
+                    "migration": receipt,
+                },
+            )
+        sync_secrets()
+        execute(*KUBECTL, "-n", "company-brain", "scale", "deployment/orchestrator", "--replicas=1")
+        execute(*KUBECTL, "-n", "company-brain", "rollout", "restart", "deployment/orchestrator")
+        execute(
+            *KUBECTL,
+            "-n",
+            "company-brain",
+            "rollout",
+            "status",
+            "deployment/orchestrator",
+            "--timeout=210s",
+        )
+        if live_backend() != "postgres":
+            raise RuntimeError("New coordinator did not select PostgreSQL")
+        backup_postgres(bucket, leave_maintenance=True)
+        maintenance(False)
+        print(
+            json.dumps(
+                {
+                    "storage_backend": "postgres",
+                    "migration": receipt,
+                    "sqlite_backup": sqlite_backup,
+                    "postgres_backup": postgres_backup,
+                }
+            ),
+            flush=True,
+        )
+    except Exception:
+        if configured_backend() == "sqlite":
+            execute(
+                *KUBECTL, "-n", "company-brain", "scale", "deployment/orchestrator", "--replicas=1"
+            )
+        print(
+            "Cutover stopped with maintenance enabled. Stored database selection was preserved.",
+            flush=True,
+        )
+        raise
+
+
+def restore_postgres(bucket: str, backup_id: str):
+    """Explicit destructive restore: backup first, stop writer, restore atomically, verify."""
+    with tempfile.TemporaryDirectory(prefix="postgres-restore-", dir=STATE) as tmp:
+        folder = Path(tmp)
+        archive = folder / "backup.tar.gz"
+        execute(
+            *aws_command(
+                "s3",
+                "cp",
+                f"s3://{bucket}/backups/{backup_id}.tar.gz",
+                str(archive),
+                "--only-show-errors",
+            )
+        )
+        unpack_postgres_backup(archive, folder, backup_id)
+        drain()
+        with database_operator() as operator:
+            backup_postgres(bucket, leave_maintenance=True, operator=operator)
+            with archive.open("rb") as input_file:
+                result = subprocess.run(
+                    [*postgres_command("restore", pod=operator), "--replace"],
+                    stdin=input_file,
+                    capture_output=True,
+                    timeout=720,
+                )
+            if result.returncode:
+                raise RuntimeError(
+                    "PostgreSQL restore/verification failed; coordinator remains stopped"
+                )
+        execute(*KUBECTL, "-n", "company-brain", "scale", "deployment/orchestrator", "--replicas=1")
+        execute(
+            *KUBECTL,
+            "-n",
+            "company-brain",
+            "rollout",
+            "status",
+            "deployment/orchestrator",
+            "--timeout=210s",
+        )
+        maintenance(False)
+        print(f"POSTGRES_RESTORE_OK {backup_id}", flush=True)
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "operation",
-        choices=["deploy", "rollback", "secret-sync", "backup", "restore", "maintenance"],
+        choices=[
+            "deploy",
+            "rollback",
+            "secret-sync",
+            "backup",
+            "restore",
+            "maintenance",
+            "storage-cutover",
+        ],
     )
     parser.add_argument("--release-id")
     parser.add_argument("--bucket")
@@ -803,5 +1247,7 @@ if __name__ == "__main__":
             backup(config["bucket"])
         elif ARGS.operation == "restore":
             restore(config["bucket"], ARGS.backup_id)
+        elif ARGS.operation == "storage-cutover":
+            storage_cutover(config["bucket"])
         else:
             print(json.dumps(maintenance(False if ARGS.resume else None)))

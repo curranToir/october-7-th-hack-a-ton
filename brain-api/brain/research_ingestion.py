@@ -48,13 +48,15 @@ class ResearchIngestion:
         return await asyncio.shield(task)
 
     async def capabilities(self):
-        async with self.writer_lock:
-            writers = []
-            if self.ready:
-                for user in USERS:
-                    if DATASET in (await self.access(user))["readable"]:
-                        writers.append(user)
-            return {"research_idempotency": self.ready, "research_writers": writers}
+        # Initialization is complete before serving requests. These are ACL reads,
+        # like /access, so they need not queue behind a multi-minute graph build.
+        writers = []
+        if self.ready:
+            for user in USERS:
+                access = await self.access(user)
+                if DATASET in access["readable"] and DATASET in access.get("writable", []):
+                    writers.append(user)
+        return {"research_idempotency": self.ready, "research_writers": writers}
 
     async def remember(self, body, ingestion_id):
         if body.as_user not in USERS:
@@ -63,7 +65,8 @@ class ResearchIngestion:
         async with self.writer_lock:
             if not self.ready:
                 raise IngestionError(503, "research_ingestion_unavailable")
-            if DATASET not in (await self.access(body.as_user))["readable"]:
+            access = await self.access(body.as_user)
+            if DATASET not in access["readable"] or DATASET not in access.get("writable", []):
                 raise IngestionError(403, "research_writer_not_authorized")
             row = await asyncio.to_thread(
                 self.ledger.reserve,
@@ -83,7 +86,7 @@ class ResearchIngestion:
             for index in range(row["completed"], len(documents)):
                 await asyncio.to_thread(self.ledger.start_document, ingestion_id, index)
                 try:
-                    completion = await self.remember_document(documents[index])
+                    completion = await self.remember_document(documents[index], body.as_user)
                     await asyncio.to_thread(
                         self.ledger.finish_document, ingestion_id, index, completion
                     )
