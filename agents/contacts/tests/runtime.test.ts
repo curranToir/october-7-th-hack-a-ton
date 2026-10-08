@@ -197,6 +197,7 @@ test("actual OMP loop uses the restricted Respan gateway and shared budget with 
     for (const payload of payloads) {
       expect(payload).toMatchObject({model: "gpt-5-mini", max_completion_tokens: 16384, reasoning_effort: "low"});
       expect(payload).not.toHaveProperty("temperature");
+      expect(payload).toHaveProperty("response_format", { type: "json_object" });
       expect(payload).not.toHaveProperty("max_tokens");
     }
     expect(budget.usage.model_turns).toBe(2);

@@ -121,7 +121,7 @@ the provider committed it.
 
 ## Requested model and prospecting update
 
-The next application release uses `gpt-5-mini` through Respan for planning,
+Application release `b9730136262d-7eae5ee824ee` uses `gpt-5-mini` through Respan for planning,
 review, chat routing, research and contact research. A live EC2 gateway probe
 returned `gpt-5-mini-2025-08-07` successfully. Worker and coordinator limits are
 now 60 searches, 200 retrieved-page slots and 60 model turns per run, still
@@ -145,14 +145,37 @@ HubSpot identity and permission verification on October 8 UTC:
   project deployment manifest. It is permission attestation, not evidence of
   a successful CRM write. No CRM records were changed during verification.
 
-The user has now requested continuous prospecting for the demo. Activation is
-pending the smaller-model rollout; the persisted settings currently permit ten
-discovery batches and 25 company enrichments daily. CRM mutations still require
-explicit proposal approval. Outbound messages and private client dataset access
-remain outside this rollout.
+Continuous prospecting was enabled through the authenticated application after
+the smaller-model rollout. Persisted settings permit ten discovery batches and
+25 company enrichments daily, with a minimum fit score of 70. The first real
+background job is `5f9132dc-7159-4446-b74b-b2f60badaeaa`, research run
+`cf6794b7-8f18-402e-b7b7-521532aadc31`, in
+[the continuous prospecting session](https://toir-hackathon.taild4c940.ts.net/#chat/284510b7-eef4-5474-8520-a0d0628e9642).
+Its trace ID is `c4d734e5536379a48d40456c1f1c7250`. Target: ten companies, with
+contact enrichment and proposed CRM updates. CRM mutations still require
+explicit proposal approval; none were executed during connection verification.
+Outbound messages and private client dataset access remain outside this rollout.
+
+The first two automatic runs failed on malformed model reports; they remain
+failed in history. The third, `86d400a7-0c6d-4a47-8f46-8d18033a0195`, completed
+with one accepted company (Jazwares), ten retrieved sources and six valid
+citations. Its contact-enrichment child is `55a1653f-e8cc-5587-b103-09cb508a738a`.
+Admissions were then drained without cancelling work to deploy JSON-mode
+output enforcement and per-candidate schema isolation. These changes preserve
+strict citation checks, discard malformed candidates without fabricating values,
+and reject truncated or ambiguous final JSON. Combined worker validation passed
+65 tests and both TypeScript checks; the backend suite passed 385 tests with 46
+environment-dependent skips. Prospecting remains persisted as enabled during
+maintenance. Contact enrichment and the exact Cognee receipt are still pending
+live verification; accepted company results alone do not prove memory delivery.
 
 Brain code on `main` also selects GPT-5 mini for its text LLM stages, synthesis
 and judging; its embedding model remains `nemotron-embed`. The live Spark
-model switch requires a quiet patch/restart window because another engineer is
-actively editing that checkout. Do not confuse the committed model policy with
-the model already loaded by the running Spark process.
+model switch is explicitly deferred: the user instructed **keep Spark unchanged
+for now**. Its existing Cognee runtime remains on its loaded configuration;
+no Spark files, services or embeddings were changed. Do not confuse the committed
+model policy with the model already loaded by the running Spark process.
+
+The release passed all five Deployment readiness checks, API/coordinator and
+ingress probes, with zero pod restarts. Its pre-deployment PostgreSQL backup is
+`20261008T004829Z-6afb55a7e8be`.

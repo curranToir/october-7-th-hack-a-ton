@@ -2,6 +2,7 @@ import { createRestrictedSession, type HarnessContext } from "../../../research/
 import { ResearchError } from "../../../research/src/research/budget";
 import { sourceExcerpts } from "../../../research/src/harness/model-context";
 import { MODEL_CONFIG } from "../../../research/src/research/limits";
+import { parseReportText } from "../../../research/src/harness/json-report";
 import type { ToolTransport } from "../../../research/src/tools/scalekit";
 import { reportSchema, type ContactReport, type ContactTask } from "../research/contracts";
 
@@ -33,11 +34,7 @@ export function contactHarness(transport: ToolTransport, key: string, modelID: s
       if (!message || message.role !== "assistant" || ["error", "aborted"].includes(message.stopReason))
         throw new ResearchError("model", "Respan did not complete contact research. Check the configured model and credentials.");
       const body = message.content.filter((part) => part.type === "text").map((part) => part.text).join("");
-      try {
-        return JSON.parse(body.replace(/^\s*```(?:json)?\s*/, "").replace(/\s*```\s*$/, "")) as ContactReport;
-      } catch {
-        throw new ResearchError("report", "Contact research returned invalid JSON. Retrieved evidence is available for an explicit retry.");
-      }
+      return parseReportText(body, message.stopReason, "Contact research") as ContactReport;
     } catch (error) {
       throw runtime.getFatal() ?? error;
     } finally { await runtime.dispose(); }
