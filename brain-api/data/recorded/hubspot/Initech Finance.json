@@ -1,0 +1,240 @@
+{
+  "company": {
+    "properties": {
+      "hs_lastmodifieddate": "2026-10-07T23:18:45.142Z",
+      "name": "Initech Finance",
+      "domain": "initech.example",
+      "hs_object_id": "351364679354",
+      "createdate": "2026-10-07T23:16:54.402Z",
+      "industry": null,
+      "description": "Fictional Toir FDE hackathon sandbox engagement."
+    },
+    "updatedAt": "2026-10-07T23:18:45.142Z",
+    "url": "https://app-na2.hubspot.com/contacts/247630342/record/0-2/351364679354",
+    "archived": false,
+    "id": "351364679354",
+    "createdAt": "2026-10-07T23:16:54.402Z"
+  },
+  "deals": [
+    {
+      "properties": {
+        "closedate": "2026-10-26T00:00:00Z",
+        "dealname": "Initech evaluation expansion",
+        "amount": "320000",
+        "createdate": "2026-10-07T23:16:55.695Z",
+        "hs_lastmodifieddate": "2026-10-07T23:18:08.577Z",
+        "dealstage": "4411362034",
+        "hs_object_id": "353438160573",
+        "hubspot_owner_id": null
+      },
+      "propertiesWithHistory": {
+        "dealname": [
+          {
+            "sourceId": "40203579",
+            "timestamp": "2026-10-07T23:16:55.695Z",
+            "sourceType": "INTEGRATION",
+            "value": "Initech evaluation expansion"
+          }
+        ],
+        "dealstage": [
+          {
+            "timestamp": "2026-10-07T23:16:55.695Z",
+            "sourceId": "40203579",
+            "sourceType": "INTEGRATION",
+            "value": "4411362034"
+          }
+        ],
+        "amount": [
+          {
+            "sourceId": "40203579",
+            "timestamp": "2026-10-07T23:16:55.695Z",
+            "sourceType": "INTEGRATION",
+            "value": "320000"
+          }
+        ],
+        "hubspot_owner_id": [],
+        "closedate": [
+          {
+            "timestamp": "2026-10-07T23:16:55.695Z",
+            "sourceId": "40203579",
+            "sourceType": "INTEGRATION",
+            "value": "2026-10-26T00:00:00Z"
+          }
+        ]
+      },
+      "updatedAt": "2026-10-07T23:18:08.577Z",
+      "url": "https://app-na2.hubspot.com/contacts/247630342/record/0-3/353438160573",
+      "id": "353438160573",
+      "createdAt": "2026-10-07T23:16:55.695Z",
+      "archived": false
+    }
+  ],
+  "contacts": [
+    {
+      "properties": {
+        "jobtitle": "Technical lead",
+        "email": "marcus-reed-initech@example.com",
+        "lastmodifieddate": "2026-10-07T23:17:05.734Z",
+        "hs_object_id": "566144926409",
+        "lastname": "Reed",
+        "createdate": "2026-10-07T23:16:55.167Z",
+        "firstname": "Marcus"
+      },
+      "propertiesWithHistory": {
+        "jobtitle": [
+          {
+            "timestamp": "2026-10-07T23:16:55.167Z",
+            "sourceId": "40203579",
+            "sourceType": "INTEGRATION",
+            "value": "Technical lead"
+          }
+        ],
+        "email": [
+          {
+            "timestamp": "2026-10-07T23:16:55.167Z",
+            "sourceId": "40203579",
+            "sourceType": "INTEGRATION",
+            "value": "marcus-reed-initech@example.com"
+          }
+        ],
+        "lastname": [
+          {
+            "sourceId": "40203579",
+            "timestamp": "2026-10-07T23:16:55.167Z",
+            "sourceType": "INTEGRATION",
+            "value": "Reed"
+          }
+        ],
+        "firstname": [
+          {
+            "sourceId": "40203579",
+            "timestamp": "2026-10-07T23:16:55.167Z",
+            "sourceType": "INTEGRATION",
+            "value": "Marcus"
+          }
+        ]
+      },
+      "updatedAt": "2026-10-07T23:17:05.734Z",
+      "url": "https://app-na2.hubspot.com/contacts/247630342/record/0-1/566144926409",
+      "createdAt": "2026-10-07T23:16:55.167Z",
+      "archived": false,
+      "id": "566144926409"
+    },
+    {
+      "properties": {
+        "jobtitle": "Executive sponsor",
+        "email": "priya-desai-initech@example.com",
+        "lastmodifieddate": "2026-10-07T23:17:04.946Z",
+        "createdate": "2026-10-07T23:16:54.653Z",
+        "lastname": "Desai",
+        "hs_object_id": "566331980523",
+        "firstname": "Priya"
+      },
+      "propertiesWithHistory": {
+        "jobtitle": [
+          {
+            "timestamp": "2026-10-07T23:16:54.653Z",
+            "sourceId": "40203579",
+            "sourceType": "INTEGRATION",
+            "value": "Executive sponsor"
+          }
+        ],
+        "email": [
+          {
+            "timestamp": "2026-10-07T23:16:54.653Z",
+            "sourceId": "40203579",
+            "sourceType": "INTEGRATION",
+            "value": "priya-desai-initech@example.com"
+          }
+        ],
+        "lastname": [
+          {
+            "timestamp": "2026-10-07T23:16:54.653Z",
+            "sourceId": "40203579",
+            "sourceType": "INTEGRATION",
+            "value": "Desai"
+          }
+        ],
+        "firstname": [
+          {
+            "timestamp": "2026-10-07T23:16:54.653Z",
+            "sourceId": "40203579",
+            "sourceType": "INTEGRATION",
+            "value": "Priya"
+          }
+        ]
+      },
+      "updatedAt": "2026-10-07T23:17:04.946Z",
+      "url": "https://app-na2.hubspot.com/contacts/247630342/record/0-1/566331980523",
+      "archived": false,
+      "id": "566331980523",
+      "createdAt": "2026-10-07T23:16:54.653Z"
+    }
+  ],
+  "notes": [
+    {
+      "properties": {
+        "hs_lastmodifieddate": "2026-10-07T23:18:43.520Z",
+        "hs_timestamp": "2026-10-07T23:18:43.097Z",
+        "hs_createdate": "2026-10-07T23:18:43.168Z",
+        "hs_note_body": "Initech Finance SOW\nInitech Finance signed SOW\nSignoff date: 2026-11-09.\nScope is evaluation only, not autonomous credit decisions. Changes to risk thresholds need sponsor approval.\nCommercial owner: Jared Lyon. This SOW is the authoritative commercial milestone and scope record.",
+        "hs_object_id": "405634834160"
+      },
+      "propertiesWithHistory": {
+        "hs_timestamp": [
+          {
+            "sourceId": "40203579",
+            "timestamp": "2026-10-07T23:18:43.168Z",
+            "sourceType": "INTEGRATION",
+            "value": "2026-10-07T23:18:43.097Z"
+          }
+        ],
+        "hs_note_body": [
+          {
+            "sourceId": "40203579",
+            "timestamp": "2026-10-07T23:18:43.168Z",
+            "sourceType": "INTEGRATION",
+            "value": "Initech Finance SOW\nInitech Finance signed SOW\nSignoff date: 2026-11-09.\nScope is evaluation only, not autonomous credit decisions. Changes to risk thresholds need sponsor approval.\nCommercial owner: Jared Lyon. This SOW is the authoritative commercial milestone and scope record."
+          }
+        ]
+      },
+      "updatedAt": "2026-10-07T23:18:43.520Z",
+      "url": "https://app-na2.hubspot.com/contacts/247630342/objects/0-46/views/all/list?filters=%5B%7B%22property%22%3A%22hs_object_id%22%2C%22operator%22%3A%22EQ%22%2C%22value%22%3A%22405634834160%22%7D%5D",
+      "id": "405634834160",
+      "createdAt": "2026-10-07T23:18:43.168Z",
+      "archived": false
+    },
+    {
+      "properties": {
+        "hs_lastmodifieddate": "2026-10-07T23:16:56.426Z",
+        "hs_timestamp": "2026-10-07T23:16:56.036Z",
+        "hs_createdate": "2026-10-07T23:16:56.110Z",
+        "hs_note_body": "Initech Finance commercial review\nExecutive sponsor is Priya Desai; technical lead is Marcus Reed. Initech evaluation expansion is at legal review. Approval depends on resolving the engineering blocker.",
+        "hs_object_id": "405754129112"
+      },
+      "propertiesWithHistory": {
+        "hs_timestamp": [
+          {
+            "sourceId": "40203579",
+            "timestamp": "2026-10-07T23:16:56.110Z",
+            "sourceType": "INTEGRATION",
+            "value": "2026-10-07T23:16:56.036Z"
+          }
+        ],
+        "hs_note_body": [
+          {
+            "sourceId": "40203579",
+            "timestamp": "2026-10-07T23:16:56.110Z",
+            "sourceType": "INTEGRATION",
+            "value": "Initech Finance commercial review\nExecutive sponsor is Priya Desai; technical lead is Marcus Reed. Initech evaluation expansion is at legal review. Approval depends on resolving the engineering blocker."
+          }
+        ]
+      },
+      "updatedAt": "2026-10-07T23:16:56.426Z",
+      "url": "https://app-na2.hubspot.com/contacts/247630342/objects/0-46/views/all/list?filters=%5B%7B%22property%22%3A%22hs_object_id%22%2C%22operator%22%3A%22EQ%22%2C%22value%22%3A%22405754129112%22%7D%5D",
+      "id": "405754129112",
+      "createdAt": "2026-10-07T23:16:56.110Z",
+      "archived": false
+    }
+  ]
+}

@@ -1,0 +1,389 @@
+{
+  "messages": [
+    {
+      "app_id": "A09C6JH2DDE",
+      "ts": "1791416757.730049",
+      "blocks": [
+        {
+          "elements": [
+            {
+              "elements": [
+                {
+                  "text": "**Curran McLaughlin (Toir):** Engineering artifacts live in the client engineering folder.",
+                  "type": "text"
+                }
+              ],
+              "type": "rich_text_section"
+            }
+          ],
+          "block_id": "qZRM",
+          "type": "rich_text"
+        }
+      ],
+      "bot_profile": {
+        "name": "ScaleKit Inc",
+        "icons": {
+          "image_36": "https://avatars.slack-edge.com/2025-08-21/9400645354321_9e9de5614f73067cf78a_36.png",
+          "image_72": "https://avatars.slack-edge.com/2025-08-21/9400645354321_9e9de5614f73067cf78a_72.png",
+          "image_48": "https://avatars.slack-edge.com/2025-08-21/9400645354321_9e9de5614f73067cf78a_48.png"
+        },
+        "app_id": "A09C6JH2DDE",
+        "id": "B0C8ET3CB96",
+        "deleted": false,
+        "team_id": "T09AH3EQ1TL",
+        "updated": 1791416148.0
+      },
+      "user": "U0C7E6AGXAP",
+      "type": "message",
+      "team": "T09AH3EQ1TL",
+      "text": "**Curran McLaughlin (Toir):** Engineering artifacts live in the client engineering folder.",
+      "bot_id": "B0C8ET3CB96"
+    },
+    {
+      "app_id": "A09C6JH2DDE",
+      "ts": "1791416757.261249",
+      "bot_profile": {
+        "team_id": "T09AH3EQ1TL",
+        "icons": {
+          "image_72": "https://avatars.slack-edge.com/2025-08-21/9400645354321_9e9de5614f73067cf78a_72.png",
+          "image_36": "https://avatars.slack-edge.com/2025-08-21/9400645354321_9e9de5614f73067cf78a_36.png",
+          "image_48": "https://avatars.slack-edge.com/2025-08-21/9400645354321_9e9de5614f73067cf78a_48.png"
+        },
+        "app_id": "A09C6JH2DDE",
+        "id": "B0C8ET3CB96",
+        "deleted": false,
+        "name": "ScaleKit Inc",
+        "updated": 1791416148.0
+      },
+      "blocks": [
+        {
+          "elements": [
+            {
+              "elements": [
+                {
+                  "text": "**Sofia Reyes (Toir):** Use the engagement checklist before every handoff.",
+                  "type": "text"
+                }
+              ],
+              "type": "rich_text_section"
+            }
+          ],
+          "block_id": "rR+",
+          "type": "rich_text"
+        }
+      ],
+      "user": "U0C7E6AGXAP",
+      "type": "message",
+      "team": "T09AH3EQ1TL",
+      "text": "**Sofia Reyes (Toir):** Use the engagement checklist before every handoff.",
+      "bot_id": "B0C8ET3CB96"
+    },
+    {
+      "app_id": "A09C6JH2DDE",
+      "ts": "1791416756.417689",
+      "bot_profile": {
+        "app_id": "A09C6JH2DDE",
+        "icons": {
+          "image_36": "https://avatars.slack-edge.com/2025-08-21/9400645354321_9e9de5614f73067cf78a_36.png",
+          "image_72": "https://avatars.slack-edge.com/2025-08-21/9400645354321_9e9de5614f73067cf78a_72.png",
+          "image_48": "https://avatars.slack-edge.com/2025-08-21/9400645354321_9e9de5614f73067cf78a_48.png"
+        },
+        "team_id": "T09AH3EQ1TL",
+        "id": "B0C8ET3CB96",
+        "deleted": false,
+        "name": "ScaleKit Inc",
+        "updated": 1791416148.0
+      },
+      "blocks": [
+        {
+          "elements": [
+            {
+              "elements": [
+                {
+                  "text": "**Jared Lyon (Toir):** Commercial details stay in deal channels, never copied into engineering channels.",
+                  "type": "text"
+                }
+              ],
+              "type": "rich_text_section"
+            }
+          ],
+          "block_id": "VLwMf",
+          "type": "rich_text"
+        }
+      ],
+      "user": "U0C7E6AGXAP",
+      "type": "message",
+      "text": "**Jared Lyon (Toir):** Commercial details stay in deal channels, never copied into engineering channels.",
+      "team": "T09AH3EQ1TL",
+      "bot_id": "B0C8ET3CB96"
+    },
+    {
+      "app_id": "A09C6JH2DDE",
+      "ts": "1791416756.193399",
+      "blocks": [
+        {
+          "elements": [
+            {
+              "elements": [
+                {
+                  "text": "**Theo Park (Toir):** Benchmark reviews require a written decision log.",
+                  "type": "text"
+                }
+              ],
+              "type": "rich_text_section"
+            }
+          ],
+          "block_id": "QfhtR",
+          "type": "rich_text"
+        }
+      ],
+      "bot_profile": {
+        "name": "ScaleKit Inc",
+        "icons": {
+          "image_36": "https://avatars.slack-edge.com/2025-08-21/9400645354321_9e9de5614f73067cf78a_36.png",
+          "image_72": "https://avatars.slack-edge.com/2025-08-21/9400645354321_9e9de5614f73067cf78a_72.png",
+          "image_48": "https://avatars.slack-edge.com/2025-08-21/9400645354321_9e9de5614f73067cf78a_48.png"
+        },
+        "app_id": "A09C6JH2DDE",
+        "id": "B0C8ET3CB96",
+        "deleted": false,
+        "team_id": "T09AH3EQ1TL",
+        "updated": 1791416148.0
+      },
+      "user": "U0C7E6AGXAP",
+      "type": "message",
+      "team": "T09AH3EQ1TL",
+      "text": "**Theo Park (Toir):** Benchmark reviews require a written decision log.",
+      "bot_id": "B0C8ET3CB96"
+    },
+    {
+      "app_id": "A09C6JH2DDE",
+      "ts": "1791416755.970519",
+      "blocks": [
+        {
+          "elements": [
+            {
+              "elements": [
+                {
+                  "text": "**Maya Chen (Toir):** Engineering handoffs use the engagement checklist.",
+                  "type": "text"
+                }
+              ],
+              "type": "rich_text_section"
+            }
+          ],
+          "block_id": "s7SU",
+          "type": "rich_text"
+        }
+      ],
+      "bot_profile": {
+        "team_id": "T09AH3EQ1TL",
+        "icons": {
+          "image_72": "https://avatars.slack-edge.com/2025-08-21/9400645354321_9e9de5614f73067cf78a_72.png",
+          "image_36": "https://avatars.slack-edge.com/2025-08-21/9400645354321_9e9de5614f73067cf78a_36.png",
+          "image_48": "https://avatars.slack-edge.com/2025-08-21/9400645354321_9e9de5614f73067cf78a_48.png"
+        },
+        "app_id": "A09C6JH2DDE",
+        "id": "B0C8ET3CB96",
+        "deleted": false,
+        "name": "ScaleKit Inc",
+        "updated": 1791416148.0
+      },
+      "user": "U0C7E6AGXAP",
+      "type": "message",
+      "team": "T09AH3EQ1TL",
+      "text": "**Maya Chen (Toir):** Engineering handoffs use the engagement checklist.",
+      "bot_id": "B0C8ET3CB96"
+    },
+    {
+      "app_id": "A09C6JH2DDE",
+      "ts": "1791416755.756799",
+      "blocks": [
+        {
+          "elements": [
+            {
+              "elements": [
+                {
+                  "text": "**Curran McLaughlin (Toir):** Globex clinical evidence citations must use stable document IDs.",
+                  "type": "text"
+                }
+              ],
+              "type": "rich_text_section"
+            }
+          ],
+          "block_id": "0Zzuc",
+          "type": "rich_text"
+        }
+      ],
+      "bot_profile": {
+        "team_id": "T09AH3EQ1TL",
+        "icons": {
+          "image_72": "https://avatars.slack-edge.com/2025-08-21/9400645354321_9e9de5614f73067cf78a_72.png",
+          "image_36": "https://avatars.slack-edge.com/2025-08-21/9400645354321_9e9de5614f73067cf78a_36.png",
+          "image_48": "https://avatars.slack-edge.com/2025-08-21/9400645354321_9e9de5614f73067cf78a_48.png"
+        },
+        "name": "ScaleKit Inc",
+        "id": "B0C8ET3CB96",
+        "deleted": false,
+        "app_id": "A09C6JH2DDE",
+        "updated": 1791416148.0
+      },
+      "user": "U0C7E6AGXAP",
+      "type": "message",
+      "team": "T09AH3EQ1TL",
+      "text": "**Curran McLaughlin (Toir):** Globex clinical evidence citations must use stable document IDs.",
+      "bot_id": "B0C8ET3CB96"
+    },
+    {
+      "app_id": "A09C6JH2DDE",
+      "ts": "1791416755.540149",
+      "blocks": [
+        {
+          "elements": [
+            {
+              "elements": [
+                {
+                  "text": "**Sofia Reyes (Toir):** Escalations go to Jared Lyon; incident updates are due every 30 minutes.",
+                  "type": "text"
+                }
+              ],
+              "type": "rich_text_section"
+            }
+          ],
+          "block_id": "6x6",
+          "type": "rich_text"
+        }
+      ],
+      "bot_profile": {
+        "name": "ScaleKit Inc",
+        "icons": {
+          "image_72": "https://avatars.slack-edge.com/2025-08-21/9400645354321_9e9de5614f73067cf78a_72.png",
+          "image_36": "https://avatars.slack-edge.com/2025-08-21/9400645354321_9e9de5614f73067cf78a_36.png",
+          "image_48": "https://avatars.slack-edge.com/2025-08-21/9400645354321_9e9de5614f73067cf78a_48.png"
+        },
+        "app_id": "A09C6JH2DDE",
+        "id": "B0C8ET3CB96",
+        "deleted": false,
+        "team_id": "T09AH3EQ1TL",
+        "updated": 1791416148.0
+      },
+      "user": "U0C7E6AGXAP",
+      "type": "message",
+      "text": "**Sofia Reyes (Toir):** Escalations go to Jared Lyon; incident updates are due every 30 minutes.",
+      "team": "T09AH3EQ1TL",
+      "bot_id": "B0C8ET3CB96"
+    },
+    {
+      "app_id": "A09C6JH2DDE",
+      "ts": "1791416755.310729",
+      "bot_profile": {
+        "team_id": "T09AH3EQ1TL",
+        "icons": {
+          "image_72": "https://avatars.slack-edge.com/2025-08-21/9400645354321_9e9de5614f73067cf78a_72.png",
+          "image_36": "https://avatars.slack-edge.com/2025-08-21/9400645354321_9e9de5614f73067cf78a_36.png",
+          "image_48": "https://avatars.slack-edge.com/2025-08-21/9400645354321_9e9de5614f73067cf78a_48.png"
+        },
+        "app_id": "A09C6JH2DDE",
+        "id": "B0C8ET3CB96",
+        "deleted": false,
+        "name": "ScaleKit Inc",
+        "updated": 1791416148.0
+      },
+      "blocks": [
+        {
+          "elements": [
+            {
+              "elements": [
+                {
+                  "text": "**Jared Lyon (Toir):** Our engagement playbook requires a named technical owner and a written decision log for every client.",
+                  "type": "text"
+                }
+              ],
+              "type": "rich_text_section"
+            }
+          ],
+          "block_id": "KfPrG",
+          "type": "rich_text"
+        }
+      ],
+      "user": "U0C7E6AGXAP",
+      "type": "message",
+      "team": "T09AH3EQ1TL",
+      "text": "**Jared Lyon (Toir):** Our engagement playbook requires a named technical owner and a written decision log for every client.",
+      "bot_id": "B0C8ET3CB96"
+    },
+    {
+      "user": "U0A3YP57CG0",
+      "text": "<@U0A3YP57CG0> has joined the channel",
+      "ts": "1791416649.073789",
+      "subtype": "channel_join",
+      "inviter": "U0C7E6AGXAP",
+      "type": "message"
+    },
+    {
+      "user": "U0A1JTVLM4P",
+      "text": "<@U0A1JTVLM4P> has joined the channel",
+      "ts": "1791416649.016479",
+      "subtype": "channel_join",
+      "inviter": "U0C7E6AGXAP",
+      "type": "message"
+    },
+    {
+      "inviter": "U0C7E6AGXAP",
+      "text": "<@U09LNEJEQLT> has joined the channel",
+      "ts": "1791416648.960729",
+      "subtype": "channel_join",
+      "user": "U09LNEJEQLT",
+      "type": "message"
+    },
+    {
+      "inviter": "U0C7E6AGXAP",
+      "text": "<@U09GH1QL7U5> has joined the channel",
+      "ts": "1791416648.901749",
+      "subtype": "channel_join",
+      "user": "U09GH1QL7U5",
+      "type": "message"
+    },
+    {
+      "inviter": "U0C7E6AGXAP",
+      "text": "<@U09GH1PASLV> has joined the channel",
+      "ts": "1791416648.825079",
+      "subtype": "channel_join",
+      "user": "U09GH1PASLV",
+      "type": "message"
+    },
+    {
+      "inviter": "U0C7E6AGXAP",
+      "text": "<@U09AH3EQVMG> has joined the channel",
+      "ts": "1791416648.764259",
+      "subtype": "channel_join",
+      "user": "U09AH3EQVMG",
+      "type": "message"
+    },
+    {
+      "text": "<@U0C7E6AGXAP> has joined the channel",
+      "ts": "1791416644.488279",
+      "subtype": "channel_join",
+      "user": "U0C7E6AGXAP",
+      "type": "message"
+    }
+  ],
+  "users": {
+    "USLACKBOT": "Slackbot",
+    "U09ACBNBWJ3": "Neptune AII Deployment Health",
+    "U09AH3EQVMG": "Curran McLaughlin",
+    "U09GH1PASLV": "Julian Jackson",
+    "U09GH1QL7U5": "Cole Mitchell",
+    "U09LNEJEQLT": "Lucas Peters",
+    "U09MMQG556F": "wf_bot_a09mu73cr3l",
+    "U09NNFDG8MN": "wf_bot_a09n7413ptk",
+    "U0A0J6Y5NL8": "deactivateduser909049",
+    "U0A1JTVLM4P": "Dishank Oza",
+    "U0A3YP57CG0": "Jared Lyon",
+    "U0ADJEGVBGB": "Cursor",
+    "U0AL1N58K2A": "test",
+    "U0C7E2VAXRR": "Scalekit",
+    "U0C7E6AGXAP": "jared lyon"
+  },
+  "url": "https://app.slack.com/archives/C0C7LCN02N6"
+}

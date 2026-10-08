@@ -104,8 +104,8 @@ async def pages(source, email, tool, key, pagination="cursor", **inputs):
         inputs[pagination] = token
 
 def recorded_path(source, container):
-    # Keep company names readable while preventing recorded paths escaping their source directory.
-    name = container.replace("/", "_").replace("\\", "_")
+    # Readable names that stay inside the source directory and are valid on Windows checkouts too.
+    name = re.sub(r'[\\/:*?"<>|]+\s*', "_", container)
     return config.ROOT / "data" / "recorded" / source / f"{name}.json"
 
 def save(source, container, raw):
