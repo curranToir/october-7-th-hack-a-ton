@@ -16,15 +16,18 @@ results, and the public Respan baseline/improved/research links.
   approval. No GitHub issue/Slack-post execution is implemented by the app.
 - **Action scenarios:** `s12`/`s13` remain explicitly unscored because their
   GitHub triage endpoint does not exist. The HubSpot demo is described separately
-  and is not substituted for those expected GitHub actions. New live mutation
-  evidence is pending browser sign-in: Chrome blocked the fresh callback with
-  `ERR_BLOCKED_BY_CLIENT`. No approval or write was bypassed to create evidence.
+  and is not substituted for those expected GitHub actions. Chrome blocked the
+  fresh sign-in callback, after which Curran explicitly limited this task to
+  updating the main GitHub repository. No live mutation is claimed and no
+  approval or write was bypassed to create evidence.
 - **Trace links:** all three public URLs below returned HTTP 200 without auth;
   the research trace is linked from the agent section.
 - **Architecture/model details:** complete, including five K3s services, Spark
   Postgres and Cognee, local embeddings, durable memory receipts, GPT-5 mini,
-  60 searches / 200 page slots / 60 turns and the ten-minute deadline. Spark's
-  running model/receipt upgrade remains separate from committed code.
+  60 searches / 200 page slots / 60 turns, the ten-minute deadline, JSON report
+  enforcement and isolated candidate validation. The latest handoff's completed
+  automatic discovery is included without implying contact/memory completion.
+  Spark's running model/receipt upgrade remains separate from committed code.
 - **GitHub invitations:** accepted both `globex-clinical-rag` and `toir-playbooks`;
   API read/write access verified as `curranToir`. The Acme repository remains
   inaccessible (404). This does not itself authorize a Scalekit GitHub connection.
