@@ -68,7 +68,7 @@ Toir Inc is (role-played as) an FDE shop embedded with three clients: Acme Logis
 
 ### Baseline Run
 
-- Respan trace / eval run link: Respan project → workflow `eval.scenario`, `run_label=before`
+- Respan trace (public, scenario s01, before): https://api.respan.ai/api/3f37a437-bd40-4bcb-9e37-f5f2686d5622/traces/042daa65fe1d2060f8aacce699f5b112/. In the Respan platform: Observability → Logs → Traces, filter metadata `run_label=before` (traces appear under the name `workflow`).
 - Scenarios run: 11 (grant + 2 action scenarios run separately)
 - Mean score: **4/11 pass**; judge mean 0.48; must-mention coverage 0.74
 - Worst scenario and why it failed:
@@ -82,7 +82,7 @@ score:    judge 0.0, mention 0/1
 
 ### Improved Run
 
-- Respan trace / eval run link: Respan project → workflow `eval.scenario`, `run_label=after`
+- Respan trace (public, scenario s01, after): https://api.respan.ai/api/3f37a437-bd40-4bcb-9e37-f5f2686d5622/traces/d68d3cbef3f7ae98b9dc3b0a3ac0e907/. In the Respan platform: Logs → Traces, filter metadata `run_label=after`.
 - What changed: **Added HubSpot (CRM: deals, contacts, SOW notes) as a third Scalekit source.** Same code, same questions.
 - Mean score: **11/11 pass**; judge mean 0.64; must-mention coverage 1.00
 
@@ -162,5 +162,5 @@ Judges without our SaaS accounts: `brain-api/data/recorded/` holds the raw Scale
 ## Links
 
 - Repo: https://github.com/curranToir/october-7-th-hack-a-ton (`brain-api/`)
-- Respan traces / eval runs: Respan project for the event key → workflows `eval.scenario`, `brain.recall`
+- Respan traces (public): [before s01](https://api.respan.ai/api/3f37a437-bd40-4bcb-9e37-f5f2686d5622/traces/042daa65fe1d2060f8aacce699f5b112/) · [after s01](https://api.respan.ai/api/3f37a437-bd40-4bcb-9e37-f5f2686d5622/traces/d68d3cbef3f7ae98b9dc3b0a3ac0e907/). All eval runs: Logs → Traces, metadata `run_label` ∈ {before, after}.
 - Anything else: seeded world `brain-api/seed/world.json`; scenario results `brain-api/eval/results/`
