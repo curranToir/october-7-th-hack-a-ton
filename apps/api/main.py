@@ -11,10 +11,12 @@ from apps.api.research_client import ResearchClient
 from apps.api.research_routes import router
 from apps.api.sales_client import SalesClient
 from apps.api.sales_routes import router as sales_router
+from apps.auth_logging import protect_auth_logs
 
 
 @asynccontextmanager
 async def lifespan(application: FastAPI):
+    protect_auth_logs()
     client = ResearchClient()
     application.state.research_client = client
     sales_client = SalesClient()

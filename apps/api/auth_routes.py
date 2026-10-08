@@ -1,6 +1,7 @@
 """Authentication redirects/cookies are issued by the coordinator, unchanged here."""
 
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Request, Response
 
@@ -39,3 +40,18 @@ async def logout(request: Request, client: Client) -> Response:
 @router.get("/me")
 async def current_user(request: Request, client: Client) -> Response:
     return await client.forward(request, "/v1/me")
+
+
+@router.get("/auth/sessions")
+async def sessions(request: Request, client: Client) -> Response:
+    return await client.forward(request, "/v1/auth/sessions")
+
+
+@router.delete("/auth/sessions", status_code=204)
+async def revoke_all_sessions(request: Request, client: Client) -> Response:
+    return await client.forward(request, "/v1/auth/sessions")
+
+
+@router.delete("/auth/sessions/{session_id}", status_code=204)
+async def revoke_session(session_id: UUID, request: Request, client: Client) -> Response:
+    return await client.forward(request, f"/v1/auth/sessions/{session_id}")

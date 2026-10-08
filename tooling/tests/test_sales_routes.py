@@ -118,6 +118,8 @@ async def route_stack(tmp_path, public=True, email=EMAIL):
                     "email": email,
                     "name": "Sales member",
                     "subject": "verified-subject",
+                    "user_id": "user-" + email,
+                    "issuer": CONFIG.environment_url,
                     "role": "sales",
                     "active": True,
                 },
@@ -128,6 +130,11 @@ async def route_stack(tmp_path, public=True, email=EMAIL):
                 {
                     "email": email,
                     "subject": "verified-subject",
+                    "user_id": "user-" + email,
+                    "issuer": CONFIG.environment_url,
+                    "id": str(uuid4()),
+                    "created_at": time.time(),
+                    "last_seen_at": time.time(),
                     "expires_at": time.time() + 60,
                 },
             )
@@ -185,7 +192,14 @@ def test_real_login_callback_cookie_session_and_logout(tmp_path):
             assert callback.headers["cache-control"] == "no-store"
             user = await client.get("/api/me")
             assert user.status_code == 200 and user.json()["email"] == EMAIL
-            assert set(user.json()) == {"email", "name", "workspace_id", "role"}
+            assert set(user.json()) == {
+                "id",
+                "email",
+                "name",
+                "workspace_id",
+                "role",
+                "email_verified",
+            }
             old_cookie = client.cookies.get("toir_session")
             logout = await client.post("/api/auth/logout")
             assert logout.status_code == 204 and not logout.content
@@ -224,7 +238,9 @@ def test_all_sales_routes_deny_missing_or_unauthorized_identity(tmp_path, public
                 ("PATCH", "/sales/automation", {"enabled": True}),
                 ("POST", f"/sales/jobs/{job}/cancellation", None),
                 ("POST", f"/sales/jobs/{job}/retries", None),
-                ("POST", "/auth/logout", None),
+                ("GET", "/auth/sessions", None),
+                ("DELETE", "/auth/sessions", None),
+                ("DELETE", f"/auth/sessions/{session}", None),
             ]
             for method, path, body in requests:
                 response = await stack.client.request(

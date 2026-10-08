@@ -3,12 +3,13 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response
-from fastapi.responses import RedirectResponse
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Response
+from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import Field
 
 from apps.orchestrator.models.research import Contract
 from apps.orchestrator.sales.auth import FLOW_COOKIE, FLOW_TTL_SECONDS, SESSION_COOKIE
+from apps.orchestrator.sales.auth_sessions import AuthSessionView, UserView
 from apps.orchestrator.sales.models import DecisionRequest, Message, Proposal, ProposalEdit, Session
 from apps.orchestrator.sales.service import SalesService
 from apps.orchestrator.storage.ports import Conflict
@@ -67,19 +68,47 @@ async def login(service: Service):
     return response
 
 
-@auth_router.get("/auth/callback")
-async def callback(request: Request, service: Service, code: str = "", state: str = ""):
-    token = await service.auth.callback(code, state, request.cookies.get(FLOW_COOKIE))
-    response = RedirectResponse(service.auth.config.public_url, status_code=303)
-    response.set_cookie(
+def clear_session_cookie(response: Response, service: SalesService) -> None:
+    response.delete_cookie(
         SESSION_COOKIE,
-        token,
-        max_age=service.auth.config.session_ttl_seconds,
         path="/",
         secure=service.auth.config.secure_cookies,
         httponly=True,
         samesite="lax",
     )
+    response.headers["Cache-Control"] = "no-store"
+
+
+@auth_router.get("/auth/callback")
+async def callback(
+    request: Request,
+    service: Service,
+    code: Annotated[str, Query(max_length=8192)] = "",
+    state: Annotated[str, Query(max_length=256)] = "",
+    error: Annotated[str, Query(max_length=256)] = "",
+):
+    try:
+        token = await service.auth.callback(
+            code,
+            state,
+            request.cookies.get(FLOW_COOKIE),
+            error=error,
+            previous_token=request.cookies.get(SESSION_COOKIE),
+            user_agent=request.headers.get("user-agent", ""),
+        )
+        response = RedirectResponse(service.auth.config.public_url, status_code=303)
+        response.set_cookie(
+            SESSION_COOKIE,
+            token,
+            max_age=service.auth.config.session_ttl_seconds,
+            path="/",
+            secure=service.auth.config.secure_cookies,
+            httponly=True,
+            samesite="lax",
+        )
+    except HTTPException as failure:
+        # Keep provider codes, state, and error_description out of the response.
+        response = JSONResponse({"detail": failure.detail}, status_code=failure.status_code)
     response.delete_cookie(
         FLOW_COOKIE,
         path="/api/auth",
@@ -88,26 +117,50 @@ async def callback(request: Request, service: Service, code: str = "", state: st
         samesite="lax",
     )
     response.headers["Cache-Control"] = "no-store"
+    response.headers["Referrer-Policy"] = "no-referrer"
     return response
 
 
 @auth_router.post("/auth/logout", status_code=204)
-async def logout(request: Request, service: Service, actor: Actor):
+async def logout(request: Request, service: Service):
+    # Even an expired/revoked cookie must be clearable. Origin still prevents logout CSRF.
+    service.auth.assert_same_origin(request.headers.get("origin"))
     await service.auth.logout(request.cookies.get(SESSION_COOKIE))
     response = Response(status_code=204)
-    response.delete_cookie(
-        SESSION_COOKIE,
-        path="/",
-        secure=service.auth.config.secure_cookies,
-        httponly=True,
-        samesite="lax",
-    )
+    clear_session_cookie(response, service)
     return response
 
 
-@auth_router.get("/me")
-async def me(actor: Actor):
+@auth_router.get("/me", response_model=UserView)
+async def me(actor: Actor, response: Response):
+    response.headers["Cache-Control"] = "no-store"
     return actor
+
+
+@auth_router.get("/auth/sessions", response_model=list[AuthSessionView])
+async def auth_sessions(request: Request, service: Service, response: Response, actor: Actor):
+    response.headers["Cache-Control"] = "no-store"
+    return await service.auth.sessions.list(request.cookies.get(SESSION_COOKIE))
+
+
+@auth_router.delete("/auth/sessions", status_code=204)
+async def revoke_all_sessions(request: Request, service: Service, actor: Actor):
+    await service.auth.sessions.revoke(request.cookies.get(SESSION_COOKIE))
+    response = Response(status_code=204)
+    clear_session_cookie(response, service)
+    return response
+
+
+@auth_router.delete("/auth/sessions/{session_id}", status_code=204)
+async def revoke_session(session_id: UUID, request: Request, service: Service, actor: Actor):
+    current = await service.auth.sessions.revoke(
+        request.cookies.get(SESSION_COOKIE),
+        str(session_id),
+    )
+    response = Response(status_code=204, headers={"Cache-Control": "no-store"})
+    if current:
+        clear_session_cookie(response, service)
+    return response
 
 
 @router.get("/workspace")

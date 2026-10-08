@@ -203,6 +203,11 @@ async (page) => {
     }
     if (!signedIn)
       return respond({ detail: "Sign in to your sales workspace." }, 401);
+    if (path === "/api/auth/sessions" && method === "GET") return respond([
+      { id: "browser-1", current: true, created_at: Date.now() / 1000,
+        last_seen_at: Date.now() / 1000, expires_at: Date.now() / 1000 + 28800,
+        user_agent: "Local browser test" },
+    ]);
     if (path === "/api/sales/workspace") return respond(state);
     if (path === "/api/sales/tasks/p1" && method === "PATCH") {
       Object.assign(state.tasks[0], data, {
@@ -318,7 +323,7 @@ async (page) => {
     throw new Error("Mobile page overflows");
   await page.getByRole("button", { name: "Profile", exact: true }).click();
   await page.getByRole("button", { name: "Sign out", exact: true }).click();
-  const signIn = page.getByRole("link", { name: "Sign in with Scalekit" });
+  const signIn = page.getByRole("link", { name: "Sign in with Google" });
   await signIn.waitFor();
   if ((await signIn.getAttribute("href")) !== "/api/auth/login")
     throw new Error("Incorrect sign-in URL");

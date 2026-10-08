@@ -192,3 +192,42 @@ test("chat sends only content and a stable request key, never a browser-supplied
     "same-key-on-retry",
   );
 });
+
+test("sign-in management uses only same-origin session endpoints", async () => {
+  const original = globalThis.fetch;
+  const calls: {
+    path: string;
+    method: string;
+    credentials: string | undefined;
+  }[] = [];
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    calls.push({
+      path: String(input),
+      method: init?.method ?? "GET",
+      credentials: init?.credentials,
+    });
+    return init?.method === "DELETE"
+      ? new Response(null, { status: 204 })
+      : new Response(JSON.stringify([]), { status: 200 });
+  }) as typeof fetch;
+  try {
+    assert.deepEqual(await salesClient.authSessions(), []);
+    await salesClient.revokeSession("browser/id");
+    await salesClient.revokeAllSessions();
+    assert.deepEqual(calls, [
+      { path: "/api/auth/sessions", method: "GET", credentials: "same-origin" },
+      {
+        path: "/api/auth/sessions/browser%2Fid",
+        method: "DELETE",
+        credentials: "same-origin",
+      },
+      {
+        path: "/api/auth/sessions",
+        method: "DELETE",
+        credentials: "same-origin",
+      },
+    ]);
+  } finally {
+    globalThis.fetch = original;
+  }
+});

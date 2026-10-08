@@ -132,13 +132,16 @@ class SalesTransaction:
             await cursor.close()
 
     async def list(self, kind: str) -> list[dict[str, Any]]:
+        return [payload for _, payload in await self.entries(kind)]
+
+    async def entries(self, kind: str) -> list[tuple[str, dict[str, Any]]]:
         self._check(kind)
         cursor = await self._execute(
-            "SELECT payload FROM sales_records WHERE workspace_id=? AND kind=? ORDER BY id",
+            "SELECT id,payload FROM sales_records WHERE workspace_id=? AND kind=? ORDER BY id",
             (WORKSPACE, kind),
         )
         try:
-            return [self._payload(row) for row in await cursor.fetchall()]
+            return [(row["id"], self._payload(row)) for row in await cursor.fetchall()]
         finally:
             await cursor.close()
 

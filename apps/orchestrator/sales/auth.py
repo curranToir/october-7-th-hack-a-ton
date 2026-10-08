@@ -20,6 +20,8 @@ import httpx
 import jwt
 from fastapi import HTTPException
 
+from apps.orchestrator.sales.auth_sessions import AuthSessions, prune_expired
+
 SESSION_COOKIE = "toir_session"
 FLOW_COOKIE = "toir_auth_flow"
 FLOW_TTL_SECONDS = 600
@@ -103,6 +105,7 @@ class AuthService:
         self.config = config or AuthConfig.from_env()
         self.client = client or httpx.AsyncClient(timeout=20, follow_redirects=False)
         self._owns_client = client is None
+        self.sessions = AuthSessions(store, self.config)
 
     @property
     def configured(self) -> bool:
@@ -122,6 +125,7 @@ class AuthService:
         state, cookie = secrets.token_urlsafe(32), secrets.token_urlsafe(32)
         verifier, nonce = secrets.token_urlsafe(48), secrets.token_urlsafe(32)
         async with self.store.transaction() as tx:
+            await prune_expired(tx, "auth_flow", time.time())
             await tx.put(
                 "auth_flow",
                 _digest(state),
@@ -136,6 +140,7 @@ class AuthService:
         query = urlencode(
             {
                 "response_type": "code",
+                "provider": "google",
                 "client_id": self.config.client_id,
                 "redirect_uri": self.config.callback_url,
                 "scope": "openid profile email",
@@ -147,10 +152,26 @@ class AuthService:
         )
         return self.config.environment_url.rstrip("/") + "/oauth/authorize?" + query, cookie
 
-    async def callback(self, code: str, state: str, flow_cookie: str | None) -> str:
+    async def callback(
+        self,
+        code: str,
+        state: str,
+        flow_cookie: str | None,
+        *,
+        previous_token: str | None = None,
+        user_agent: str = "",
+        error: str = "",
+    ) -> str:
         if not self.configured:
             raise HTTPException(503, "Scalekit sign-in is not configured")
-        if not code or len(code) > 8192 or not state or len(state) > 256 or not flow_cookie:
+        if (
+            (not code and not error)
+            or len(code) > 8192
+            or not state
+            or len(state) > 256
+            or not flow_cookie
+            or len(flow_cookie) > 256
+        ):
             raise HTTPException(400, "Invalid sign-in callback")
         async with self.store.transaction() as tx:
             flow = await tx.get("auth_flow", _digest(state))
@@ -160,47 +181,16 @@ class AuthService:
         # Consumed even if expired or the provider fails: a code is never retried silently.
         if flow["expires_at"] <= time.time():
             raise HTTPException(400, "Sign-in expired; start again")
+        if error:
+            raise HTTPException(400, "Google sign-in was cancelled; start again")
         claims = await self._exchange(code, flow)
-        if claims.get("email_verified") is not True:
-            raise HTTPException(403, "A verified email is required")
-        email = str(claims.get("email", "")).strip().lower()
-        if email not in self.config.member_emails:
-            raise HTTPException(403, "This account is not a member of the Toir sales workspace")
-        subject = claims["sub"]
-        name = str(claims.get("name") or email)[:200]
         token = secrets.token_urlsafe(48)
-        async with self.store.transaction() as tx:
-            member = await tx.get("member", email)
-            if member and (
-                not member.get("active")
-                or member.get("role") != "sales"
-                or member.get("subject") not in {None, subject}
-            ):
-                raise HTTPException(403, "Workspace membership is inactive or changed")
-            await tx.put(
-                "member",
-                email,
-                {
-                    "id": email,
-                    "workspace_id": "toir",
-                    "email": email,
-                    "name": name,
-                    "role": "sales",
-                    "active": True,
-                    "subject": subject,
-                },
-            )
-            await tx.put(
-                "auth_session",
-                _digest(token),
-                {
-                    "workspace_id": "toir",
-                    "email": email,
-                    "subject": subject,
-                    "created_at": time.time(),
-                    "expires_at": time.time() + self.config.session_ttl_seconds,
-                },
-            )
+        await self.sessions.establish(
+            claims,
+            token,
+            previous_token=previous_token,
+            user_agent=user_agent,
+        )
         return token
 
     async def _exchange(self, code: str, flow: dict) -> dict:
@@ -260,29 +250,7 @@ class AuthService:
             ) from None
 
     async def current_user(self, session_token: str | None) -> dict:
-        if not session_token or len(session_token) > 256:
-            raise HTTPException(401, "Sign in to the Toir sales workspace")
-        async with self.store.transaction() as tx:
-            session = await tx.get("auth_session", _digest(session_token))
-            if not session or session["expires_at"] <= time.time():
-                raise HTTPException(401, "Your session has expired; sign in again")
-            member = await tx.get("member", session["email"])
-        if (
-            not member
-            or not member.get("active")
-            or member.get("role") != "sales"
-            or member.get("subject") != session["subject"]
-            or member.get("email") not in self.config.member_emails
-        ):
-            raise HTTPException(403, "This account no longer has sales workspace access")
-        return {
-            "email": member["email"],
-            "name": member["name"],
-            "workspace_id": "toir",
-            "role": "sales",
-        }
+        return await self.sessions.current_user(session_token)
 
     async def logout(self, session_token: str | None) -> None:
-        if session_token:
-            async with self.store.transaction() as tx:
-                await tx.delete("auth_session", _digest(session_token))
+        await self.sessions.logout(session_token)

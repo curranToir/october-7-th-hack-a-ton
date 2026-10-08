@@ -10,13 +10,15 @@ from apps.api.browser_auth import browser_headers
 
 RESOURCE = r"[0-9a-fA-F-]{36}"
 ALLOWED = {
-    "GET": re.compile(r"^/v1/(?:me|auth/(?:login|callback)|sales/(?:workspace|capabilities))$"),
+    "GET": re.compile(
+        r"^/v1/(?:me|auth/(?:login|callback|sessions)|sales/(?:workspace|capabilities))$"
+    ),
     "POST": re.compile(
         rf"^/v1/(?:auth/logout|sales/(?:sessions|sessions/{RESOURCE}/messages|"
         rf"tasks/{RESOURCE}/(?:decisions|retries)|jobs/{RESOURCE}/(?:cancellation|retries)))$"
     ),
     "PATCH": re.compile(rf"^/v1/sales/(?:automation|sessions/{RESOURCE}|tasks/{RESOURCE})$"),
-    "DELETE": re.compile(rf"^/v1/sales/sessions/{RESOURCE}$"),
+    "DELETE": re.compile(rf"^/v1/(?:sales/sessions/{RESOURCE}|auth/sessions(?:/{RESOURCE})?)$"),
 }
 
 
@@ -56,7 +58,7 @@ class SalesClient:
         except httpx.HTTPError:
             raise HTTPException(503, "Sales coordinator is temporarily unavailable") from None
         response = Response(content=result.content, status_code=result.status_code)
-        for name in ("content-type", "location", "retry-after"):
+        for name in ("content-type", "location", "retry-after", "referrer-policy"):
             if name in result.headers:
                 response.headers[name] = result.headers[name]
         for cookie in result.headers.get_list("set-cookie"):

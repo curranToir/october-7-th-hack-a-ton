@@ -85,9 +85,12 @@ def test_verified_members_sign_in_and_tokens_are_not_stored(tmp_path, email):
         ):
             assert query["redirect_uri"] == ["https://toir.example/api/auth/callback"]
             assert query["code_challenge_method"] == ["S256"]
+            assert query["provider"] == ["google"]
             token = await auth.callback("valid-code", query["state"][0], cookie)
             user = await auth.current_user(token)
             assert user == {
+                "id": user["id"],
+                "email_verified": True,
                 "email": email,
                 "name": "Curran",
                 "workspace_id": "toir",

@@ -258,3 +258,12 @@ backend and stops when Postgres is active, even if retained SQLite files exist.
 Spark's owner supplies PG17 dump/restore verification and a release handoff; see
 [operations](../docs/operations.md) and the
 [implementation status](prospecting-implementation.md).
+
+
+## Google identity and browser sessions
+
+The [auth handoff](auth-handoff.md) specifies additive member fields, issuer/subject
+bindings, user UUIDs and revocable browser sign-ins in the existing sales records.
+No new database connection or table is required. Existing conversation/audit email
+keys and Brain `as_user` email mapping are preserved. Legacy cookies require a
+fresh sign-in; all non-auth records remain valid.

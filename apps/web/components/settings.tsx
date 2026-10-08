@@ -7,6 +7,7 @@ import type {
   SettingPage,
 } from "../../../coms/types.ts";
 import type { WorkspaceActions } from "./use-workspace";
+import { AccountSessions } from "./account-sessions";
 import { Icon, type IconName } from "./icon";
 
 export const settingsPages: {
@@ -184,7 +185,7 @@ export function Settings({
         {page === "profile" && (
           <>
             <p className="settings-intro">
-              Your identity is verified through Scalekit.
+              Your Google sign-in gives you access to the Toir sales workspace.
             </p>
             <Section title="Signed-in account">
               <Row label={state.profile.name} detail={state.profile.email}>
@@ -203,6 +204,7 @@ export function Settings({
                 </button>
               </Row>
             </Section>
+            <AccountSessions onChanged={actions.refresh} />
           </>
         )}
         {page === "agents" && (

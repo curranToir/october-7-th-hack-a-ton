@@ -147,3 +147,39 @@ def test_transactions_serialize_across_connections(tmp_path, open_sales_reposito
             await second.close()
 
     asyncio.run(scenario())
+
+
+def test_auth_identity_and_sessions_share_transactional_backend(tmp_path, open_sales_repository):
+    from fastapi import HTTPException
+
+    from apps.orchestrator.sales.auth import AuthService
+    from tooling.tests.test_sales_auth import CONFIG
+
+    async def scenario():
+        repo = await open_sales_repository(tmp_path / "auth.sqlite")
+        try:
+            store = SalesStore(repo)
+            await store.setup()
+            auth = AuthService(store, CONFIG, client=object())
+            claims = {"email": "curran@toirinc.com", "sub": "curran", "email_verified": True}
+            await auth.sessions.establish(claims, "first")
+            await auth.sessions.establish(claims, "second")
+            before = await auth.current_user("first")
+            assert before["id"] == (await auth.current_user("second"))["id"]
+            assert len(await auth.sessions.list("first")) == 2
+            async with store.transaction() as tx:
+                assert len(await tx.entries("identity")) == 1
+                await tx.put("session", "conversation", {"owner": claims["email"]})
+            await auth.sessions.revoke("first")
+            for token in ["first", "second"]:
+                with pytest.raises(HTTPException) as failure:
+                    await auth.current_user(token)
+                assert failure.value.status_code == 401
+            async with store.transaction() as tx:
+                assert not await tx.entries("auth_session")
+                assert await tx.get("session", "conversation")
+                assert (await tx.get("member", claims["email"]))["user_id"] == before["id"]
+        finally:
+            await repo.close()
+
+    asyncio.run(scenario())

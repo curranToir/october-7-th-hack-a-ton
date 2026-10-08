@@ -1,4 +1,5 @@
 import type {
+  AuthSession,
   AutomationUpdate,
   Decision,
   LiveWorkspace,
@@ -215,6 +216,13 @@ export const salesClient = {
       `/api/sales/jobs/${encodeURIComponent(id)}/retries`,
       json("POST"),
     ),
+  authSessions: () => request<AuthSession[]>("/api/auth/sessions"),
+  revokeSession: (id: string) =>
+    request<void>(
+      `/api/auth/sessions/${encodeURIComponent(id)}`,
+      json("DELETE"),
+    ),
+  revokeAllSessions: () => request<void>("/api/auth/sessions", json("DELETE")),
   logout: () => request<void>("/api/auth/logout", json("POST")),
 };
 
