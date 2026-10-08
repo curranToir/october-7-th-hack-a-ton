@@ -15,11 +15,12 @@ to `topoteretes/cognee-hackathons`, or hand the repo link to an organizer.
    - how they call the brain: `/recall` with `as_user`, and `/remember/research` with `Idempotency-Key`;
    - which LLM models go through the Respan gateway on your side (your `.env.example` has `RESPAN_MODEL=gpt-5.4`).
 3. **Write-back actions through Scalekit, as the acting user.** List every write the agents take (approved HubSpot CRM writes, GitHub issue creation, Slack posts), and note that each one requires an approved, persisted proposal. The rubric scores "takes a useful action through Scalekit", and only your side does that.
-4. **Respan trace links.** Replace the placeholder links in "Baseline Run", "Improved Run" and "Links". In the Respan platform go to Observability → Logs, grouping **Traces**, all environments, today. Filter **metadata `run_label` = `before`** (then `after`); the traces appear under the name `workflow`, not `eval.scenario`. Example traces to search by ID:
-   - before: `588c3772bf3181b1299986a7150f0a5c`
-   - after: `81a60004f0e6f9d32eda2024d4b53a66`
+4. **Respan trace links: DONE by Jared.** Made public through Respan's API and added to SUBMISSION.md (Baseline, Improved, Links). These open without login:
+   - eval before (s01): https://api.respan.ai/api/3f37a437-bd40-4bcb-9e37-f5f2686d5622/traces/042daa65fe1d2060f8aacce699f5b112/
+   - eval after (s01): https://api.respan.ai/api/3f37a437-bd40-4bcb-9e37-f5f2686d5622/traces/d68d3cbef3f7ae98b9dc3b0a3ac0e907/
+   - your research run (23 spans, 5 LLM calls): https://api.respan.ai/api/3f37a437-bd40-4bcb-9e37-f5f2686d5622/traces/5902a7809174a2f5b7bf2967156717ca/. Paste it into your agent section.
 
-   Use the Share button for public links. Also add one trace of your coordinator/agent run (e.g. the research run sharing trace `5902a7809174a2f5b7bf2967156717ca`).
+   These are Respan's public-trace API URLs (JSON). If you prefer the dashboard view, use Logs → trace → Copy trace URL.
 5. **Action scenarios s12/s13.** They're unscored (skipped) because there's no triage endpoint. Either add the endpoint and we run `eval/run.py --label after --agent-url <url>`, or state in "Evaluation Evidence" that actions are demonstrated live rather than scored.
 6. **Architecture.** Add your half below the brain: browser → API → coordinator (LangGraph, Postgres run store on the Spark via `DATABASE_URL`) → workers, and EC2 on the tailnet → brain-api.
 7. **Demo (step 5 of the pitch outline).** Describe the agent task you'll show live, e.g. triage: recall the Acme blocker → open the issue in `Toir-FDE-Team/acme-agent-rollout` as the user → the trace in Respan.
