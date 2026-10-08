@@ -192,6 +192,7 @@ export interface SalesJob extends SalesRecord {
   } | null;
   task_id: string | null;
   research_run_id: string | null;
+  memory_status?: "not_requested" | "pending" | "synced" | "blocked";
   deadline_at: string | null;
   progress: string;
   error: string | null;
@@ -240,6 +241,7 @@ export interface SalesProposal extends SalesRecord {
 }
 export interface SalesCapabilities {
   ready: boolean;
+  research_ready?: boolean;
   reasons: string[];
   postgres: boolean;
   research: boolean;

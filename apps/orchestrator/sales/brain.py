@@ -16,6 +16,7 @@ from uuid import uuid4
 
 import httpx
 
+from apps.orchestrator.models.research import Run
 from apps.orchestrator.sales.models import ContactReport, Job, Proposal, timestamp
 
 SALES_USERS = ("curran@toirinc.com", "jared@neptuneops.com")
@@ -280,10 +281,33 @@ async def enqueue_research(tx, job: Job, report: ContactReport):
         "execution": "not_requested",
     }
     payload = {"leads": [lead], "sources": [s.model_dump(mode="json") for s in report.sources]}
+    await _enqueue_report(tx, job, payload, run_id=job.id)
+
+
+async def enqueue_discovery(tx, job: Job, run: Run):
+    """Only a completed, accepted company report enters shared pipeline memory."""
+    verified_sales_user(job.requested_by)
+    if run.status != "completed":
+        raise RuntimeError("Only completed research can be remembered")
+    if not run.report.leads:
+        return
+    payload = run.report.model_dump(mode="json")
+    for lead in payload["leads"]:
+        lead["workflow"] = {
+            "session_id": job.session_id, "job_id": job.id, "run_id": run.id,
+            "requested_by": job.requested_by, "status": "research_qualified",
+            "execution": "not_requested",
+        }
+    await _enqueue_report(tx, job, payload, run_id=run.id)
+
+
+async def _enqueue_report(tx, job: Job, payload: dict, *, run_id: str):
     digest = hashlib.sha256(
         json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
     ).hexdigest()
-    if await tx.get("outbox", digest):
+    existing = await tx.get("outbox", digest)
+    if existing:
+        job.memory_status = "synced" if existing["status"] == "synced" else "pending"
         return
     payload["ingestion_id"] = digest
     await tx.put(
@@ -292,8 +316,9 @@ async def enqueue_research(tx, job: Job, report: ContactReport):
         {
             "id": digest,
             "workspace_id": "toir",
+            "job_id": job.id,
             "as_user": job.requested_by,
-            "run_id": job.id,
+            "run_id": run_id,
             "report": payload,
             "status": "pending",
             "attempts": 0,
@@ -301,6 +326,11 @@ async def enqueue_research(tx, job: Job, report: ContactReport):
             "next_attempt_at": timestamp(),
         },
     )
+    job.memory_status = "pending"
+    current = await tx.get("job", job.id)
+    if current:
+        current["memory_status"] = "pending"
+        await tx.put("job", job.id, current)
 
 
 async def deliver_memory(store, brain, *, ready: bool):
@@ -308,6 +338,13 @@ async def deliver_memory(store, brain, *, ready: bool):
     async with store.transaction() as tx:
         items = sorted(await tx.list("outbox"), key=lambda x: x["created_at"])
         if not ready:
+            for job_id in {
+                i["job_id"] for i in items if i["status"] != "synced" and i.get("job_id")
+            }:
+                job = await tx.get("job", job_id)
+                if job and job.get("memory_status") != "blocked":
+                    job["memory_status"] = "blocked"
+                    await tx.put("job", job_id, job)
             for proposal_id in {
                 i["proposal_id"] for i in items if i["status"] != "synced" and i.get("proposal_id")
             }:
@@ -362,6 +399,15 @@ async def deliver_memory(store, brain, *, ready: bool):
             )
         ).isoformat()
         await tx.put("outbox", current["id"], current)
+        if current.get("job_id"):
+            job = await tx.get("job", current["job_id"])
+            if job:
+                pending = any(
+                    item.get("job_id") == current["job_id"] and item["status"] != "synced"
+                    for item in await tx.list("outbox")
+                )
+                job["memory_status"] = "pending" if pending else "synced"
+                await tx.put("job", current["job_id"], job)
         proposal = (
             await tx.get("proposal", current["proposal_id"]) if current.get("proposal_id") else None
         )

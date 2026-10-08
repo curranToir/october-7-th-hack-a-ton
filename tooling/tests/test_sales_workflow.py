@@ -311,6 +311,34 @@ def test_research_only_chat_never_prepares_or_executes_crm(tmp_path):
     asyncio.run(scenario())
 
 
+def test_explicit_company_only_chat_stops_after_resolution_without_contact_enrichment(tmp_path):
+    async def scenario():
+        h = await Harness.open(tmp_path)
+        try:
+            h.models.intent.propose_crm = False
+            h.models.intent.enrich_contacts = False
+            h.models.intent.target_count = 1
+            _, message = await h.begin(content="Research Example only; do not research contacts")
+            await h.service.scheduler.tick()
+            assert len(h.worker.submitted) == 1
+            assert h.worker.submitted[0].mode == "resolve"
+            h.worker.complete(ContactReport(company=COMPANY, sources=[SOURCE]))
+            await h.service.scheduler.tick()
+            saved = await h.get("job", message.job_id)
+            assert saved["status"] == "completed"
+            assert saved["enrich_contacts"] is False
+            assert saved["report"]["contacts"] == []
+            assert saved["memory_status"] == "pending"
+            assert len(h.worker.submitted) == 1
+            assert len(await h.records("outbox")) == 1
+            assert await h.records("proposal") == []
+            assert h.planner.calls == h.executor.executed == []
+        finally:
+            await h.close()
+
+    asyncio.run(scenario())
+
+
 def test_same_message_idempotency_does_not_repeat_routing_or_research(tmp_path):
     async def scenario():
         h = await Harness.open(tmp_path)
@@ -676,7 +704,7 @@ def test_complete_research_to_real_crm_executor_journal_after_approval(tmp_path,
                     update={"domain": "low-fit.example", "fit_score": 69}
                 )
 
-                async def accepted_discovery(brief, key):
+                async def accepted_discovery(brief, key, *, planning_context=None):
                     run = await h.repository.create(brief, key)
                     run.status, run.stage = "completed", "completed"
                     run.report = ResearchReport(leads=[accepted, rejected], sources=[SOURCE])

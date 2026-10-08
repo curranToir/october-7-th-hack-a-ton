@@ -13,11 +13,17 @@ class ChatIntent(Contract):
     intent: Literal["company", "discovery", "answer", "clarify"]
     query: str = Field(default="", max_length=4000)
     propose_crm: bool = False
+    target_count: int = Field(default=10, ge=1, le=10)
+    enrich_contacts: bool = True
     reply: str = Field(default="", max_length=4000)
 
 
 INTENT_PROMPT = """Route a Toir sales workspace conversation. A request to research a named
 company goes to company. A request to find prospective companies goes to discovery.
+Preserve the user's requested company count in target_count (1–10; default 10).
+Set enrich_contacts false for explicit company-only research, no-contact research, or a request
+not to enrich contacts. Otherwise leave it true. Never expand a requested company-only search
+into decision-maker/contact research. These limits govern downstream work, not just the reply.
 Set propose_crm true only if the user asks to add/update/save to CRM, including a clear
 follow-up referring to previous research; this prepares a proposal, never approves a write.
 For company ambiguity that research can resolve, send company with the original query.
@@ -137,6 +143,8 @@ class ChatService:
                 job.sources = Job.model_validate(old).sources
                 job.kind, job.status = "enrich", "queued"
                 job.propose_crm = old.get("propose_crm", False)
+                job.target_count = old.get("target_count", 10)
+                job.enrich_contacts = old.get("enrich_contacts", True)
                 reply = f"Researching {job.company.name}. Any CRM changes will wait for approval."
             else:
                 try:
@@ -156,6 +164,8 @@ class ChatService:
                 )
                 job.query = intent.query or job.query
                 job.propose_crm = intent.propose_crm
+                job.target_count = intent.target_count
+                job.enrich_contacts = intent.enrich_contacts
                 if intent.intent in {"company", "discovery"}:
                     job.kind = "resolve" if intent.intent == "company" else "discovery"
                     job.status, job.progress = "queued", "Research queued"

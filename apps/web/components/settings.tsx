@@ -313,6 +313,9 @@ export function Readiness({ state }: { state: LiveWorkspace }) {
       <Icon name="info" />
       <div>
         <strong>Continuous dispatch is waiting on readiness</strong>
+        {state.capabilities.research_ready === true && (
+          <p>On-demand research is ready.</p>
+        )}
         <ul>
           {state.capabilities.reasons.length ? (
             state.capabilities.reasons.map((reason, index) => (
@@ -385,7 +388,11 @@ function AutomationSettings({
           detail="Find and qualify companies using cited evidence."
         >
           <span className="muted-tag">
-            {state.capabilities.research ? "Ready" : "Unavailable"}
+            {state.capabilities.research_ready === true
+              ? "Ready"
+              : state.capabilities.research_ready === false
+                ? "Unavailable"
+                : "Status unavailable"}
           </span>
         </Row>
         <Row

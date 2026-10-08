@@ -179,7 +179,12 @@ export function Chat({
         </form>
         <p className="composer-caption">
           <Icon name="info" size={13} />
-          Research runs in the background. Every CRM update needs your approval.
+          {state.capabilities.research_ready === true
+            ? "On-demand research is ready."
+            : state.capabilities.research_ready === false
+              ? "On-demand research is waiting on service readiness."
+              : "Research runs in the background."}{" "}
+          Every CRM update needs your approval.
         </p>
       </div>
     </div>
@@ -231,6 +236,22 @@ function JobProgress({
         <span>{job.status.replaceAll("_", " ")}</span>
       </div>
       <p>{job.progress}</p>
+      {job.kind !== "chat" &&
+        (job.status === "completed" ||
+          (job.memory_status && job.memory_status !== "not_requested")) && (
+          <p aria-live="polite">
+            Research memory:{" "}
+            {job.memory_status === "synced"
+              ? "Synced"
+              : job.memory_status === "pending"
+                ? "Pending sync"
+                : job.memory_status === "blocked"
+                  ? "Sync blocked"
+                  : job.memory_status === "not_requested"
+                    ? "Not requested"
+                    : "Status unavailable"}
+          </p>
+        )}
       {job.error && <p className="sales-error">{job.error}</p>}
       {job.status === "needs_input" && job.candidates.length > 0 && (
         <>

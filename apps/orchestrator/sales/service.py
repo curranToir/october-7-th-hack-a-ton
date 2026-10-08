@@ -4,7 +4,12 @@ import asyncio
 import time
 from datetime import UTC, datetime, timedelta
 
-from apps.orchestrator.sales.brain import deliver_memory, enqueue_memory, enqueue_research
+from apps.orchestrator.sales.brain import (
+    deliver_memory,
+    enqueue_discovery,
+    enqueue_memory,
+    enqueue_research,
+)
 from apps.orchestrator.sales.chat import ChatService
 from apps.orchestrator.sales.evidence import review_report
 from apps.orchestrator.sales.models import (
@@ -38,6 +43,8 @@ class SalesService:
             capabilities=self.capabilities,
             finish_contact=self.finish_contact,
             review_report=lambda job, report: review_report(models, job, report),
+            finished_discovery=self.finish_discovery,
+            planning_context=self.discovery_context,
         )
         self.stopping = False
         self.tasks = []
@@ -105,12 +112,56 @@ class SalesService:
                 )
                 self.capability_cache, self.capability_time = result, time.monotonic()
             result = {**result, "reasons": list(result["reasons"])}
+            # Manual public research has no dependency on CRM write attestation.
+            # `ready` retains its stricter meaning for autonomous background dispatch.
+            result["research_ready"] = all(
+                result[key] for key in ("postgres", "auth", "research")
+            )
             if self.research.maintenance:
                 result["ready"] = False
+                result["research_ready"] = False
                 result["reasons"].append("Workflow is paused for maintenance")
             if self.last_error:
                 result["reasons"].append(self.last_error)
             return result
+
+    async def discovery_context(self, job: Job) -> dict:
+        try:
+            return await self.brain.recall(job.requested_by, job.query, job.session_id)
+        except RuntimeError:
+            # Public research continues if private memory is unavailable. Never
+            # substitute a different user or publish unfiltered recalled data.
+            return {"context": [], "unavailable": True}
+
+    async def finish_discovery(self, job: Job, run):
+        """Publish accepted findings even if contact enrichment is unavailable."""
+        async with self.store.transaction() as tx:
+            current = await tx.get("job", job.id)
+            if not current or current["status"] != "running":
+                return
+            await enqueue_discovery(tx, job, run)
+            source_urls = {source.id: str(source.url) for source in run.report.sources}
+            lines = [run.report.summary or f"{len(run.report.leads)} companies qualified."]
+            for lead in run.report.leads:
+                citations = lead.identity_citations + [
+                    citation for signal in lead.signals for citation in signal.citations
+                ]
+                urls = list(dict.fromkeys(
+                    source_urls[citation.source_id] for citation in citations
+                    if citation.source_id in source_urls
+                ))[:3]
+                lines.append(
+                    f"{lead.company} ({lead.domain}) — {lead.rationale}\n"
+                    f"AI opportunity (hypothesis): {lead.ai_use_case[:400]}\n"
+                    + "Sources: " + ", ".join(urls)
+                )
+            if run.report.gaps:
+                lines.append("Research gaps: " + "; ".join(run.report.gaps))
+            message = Message(
+                id=f"discovery-report-{job.id}", session_id=job.session_id,
+                role="assistant", content="\n\n".join(lines)[:12000], job_id=job.id,
+            )
+            await tx.put("message", message.id, message.model_dump(mode="json"))
 
     async def workspace(self, actor):
         capabilities = await self.capabilities()

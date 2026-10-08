@@ -145,6 +145,8 @@ class Job(Record):
     ] = "queued"
     query: str
     propose_crm: bool = False
+    target_count: int = Field(default=10, ge=1, le=10)
+    enrich_contacts: bool = True
     company: Company | None = None
     candidates: list[Company] = Field(default_factory=list)
     sources: list[Source] = Field(default_factory=list)
@@ -152,6 +154,7 @@ class Job(Record):
     task_id: str | None = None
     research_run_id: str | None = None
     research_brief: Brief | None = None
+    memory_status: Literal["not_requested", "pending", "synced", "blocked"] = "not_requested"
     usage: dict[str, int] = Field(default_factory=dict)
     deadline_at: str | None = None
     progress: str = "Queued"

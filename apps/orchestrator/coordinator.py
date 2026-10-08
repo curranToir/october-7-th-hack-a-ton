@@ -49,7 +49,10 @@ class Coordinator:
             "maintenance": self.maintenance,
         }
 
-    async def create(self, brief: Brief, key: str, parent_id: str | None = None) -> Run:
+    async def create(
+        self, brief: Brief, key: str, parent_id: str | None = None,
+        *, planning_context: dict | None = None,
+    ) -> Run:
         async with self.admission_lock:
             existing = await self.repository.replay(brief, key, parent_id)
             if existing:
@@ -62,11 +65,13 @@ class Coordinator:
                 )
             run = await self.repository.create(brief, key, parent_id)
             if run.status == "queued" and run.id not in self.tasks:
-                self.start(run)
+                self.start(run, planning_context=planning_context)
             return run
 
-    def start(self, run: Run):
-        task = asyncio.create_task(self.execute(run), name=f"research-{run.id}")
+    def start(self, run: Run, *, planning_context: dict | None = None):
+        task = asyncio.create_task(
+            self.execute(run, planning_context=planning_context), name=f"research-{run.id}",
+        )
         self.tasks[run.id] = task
         task.add_done_callback(lambda _: self.tasks.pop(run.id, None))
 
@@ -101,7 +106,7 @@ class Coordinator:
                     run.id, "cancelling", "Agent unreachable; its deadline remains enforced"
                 )
 
-    async def execute(self, run: Run):
+    async def execute(self, run: Run, *, planning_context: dict | None = None):
         run.status = "running"
         await self.repository.save(run)
         try:
@@ -118,7 +123,8 @@ class Coordinator:
                     run.trace_id = f"{context.trace_id:032x}" if context.is_valid else None
                     await self.repository.save(run)
                     await self.graph.ainvoke(
-                        {"run": run.model_dump(mode="json"), "follow_up_queries": []},
+                        {"run": run.model_dump(mode="json"), "follow_up_queries": [],
+                         "planning_context": planning_context or {}},
                         config={
                             "configurable": {"thread_id": run.id},
                             "recursion_limit": 20,

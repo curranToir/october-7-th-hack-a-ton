@@ -54,6 +54,7 @@ class SalesScheduler:
         finish_contact: Callable[[Job, ContactReport], Awaitable[None]],
         review_report: Callable[[Job, ContactReport], Awaitable[ContactReport]] | None = None,
         finished_discovery: Callable[[Job, Run], Awaitable[None]] | None = None,
+        planning_context: Callable[[Job], Awaitable[dict]] | None = None,
         clock: Callable[[], datetime] | None = None,
     ):
         self.store = store
@@ -63,6 +64,7 @@ class SalesScheduler:
         self.finish_contact = finish_contact
         self.review_report = review_report
         self.finished_discovery = finished_discovery
+        self.planning_context = planning_context
         self.clock = clock or (lambda: datetime.now(UTC))
         self.tick_lock = asyncio.Lock()
         self.stopping = False
@@ -88,6 +90,8 @@ class SalesScheduler:
             current = await tx.get("job", job.id)
             if current is None or current["status"] == "cancelled":
                 return False
+            # Memory delivery has its own loop; never overwrite a newer acknowledgment.
+            job.memory_status = current.get("memory_status", job.memory_status)
             job.updated_at = self.now().isoformat()
             await tx.put("job", job.id, job.model_dump(mode="json"))
             return True
@@ -116,6 +120,7 @@ class SalesScheduler:
             current = await tx.get("job", job.id)
             if not current or current["status"] == "cancelled":
                 return
+            job.memory_status = current.get("memory_status", job.memory_status)
             job.status = status
             job.error = message if status in {"failed", "interrupted"} else None
             job.progress = message
@@ -270,6 +275,7 @@ class SalesScheduler:
                         geography=automation.geography,
                         employee_min=automation.employee_min,
                         employee_max=automation.employee_max,
+                        target_count=job.target_count,
                     )
                 else:
                     job.task_id = uid()
@@ -298,7 +304,13 @@ class SalesScheduler:
         if not await self._still_running(job):
             return
         try:
-            run = await self.research.create(job.research_brief, f"sales-discovery:{job.id}")
+            context = await self.planning_context(job) if self.planning_context else None
+            if not await self._still_running(job):
+                return
+            options = {"planning_context": context} if context is not None else {}
+            run = await self.research.create(
+                job.research_brief, f"sales-discovery:{job.id}", **options,
+            )
         except (Conflict, NotConfigured):
             # Admission failed before paid work: leave it queued until the slot/config returns.
             job.status, job.progress = "queued", "Waiting for company research availability"
@@ -397,6 +409,14 @@ class SalesScheduler:
         async with self.store.transaction() as tx:
             current = await tx.get("job", job.id)
             if not current or current["status"] != "running":
+                return
+            job.memory_status = current.get("memory_status", job.memory_status)
+            if not job.enrich_contacts:
+                job.status = "completed"
+                job.progress = "Company research complete; contact research was not requested"
+                job.updated_at = self.now().isoformat()
+                await tx.put("job", job.id, job.model_dump(mode="json"))
+                await self._message(tx, job, job.progress)
                 return
             jobs = [Job.model_validate(value) for value in await tx.list("job")]
             queued = 0
@@ -532,6 +552,11 @@ class SalesScheduler:
             await self._terminal(job, "needs_input", message)
             return
         job.company = report.company
+        if not job.enrich_contacts:
+            job.report = report
+            if await self._save(job):
+                await self._finish_contacts(job)
+            return
         job.kind, job.status, job.task_id = "enrich", "queued", None
         job.progress = "Company verified; queued for decision-maker research"
         async with self.store.transaction() as tx:
@@ -559,7 +584,10 @@ class SalesScheduler:
         if not await self._still_running(job):
             return
         await self.finish_contact(job, job.report)
-        job.status, job.progress = "completed", "Contact research completed"
+        job.status = "completed"
+        job.progress = (
+            "Contact research completed" if job.enrich_contacts else "Company research completed"
+        )
         await self._save(job)
 
     async def cancel(self, job_id: str) -> Job:
@@ -609,6 +637,8 @@ class SalesScheduler:
                 origin="chat",
                 query=old.query,
                 propose_crm=old.propose_crm,
+                target_count=old.target_count,
+                enrich_contacts=old.enrich_contacts,
                 company=old.company,
                 sources=old.sources,
                 parent_id=old.id,
