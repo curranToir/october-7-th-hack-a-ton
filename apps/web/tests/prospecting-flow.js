@@ -203,6 +203,9 @@ async (page) => {
     }
     if (!signedIn)
       return respond({ detail: "Sign in to your sales workspace." }, 401);
+    if (path === "/api/me") return respond({
+      ...state.user, id: "sales-user", role: "sales", email_verified: true,
+    });
     if (path === "/api/auth/sessions" && method === "GET") return respond([
       { id: "browser-1", current: true, created_at: Date.now() / 1000,
         last_seen_at: Date.now() / 1000, expires_at: Date.now() / 1000 + 28800,

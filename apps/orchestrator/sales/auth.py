@@ -26,6 +26,7 @@ SESSION_COOKIE = "toir_session"
 FLOW_COOKIE = "toir_auth_flow"
 FLOW_TTL_SECONDS = 600
 DEFAULT_MEMBERS = frozenset({"curran@toirinc.com", "jared@neptuneops.com"})
+DEFAULT_ENGINEERING_MEMBERS = frozenset({"curran@neptuneops.com"})
 
 
 def _digest(value: str) -> str:
@@ -63,11 +64,13 @@ class AuthConfig:
     client_secret: str = field(default="", repr=False)
     public_url: str = ""
     member_emails: frozenset[str] = DEFAULT_MEMBERS
+    engineering_member_emails: frozenset[str] = DEFAULT_ENGINEERING_MEMBERS
     session_ttl_seconds: int = 8 * 60 * 60
 
     @classmethod
     def from_env(cls) -> AuthConfig:
         members = os.environ.get("SALES_MEMBER_EMAILS")
+        engineering = os.environ.get("ENGINEERING_MEMBER_EMAILS")
         return cls(
             environment_url=os.environ.get("SCALEKIT_ENVIRONMENT_URL", "").rstrip("/"),
             client_id=os.environ.get("SCALEKIT_CLIENT_ID", ""),
@@ -78,14 +81,28 @@ class AuthConfig:
                 if members is not None
                 else DEFAULT_MEMBERS
             ),
+            engineering_member_emails=(
+                frozenset(
+                    email.strip().lower() for email in engineering.split(",") if email.strip()
+                )
+                if engineering is not None
+                else DEFAULT_ENGINEERING_MEMBERS
+            ),
         )
+
+    def department(self, email: str) -> str | None:
+        # A restricted engineering identity never inherits sales access from an
+        # overlapping allowlist. Identity and department come from server policy.
+        if email in self.engineering_member_emails:
+            return "engineering"
+        return "sales" if email in self.member_emails else None
 
     @property
     def configured(self) -> bool:
         return bool(
             self.client_id
             and self.client_secret
-            and self.member_emails
+            and (self.member_emails or self.engineering_member_emails)
             and _valid_origin(self.environment_url)
             and _valid_origin(self.public_url, localhost=True)
         )

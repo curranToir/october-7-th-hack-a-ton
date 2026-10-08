@@ -9,6 +9,7 @@ import type {
   SalesProposal,
   SalesSession,
   SalesSnapshot,
+  WorkspaceUser,
 } from "./types.ts";
 
 /** Only presentation preferences live in the browser. No demo state is imported. */
@@ -157,6 +158,7 @@ const json = (method: string, body?: unknown, key?: string): RequestInit => ({
   ...(key ? { headers: { "Idempotency-Key": key } } : {}),
 });
 export const salesClient = {
+  me: () => request<WorkspaceUser>("/api/me"),
   workspace: () => request<SalesSnapshot>("/api/sales/workspace"),
   createSession: () =>
     request<SalesSession>("/api/sales/sessions", json("POST", {})),

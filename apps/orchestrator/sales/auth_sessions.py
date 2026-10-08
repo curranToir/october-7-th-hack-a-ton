@@ -48,8 +48,9 @@ class AuthSessions:
         if claims.get("email_verified") is not True:
             raise HTTPException(403, "A verified email is required")
         email = str(claims.get("email", "")).strip().lower()
-        if email not in self.config.member_emails:
-            raise HTTPException(403, "This account is not a member of the Toir sales workspace")
+        department = self.config.department(email)
+        if department is None:
+            raise HTTPException(403, "This account is not a member of the Toir workspace")
         subject, now = claims["sub"], time.time()
         identity_key = "oidc:" + digest(self.issuer + "\n" + subject)
         async with self.store.transaction() as tx:
@@ -59,7 +60,7 @@ class AuthSessions:
                 raise HTTPException(403, "Identity changed; contact the workspace administrator")
             if member and (
                 not member.get("active")
-                or member.get("role") != "sales"
+                or member.get("role") != department
                 or member.get("subject") not in {None, subject}
                 or member.get("issuer") not in {None, self.issuer}
             ):
@@ -73,7 +74,8 @@ class AuthSessions:
                 "email": email,
                 "email_verified": True,
                 "name": str(claims.get("name") or email)[:200],
-                "role": "sales",
+                "role": department,
+                "department": department,
                 "active": True,
                 "subject": subject,
                 "issuer": self.issuer,
@@ -116,7 +118,7 @@ class AuthSessions:
 
     async def _resolve(self, tx, token):
         if not self.config.configured or not token or len(token) > 256:
-            raise HTTPException(401, "Sign in to the Toir sales workspace")
+            raise HTTPException(401, "Sign in to the Toir workspace")
         key, now = digest(token), time.time()
         session = await tx.get("auth_session", key)
         # Old sessions without an issuer/user ID must sign in once after upgrade.
@@ -131,13 +133,13 @@ class AuthSessions:
         if (
             not member
             or not member.get("active")
-            or member.get("role") != "sales"
+            or member.get("role") != self.config.department(session["email"])
             or member.get("subject") != session["subject"]
             or member.get("issuer") != self.issuer
             or member.get("user_id") != session["user_id"]
-            or member.get("email") not in self.config.member_emails
+            or self.config.department(member.get("email")) is None
         ):
-            raise HTTPException(403, "This account no longer has sales workspace access")
+            raise HTTPException(403, "This account no longer has workspace access")
         if now - session.get("last_seen_at", 0) >= 60:
             session["last_seen_at"] = now
             await tx.put("auth_session", key, session)
@@ -151,7 +153,7 @@ class AuthSessions:
             email=member["email"],
             name=member["name"],
             workspace_id="toir",
-            role="sales",
+            role=member["role"],
             email_verified=True,
         ).model_dump()
 

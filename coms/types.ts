@@ -267,6 +267,15 @@ export interface LiveWorkspace extends WorkspaceState {
 }
 
 /** Browser logins are separate from shared sales conversations. No bearer tokens. */
+export interface WorkspaceUser {
+  id: string;
+  email: string;
+  name: string;
+  workspace_id: "toir";
+  role: "sales" | "engineering";
+  email_verified: boolean;
+}
+
 export interface AuthSession {
   id: string;
   created_at: number;

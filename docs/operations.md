@@ -96,6 +96,24 @@ is supplied and no direct LLM provider fallback exists.
 
 ## Releases and deployment
 
+### Engineering access demo
+
+`curran@neptuneops.com` signs in with Google through Scalekit as an engineering
+member. Its Scalekit user metadata has `department=engineering`; server-side
+membership policy grants login without granting sales access. Engineering members
+see their signed-in identity and a restricted-memory screen. They can sign out or
+manage their own browser sessions, but cannot read sales conversations, research,
+meetings or CRM proposals, or invoke sales actions. They receive no Cognee sales
+memory grants and are never substituted with a sales identity.
+
+`ENGINEERING_MEMBER_EMAILS` configures engineering membership (default:
+`curran@neptuneops.com`). `SALES_MEMBER_EMAILS` continues to configure sales
+membership. If an address appears in both lists, engineering restrictions win.
+Unknown accounts remain denied. Existing sessions fail closed if membership is
+removed or its department changes. The private Spark `/graph` endpoint is an
+operator viewer outside this browser-login boundary; do not use it to demonstrate
+department-filtered access.
+
 ```sh
 .venv/bin/python infrastructure/deployment/scripts/manage.py build
 .venv/bin/python infrastructure/deployment/scripts/manage.py deploy

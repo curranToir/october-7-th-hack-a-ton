@@ -1957,6 +1957,43 @@ small {
 .sign-in-panel small {
   color: var(--muted);
 }
+.engineering-workspace {
+  gap: 16px;
+}
+.engineering-workspace h1,
+.engineering-workspace p {
+  margin: 0;
+}
+.department-label {
+  color: var(--accent);
+  font-size: 11px;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+}
+.engineering-identity {
+  overflow-wrap: anywhere;
+}
+.memory-access {
+  max-width: 450px;
+  margin: 12px 0;
+  padding: 24px 16px;
+  border-block: 1px solid var(--line);
+}
+.memory-access h2 {
+  margin: 0 0 12px;
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--text);
+}
+.memory-access p + p {
+  margin-top: 12px;
+}
+.engineering-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+}
 .automation-indicator {
   display: inline-flex;
   align-items: center;

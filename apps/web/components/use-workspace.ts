@@ -20,11 +20,13 @@ import type {
   LiveWorkspace,
   Preferences,
   SalesSnapshot,
+  WorkspaceUser,
 } from "../../../coms/types.ts";
 
 const PREFERENCES_KEY = "toir-sales-preferences-v1";
 export function useWorkspace() {
   const [state, setState] = useState<LiveWorkspace | null>(null);
+  const [restrictedUser, setRestrictedUser] = useState<WorkspaceUser | null>(null);
   const [warning, setWarning] = useState("");
   const [loadWarning, setLoadWarning] = useState("");
   const [unauthorized, setUnauthorized] = useState(false);
@@ -48,6 +50,20 @@ export function useWorkspace() {
     const current = ++generation.current;
     polling.current = current;
     try {
+      const user = await salesClient.me();
+      if (!alive.current || current !== generation.current) return;
+      if (user.role === "engineering") {
+        snapshot.current = null;
+        setState(null);
+        setRestrictedUser(user);
+        setUnauthorized(false);
+        setLoadWarning("");
+        setLoading(false);
+        return;
+      }
+      if (user.role !== "sales")
+        throw new SalesApiError(403, "This account has no workspace access.");
+      setRestrictedUser(null);
       const data = await salesClient.workspace();
       if (!alive.current || current !== generation.current) return;
       snapshot.current = data;
@@ -57,10 +73,13 @@ export function useWorkspace() {
       setLoading(false);
     } catch (error) {
       if (!alive.current || current !== generation.current) return;
+      // Clear previously rendered sales data on any failed identity/access check.
+      // Account switches and revoked membership must not leave stale data visible.
+      setState(null);
+      setRestrictedUser(null);
+      snapshot.current = null;
       if (error instanceof SalesApiError && error.status === 401) {
         setUnauthorized(true);
-        setState(null);
-        snapshot.current = null;
       } else
         setLoadWarning(
           error instanceof Error
@@ -157,6 +176,7 @@ export function useWorkspace() {
   }, [state?.preferences.theme, !!state]);
   return {
     state,
+    restrictedUser,
     warning: warning || loadWarning,
     unauthorized,
     loading,

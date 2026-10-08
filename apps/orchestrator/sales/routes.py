@@ -25,7 +25,7 @@ def sales_service(request: Request) -> SalesService:
     return service
 
 
-async def sales_user(request: Request):
+async def signed_in_user(request: Request):
     service = sales_service(request)
     actor = await service.auth.current_user(request.cookies.get(SESSION_COOKIE))
     if request.method not in {"GET", "HEAD", "OPTIONS"}:
@@ -33,8 +33,16 @@ async def sales_user(request: Request):
     return actor
 
 
+async def sales_user(request: Request):
+    actor = await signed_in_user(request)
+    if actor["role"] != "sales":
+        raise HTTPException(403, "Sales data is not available to your department")
+    return actor
+
+
 Service = Annotated[SalesService, Depends(sales_service)]
 Actor = Annotated[dict, Depends(sales_user)]
+SignedIn = Annotated[dict, Depends(signed_in_user)]
 Key = Annotated[UUID, Header(alias="Idempotency-Key")]
 
 
@@ -132,19 +140,19 @@ async def logout(request: Request, service: Service):
 
 
 @auth_router.get("/me", response_model=UserView)
-async def me(actor: Actor, response: Response):
+async def me(actor: SignedIn, response: Response):
     response.headers["Cache-Control"] = "no-store"
     return actor
 
 
 @auth_router.get("/auth/sessions", response_model=list[AuthSessionView])
-async def auth_sessions(request: Request, service: Service, response: Response, actor: Actor):
+async def auth_sessions(request: Request, service: Service, response: Response, actor: SignedIn):
     response.headers["Cache-Control"] = "no-store"
     return await service.auth.sessions.list(request.cookies.get(SESSION_COOKIE))
 
 
 @auth_router.delete("/auth/sessions", status_code=204)
-async def revoke_all_sessions(request: Request, service: Service, actor: Actor):
+async def revoke_all_sessions(request: Request, service: Service, actor: SignedIn):
     await service.auth.sessions.revoke(request.cookies.get(SESSION_COOKIE))
     response = Response(status_code=204)
     clear_session_cookie(response, service)
@@ -152,7 +160,7 @@ async def revoke_all_sessions(request: Request, service: Service, actor: Actor):
 
 
 @auth_router.delete("/auth/sessions/{session_id}", status_code=204)
-async def revoke_session(session_id: UUID, request: Request, service: Service, actor: Actor):
+async def revoke_session(session_id: UUID, request: Request, service: Service, actor: SignedIn):
     current = await service.auth.sessions.revoke(
         request.cookies.get(SESSION_COOKIE),
         str(session_id),

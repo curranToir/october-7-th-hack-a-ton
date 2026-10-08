@@ -12,6 +12,7 @@ import { Logo } from "../components/logo";
 import { Dialog } from "../components/dialog";
 import { Meetings } from "../components/meetings";
 import { useMeetings } from "../components/use-meetings";
+import { EngineeringWorkspace } from "../components/engineering-workspace";
 
 type Route = { view: "chat" | "tasks" | "meetings" | "settings"; id: string };
 function readRoute(): Route {
@@ -33,7 +34,7 @@ function readRoute(): Route {
 }
 export default function Home() {
   const actions = useWorkspace();
-  const { state, warning, clearWarning, unauthorized, loading } = actions;
+  const { state, restrictedUser, warning, clearWarning, unauthorized, loading } = actions;
   const meetingActions = useMeetings(!!state && !unauthorized);
   const [route, setRoute] = useState<Route>({ view: "chat", id: "" });
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -109,16 +110,25 @@ export default function Home() {
     return (
       <main className="loading-workspace sign-in-panel">
         <Logo size={48} alt="TOIR" />
-        <h1>Your sales workspace</h1>
+        <h1>Your Toir workspace</h1>
         <p>
-          Sign in to research companies, review your agents’ findings, and
-          approve CRM updates.
+          Sign in with your work account. Your department determines which
+          workspace and memories you can access.
         </p>
         <a className="button primary" href="/api/auth/login">
           Sign in with Google <Icon name="arrow" size={17} />
         </a>
-        <small>Access is limited to authorized Toir sales members.</small>
+        <small>Access is limited to authorized Toir members.</small>
       </main>
+    );
+  if (restrictedUser)
+    return (
+      <EngineeringWorkspace
+        user={restrictedUser}
+        warning={warning}
+        onRefresh={() => actions.refresh(true)}
+        onSignOut={actions.logout}
+      />
     );
   if (!state)
     return (
