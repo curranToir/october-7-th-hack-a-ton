@@ -37,6 +37,7 @@ Values enter only the coordinator's service-specific Kubernetes Secret.
 The HTTPS origin is provided by private Tailscale Serve:
 
 ```sh
+tailscale set --shields-up=false
 tailscale serve --bg --https=443 http://127.0.0.1:80
 tailscale serve status --json
 ```
@@ -98,8 +99,11 @@ the provider committed it.
   Pre-import PostgreSQL backup: `20261008T000823Z-e1666ac13cf0`.
   First active PostgreSQL backup: `20261008T000946Z-fade097cef19`.
 - Staging application release: `5c69aec0ba2e-4c77c4071dd9` (five healthy pods).
-  Final `main` release: `eaa38337c2ec-49a408d52591`, all five application
-  Deployments healthy. Fresh research requests await normal browser sign-in.
+  Google SSO integration release: `8c0fb9cadeaf-02703df864ec`, all five application
+  Deployments healthy. Normal Google/Scalekit browser sign-in is verified.
+- Successfully rolled back `eaa38337c2ec-49a408d52591` to the preceding staging
+  application release, retaining PostgreSQL selection and historical records,
+  then deployed the combined Google SSO release.
 - Restored the **actual** first active PostgreSQL S3 backup into isolated local
   PostgreSQL 17 and matched all nine table counts/hashes. Spark was untouched;
   temporary containers and downloaded artifacts were removed. The S3 object
@@ -110,6 +114,10 @@ the provider committed it.
   `data/research_ingestions.json` completed acknowledgments. It does not expose
   the newer per-document receipt/status endpoint; verify exact legacy receipts
   separately and retain the crash-window limitation until coordinated upgrade.
+- The user's first new request, run `5893d113-b0b6-43b1-b46d-e23baecab22b`,
+  retained four reviewed companies but failed when a follow-up exhausted the
+  60-page budget. Its original failure and evidence remain unchanged. A follow-up
+  budget handling fix and bounded acceptance requests are being verified.
 
 Continuous automation, CRM writes, outbound messages, and private client dataset
 access are outside these research acceptance runs. Explicit company-only
