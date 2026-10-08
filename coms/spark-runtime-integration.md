@@ -2,9 +2,9 @@
 
 ## Deployment record
 
-This handoff accompanies the October 7–8, 2026 integration. The implementation
-and local checks are complete; live cutover and research acceptance are being
-recorded below as they finish. Historical fixtures and Cognee demo evaluations
+This handoff accompanies the October 7–8, 2026 integration. The implementation,
+local checks and live PostgreSQL cutover are complete; research acceptance is
+being recorded below as it finishes. Historical fixtures and Cognee demo evaluations
 are not new prospecting runs.
 
 ## Ownership and connections
@@ -51,6 +51,10 @@ Spark's existing operator account is `curran`; the Brain service runs as
 `jlyon:hackathon`. Its restricted service control is
 `sudo oct7-rag-ctl restart brain`. Preserve the engineer's checkout changes,
 `.env`, `.cognee`, existing datasets, and persistent receipts during deployment.
+The engineer is actively editing that checkout. This rollout leaves Spark's
+files and process untouched and connects to its already deployed API. The
+combined per-document SQLite receipt implementation on GitHub `main` requires
+a later coordinated Spark update; do not describe it as deployed there.
 
 ## Persistence cutover and backups
 
@@ -87,8 +91,25 @@ the provider committed it.
 - Verified PostgreSQL login over TLS 1.3 using the scoped `toir_runs` role.
 - Verified the existing database initially held zero runs/events/checkpoints.
 - Verified private HTTPS `/api/health` returns 200 from a second tailnet device.
-- PostgreSQL cutover, deployed release IDs, real run IDs, Cognee receipts, and
-  resource measurements: pending the coordinated rollout.
+- Live cutover preserved **2 historical runs, 29 events, and 1 sales record**.
+  Source/destination hash:
+  `08d64b8de67ac0b84e93bb2e992d8b61f93badb60f38041a76d1488f6db174d8`.
+- Final SQLite backup: `20261008T000839Z-1125e56e0854`.
+  Pre-import PostgreSQL backup: `20261008T000823Z-e1666ac13cf0`.
+  First active PostgreSQL backup: `20261008T000946Z-fade097cef19`.
+- Staging application release: `5c69aec0ba2e-4c77c4071dd9` (five healthy pods).
+  Final `main` release: `eaa38337c2ec-49a408d52591`, all five application
+  Deployments healthy. Fresh research requests await normal browser sign-in.
+- Restored the **actual** first active PostgreSQL S3 backup into isolated local
+  PostgreSQL 17 and matched all nine table counts/hashes. Spark was untouched;
+  temporary containers and downloaded artifacts were removed. The S3 object
+  uses AES256 encryption; archive SHA256
+  `48e7ac6110c6814f802dee89d7c08768f5aaabbd6c1d8eb5f2958eda283bfed0`.
+- Spark's running `/capabilities` now reports research ingestion and both sales
+  members; Curran's pipeline read access is verified. This running version uses
+  `data/research_ingestions.json` completed acknowledgments. It does not expose
+  the newer per-document receipt/status endpoint; verify exact legacy receipts
+  separately and retain the crash-window limitation until coordinated upgrade.
 
 Continuous automation, CRM writes, outbound messages, and private client dataset
 access are outside these research acceptance runs. Explicit company-only

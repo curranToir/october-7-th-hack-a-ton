@@ -1,5 +1,10 @@
 # Toir research persistence — database engineer handoff
 
+**Current runtime:** the October 8 UTC cutover now uses Spark PostgreSQL on the
+coordinator. Two historical runs, 29 events and the existing sales record were
+preserved and hash-verified. See [spark-runtime-integration.md](spark-runtime-integration.md)
+for live backup IDs, application release status and the separate Cognee rollout.
+
 This document was published first so database work could start immediately. The SQLite and Postgres adapters, repository interfaces, validated models and
 contract tests are implemented. The Scalekit Exa connected account was verified
 active in the historical October 7 handoff. Live readiness still requires a
@@ -158,7 +163,9 @@ a new run using its saved report/evidence.
   superuser. pg_hba allows it only via `hostssl` to `toir_runs` /
   `toir_runs_test`; every other database rejects it, and plaintext is rejected
   even on loopback.
-- **State.** The production run and checkpoint schemas are initialized with no runs.
+- **State.** The production schemas now hold the migrated research history;
+  new graph threads use the PostgreSQL checkpointer. See the live handoff above
+  for the dated counts rather than treating the original empty state as current.
 - **Cutover.** Drain active work, then export and validate historical records and
   evidence. Keep the SQLite checkpoint backup for rollback. Start new runs on the
   empty Postgres checkpoint store; never translate or resume old SQLite checkpoint
