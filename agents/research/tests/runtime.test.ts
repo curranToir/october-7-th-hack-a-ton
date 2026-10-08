@@ -334,6 +334,7 @@ test("real OMP loop calls only Respan and custom Scalekit tools with a fake gate
     expect(outbound).toHaveLength(2);
     for (const requestBody of requestBodies) {
       expect(requestBody).toMatchObject({model: "gpt-5-mini", max_completion_tokens: 16384, reasoning_effort: "low"});
+      expect(requestBody).toHaveProperty("response_format", { type: "json_object" });
       expect(requestBody).not.toHaveProperty("max_tokens");
       expect(requestBody).not.toHaveProperty("temperature");
       expect(requestBody).not.toHaveProperty("top_p");
@@ -501,13 +502,13 @@ test("schema diagnostics expose safe paths and rules, never rejected data", () =
     sources.finalize({
       ...EMPTY_REPORT,
       gaps: ["private-model-value"],
-      leads: [{ company: "private-company-value" }],
+      leads: "private-company-value",
     });
   } catch (error) {
     failure = error;
   }
   expect(failure).toBeInstanceOf(ResearchError);
-  expect((failure as Error).message).toContain("/leads/0/domain (required)");
+  expect((failure as Error).message).toContain("/leads (type)");
   expect((failure as Error).message).not.toContain("private-");
   let extraFailure: unknown;
   try {

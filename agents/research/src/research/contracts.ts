@@ -92,6 +92,26 @@ export const EMPTY_REPORT: Report = {
 const ajv = new Ajv({ allErrors: true, strict: false });
 addFormats(ajv);
 export const validateReport = ajv.compile<Report>(reportSchema);
+// Check the envelope before isolating bad candidates. Keep shared collection
+// types, limits, unknown-key rules and all non-candidate fields unchanged.
+export const validateReportEnvelope = ajv.compile<
+  Omit<Report, "leads" | "competitors"> & { leads: unknown[]; competitors: unknown[] }
+>({
+  ...reportSchema,
+  properties: {
+    ...reportSchema.properties,
+    leads: { ...reportSchema.properties.leads, items: {} },
+    competitors: { ...reportSchema.properties.competitors, items: {} },
+  },
+});
+export const validateLead = ajv.compile<Lead>({
+  $defs: reportSchema.$defs,
+  $ref: "#/$defs/Lead",
+});
+export const validateCompetitor = ajv.compile<Report["competitors"][number]>({
+  $defs: reportSchema.$defs,
+  $ref: "#/$defs/CompetitorFact",
+});
 const validateBrief = ajv.compile<Brief>(briefSchema);
 export { reportSchema };
 export function validTask(value: unknown): value is TaskRequest {

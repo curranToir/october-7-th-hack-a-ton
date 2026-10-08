@@ -156,6 +156,19 @@ contact enrichment and proposed CRM updates. CRM mutations still require
 explicit proposal approval; none were executed during connection verification.
 Outbound messages and private client dataset access remain outside this rollout.
 
+The first two automatic runs failed on malformed model reports; they remain
+failed in history. The third, `86d400a7-0c6d-4a47-8f46-8d18033a0195`, completed
+with one accepted company (Jazwares), ten retrieved sources and six valid
+citations. Its contact-enrichment child is `55a1653f-e8cc-5587-b103-09cb508a738a`.
+Admissions were then drained without cancelling work to deploy JSON-mode
+output enforcement and per-candidate schema isolation. These changes preserve
+strict citation checks, discard malformed candidates without fabricating values,
+and reject truncated or ambiguous final JSON. Combined worker validation passed
+65 tests and both TypeScript checks; the backend suite passed 385 tests with 46
+environment-dependent skips. Prospecting remains persisted as enabled during
+maintenance. Contact enrichment and the exact Cognee receipt are still pending
+live verification; accepted company results alone do not prove memory delivery.
+
 Brain code on `main` also selects GPT-5 mini for its text LLM stages, synthesis
 and judging; its embedding model remains `nemotron-embed`. The live Spark
 model switch is explicitly deferred: the user instructed **keep Spark unchanged

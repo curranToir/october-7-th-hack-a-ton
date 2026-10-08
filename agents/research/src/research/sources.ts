@@ -1,7 +1,9 @@
 import { createHash } from "node:crypto";
 import { isIP } from "node:net";
 import type { Citation, Report, Source } from "./contracts";
-import { EMPTY_REPORT, validateReport, reportSchema } from "./contracts";
+import {
+  EMPTY_REPORT, validateReportEnvelope, validateLead, validateCompetitor, reportSchema,
+} from "./contracts";
 import type { ErrorObject } from "ajv";
 import { ResearchError } from "./budget";
 
@@ -30,6 +32,14 @@ export function publicURL(raw: string): string {
 const sourceID = (url: string) =>
   `src_${createHash("sha256").update(url).digest("hex").slice(0, 16)}`;
 const norm = (text: string) => text.replace(/\s+/g, " ").trim().toLowerCase();
+// The generated schema cannot express Python's domain validator. Require a
+// hostname here; never repair a model's unknown domain or rewrite its identity.
+const companyDomainOK = (domain: string) =>
+  domain.includes(".") &&
+  !isIP(domain) &&
+  domain.split(".").every((label) =>
+    /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i.test(label),
+  );
 // Diagnostics contain contract paths and validator rules only, never model values.
 const schemaFields = new Set<string>();
 function collectFields(node: unknown) {
@@ -129,14 +139,14 @@ export class Sources {
     return source;
   }
   finalize(value: unknown): Report {
-    if (!value || typeof value !== "object")
+    if (!value || typeof value !== "object" || Array.isArray(value))
       throw new ResearchError(
         "report",
         "Research did not return a valid structured report.",
       );
     // Pydantic default_factory fields are optional in the shared JSON schema.
     // Apply those defaults before using the validated TypeScript shape.
-    const report = {
+    const envelope = {
       ...structuredClone(EMPTY_REPORT),
       ...value,
       // These fields are host-owned. Planner prose or an overlong model summary
@@ -144,14 +154,29 @@ export class Sources {
       summary: "",
       sources: this.list(),
     };
-    if (!validateReport(report))
-      throw new ReportValidationError(validateReport.errors);
+    if (!validateReportEnvelope(envelope))
+      throw new ReportValidationError(validateReportEnvelope.errors);
+    const report: Report = {
+      ...envelope,
+      leads: envelope.leads.filter(
+        (candidate): candidate is Report["leads"][number] =>
+          validateLead(candidate) && companyDomainOK(candidate.domain),
+      ),
+      competitors: envelope.competitors.filter((candidate) => validateCompetitor(candidate)),
+    };
+    const removed: string[] = [];
+    for (const [label, count] of [
+      ["company", envelope.leads.length - report.leads.length],
+      ["competitor", envelope.competitors.length - report.competitors.length],
+    ] as const) {
+      if (count)
+        removed.push(`Excluded ${count} ${label} candidate${count === 1 ? "" : "s"}: invalid report fields.`);
+    }
     const citationOK = (c: Citation) => {
       const s = this.items.get(c.source_id);
       const quote = norm(c.quote);
       return !!s && quote.length >= 12 && norm(s.text).includes(quote);
     };
-    const removed: string[] = [];
     report.leads = report.leads.filter((l) => {
       const ok =
         l.identity_citations.every(citationOK) &&
@@ -170,7 +195,7 @@ export class Sources {
         );
       return ok;
     });
-    report.gaps = [...new Set([...report.gaps, ...removed])].slice(0, 40);
+    report.gaps = [...new Set([...removed, ...report.gaps])].slice(0, 40);
     return report;
   }
 }
