@@ -37,6 +37,7 @@ Values enter only the coordinator's service-specific Kubernetes Secret.
 The HTTPS origin is provided by private Tailscale Serve:
 
 ```sh
+tailscale set --shields-up=false
 tailscale serve --bg --https=443 http://127.0.0.1:80
 tailscale serve status --json
 ```
@@ -98,8 +99,11 @@ the provider committed it.
   Pre-import PostgreSQL backup: `20261008T000823Z-e1666ac13cf0`.
   First active PostgreSQL backup: `20261008T000946Z-fade097cef19`.
 - Staging application release: `5c69aec0ba2e-4c77c4071dd9` (five healthy pods).
-  Final `main` release: `eaa38337c2ec-49a408d52591`, all five application
-  Deployments healthy. Fresh research requests await normal browser sign-in.
+  Google SSO integration release: `8c0fb9cadeaf-02703df864ec`, all five application
+  Deployments healthy. Normal Google/Scalekit browser sign-in is verified.
+- Successfully rolled back `eaa38337c2ec-49a408d52591` to the preceding staging
+  application release, retaining PostgreSQL selection and historical records,
+  then deployed the combined Google SSO release.
 - Restored the **actual** first active PostgreSQL S3 backup into isolated local
   PostgreSQL 17 and matched all nine table counts/hashes. Spark was untouched;
   temporary containers and downloaded artifacts were removed. The S3 object
@@ -110,7 +114,45 @@ the provider committed it.
   `data/research_ingestions.json` completed acknowledgments. It does not expose
   the newer per-document receipt/status endpoint; verify exact legacy receipts
   separately and retain the crash-window limitation until coordinated upgrade.
+- The user's first new request, run `5893d113-b0b6-43b1-b46d-e23baecab22b`,
+  retained four reviewed companies but failed when a follow-up exhausted the
+  60-page budget. Its original failure and evidence remain unchanged. A follow-up
+  budget handling fix and bounded acceptance requests are being verified.
 
-Continuous automation, CRM writes, outbound messages, and private client dataset
-access are outside these research acceptance runs. Explicit company-only
-requests can bound the target count and disable contact enrichment.
+## Requested model and prospecting update
+
+The next application release uses `gpt-5-mini` through Respan for planning,
+review, chat routing, research and contact research. A live EC2 gateway probe
+returned `gpt-5-mini-2025-08-07` successfully. Worker and coordinator limits are
+now 60 searches, 200 retrieved-page slots and 60 model turns per run, still
+cumulative across follow-up passes and bounded by the ten-minute deadline.
+Reviewed findings survive a later usage-budget failure with an explicit report
+gap. Historical failed runs are not relabeled.
+
+HubSpot identity and permission verification on October 8 UTC:
+
+- Scalekit account `ca_146541202500485386`, connection
+  `conn_146541157638209802`, named `hubspot` / `curran@toirinc.com`, is ACTIVE.
+- The authenticated read-only `/integrations/v1/me` proxy returned ToirInc
+  portal `247630342`. Real company/contact search calls returned 34 companies
+  and 43 contacts; no customer record contents were copied into this handoff.
+- HubSpot's [connected-app grant screen](https://app-na2.hubspot.com/connected-apps/247630342/installed/basic/40203579/overview)
+  for “Scalekit Test Account” explicitly grants company and contact View and
+  Create/delete/change permissions. These match the connection's mandatory
+  company/contact read/write scopes; optional scopes are empty. All eleven
+  required connector tools are available.
+- This evidence supports `SCALEKIT_HUBSPOT_WRITE_SCOPES_VERIFIED=true` in the
+  project deployment manifest. It is permission attestation, not evidence of
+  a successful CRM write. No CRM records were changed during verification.
+
+The user has now requested continuous prospecting for the demo. Activation is
+pending the smaller-model rollout; the persisted settings currently permit ten
+discovery batches and 25 company enrichments daily. CRM mutations still require
+explicit proposal approval. Outbound messages and private client dataset access
+remain outside this rollout.
+
+Brain code on `main` also selects GPT-5 mini for its text LLM stages, synthesis
+and judging; its embedding model remains `nemotron-embed`. The live Spark
+model switch requires a quiet patch/restart window because another engineer is
+actively editing that checkout. Do not confuse the committed model policy with
+the model already loaded by the running Spark process.

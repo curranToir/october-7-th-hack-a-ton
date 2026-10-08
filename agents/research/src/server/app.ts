@@ -7,6 +7,7 @@ import {
 } from "../research/contracts";
 import { Budget, ResearchError, safeError } from "../research/budget";
 import { Sources } from "../research/sources";
+import { WORKER_LIMITS } from "../research/limits";
 import type { Harness } from "../harness/omp";
 import { tracedTask } from "../telemetry/respan";
 import { createSubjectServer } from "../subjects/server";
@@ -122,13 +123,7 @@ export function createApp(options: Options) {
           "company_research",
           ...(options.subjectHarness ? ["subject_research"] : []),
         ],
-        limits: {
-          active_tasks: 1,
-          searches: 30,
-          pages: 60,
-          model_turns: 30,
-          deadline_seconds: 600,
-        },
+        limits: WORKER_LIMITS,
       });
     const subjectResponse = await subjects.fetch(request);
     if (subjectResponse) return subjectResponse;

@@ -554,7 +554,7 @@ def test_code_rollback_cannot_bypass_required_postgres_backup(monkeypatch):
         remote_apply.prepare_backup("private", recovery=True)
 
 
-def test_crm_write_scope_attestation_is_coordinator_only_and_disabled():
+def test_verified_project_crm_attestation_is_coordinator_only():
     resources = json.loads(
         (ROOT / "infrastructure/deployment/kubernetes/foundation.json").read_text()
     )["items"]
@@ -562,6 +562,9 @@ def test_crm_write_scope_attestation_is_coordinator_only_and_disabled():
         container = deployment["spec"]["template"]["spec"]["containers"][0]
         values = {item["name"]: item["value"] for item in container.get("env", [])}
         if deployment["metadata"]["name"] == "orchestrator":
-            assert values["SCALEKIT_HUBSPOT_WRITE_SCOPES_VERIFIED"] == "false"
+            # This project's actual HubSpot grants are recorded in the Spark handoff.
+            assert values["SCALEKIT_HUBSPOT_WRITE_SCOPES_VERIFIED"] == "true"
         else:
             assert "SCALEKIT_HUBSPOT_WRITE_SCOPES_VERIFIED" not in values
+    # A fresh local setup must still attest its own account's permissions.
+    assert "SCALEKIT_HUBSPOT_WRITE_SCOPES_VERIFIED=false" in (ROOT / ".env.example").read_text()

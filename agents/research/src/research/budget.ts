@@ -1,4 +1,5 @@
 import type { Usage } from "./contracts";
+import { WORKER_LIMITS } from "./limits";
 export class ResearchError extends Error {
   constructor(
     public code: string,
@@ -14,14 +15,14 @@ export class Budget {
     prior: Record<string, number>,
     deadline: string,
     readonly signal: AbortSignal,
-    private readonly limits = { searches: 30, pages: 60, model_turns: 30 },
+    private readonly limits: Pick<typeof WORKER_LIMITS, "searches" | "pages" | "model_turns"> = WORKER_LIMITS,
   ) {
     this.usage = Object.fromEntries(
       ["searches", "pages", "model_turns", "input_tokens", "output_tokens"].map(
         (k) => [k, prior[k] ?? 0],
       ),
     ) as Usage;
-    this.deadline = Math.min(Date.parse(deadline), Date.now() + 600_000);
+    this.deadline = Math.min(Date.parse(deadline), Date.now() + WORKER_LIMITS.deadline_seconds * 1000);
   }
   check() {
     if (this.signal.aborted)
@@ -31,6 +32,13 @@ export class Budget {
         "deadline",
         "Research reached its deadline. Saved evidence is available for an explicit retry.",
       );
+  }
+  remaining() {
+    return {
+      searches: Math.max(0, this.limits.searches - this.usage.searches),
+      pages: Math.max(0, this.limits.pages - this.usage.pages),
+      model_turns: Math.max(0, this.limits.model_turns - this.usage.model_turns),
+    };
   }
   consume(kind: "searches" | "pages" | "model_turns", amount = 1) {
     this.check();

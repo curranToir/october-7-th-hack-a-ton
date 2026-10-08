@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 from dotenv import load_dotenv
+from .model_config import configure_llm_environment
 
 ROOT = Path(__file__).resolve().parent.parent
 load_dotenv(ROOT / ".env")
@@ -10,7 +11,7 @@ os.environ["ENABLE_BACKEND_ACCESS_CONTROL"] = "true"
 os.environ.pop("MONITORING_TOOL", None)  # Unpublished Cognee adapter; use respan-ai spans directly.
 DEFAULTS = {
     "LLM_PROVIDER": "custom", "LLM_ENDPOINT": "https://api.respan.ai/api",
-    "LLM_MODEL": "openai/claude-haiku-4-5",
+    "LLM_MODEL": "openai/gpt-5-mini",
     "EMBEDDING_PROVIDER": "openai_compatible", "EMBEDDING_ENDPOINT": "http://127.0.0.1:8101/v1",
     "EMBEDDING_MODEL": "nemotron-embed", "EMBEDDING_API_KEY": ".", "EMBEDDING_DIMENSIONS": "2048",
     "SYSTEM_ROOT_DIRECTORY": str(ROOT / ".cognee/system"),
@@ -27,6 +28,7 @@ DEFAULTS = {
 for key, value in DEFAULTS.items():
     if not os.environ.get(key):
         os.environ[key] = value
+configure_llm_environment(os.environ)
 os.environ["LLM_API_KEY"] = os.environ.get("RESPAN_API_KEY", "")
 if not os.environ.get("DB_PASSWORD"):
     os.environ["DB_PASSWORD"] = os.environ.get("POSTGRES_PASSWORD", "")

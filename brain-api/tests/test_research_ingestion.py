@@ -678,18 +678,117 @@ def test_capabilities_does_not_wait_for_long_running_ingestion(tmp_path):
     asyncio.run(scenario())
 
 
-def test_legacy_json_receipts_require_reconciliation_before_new_writes(tmp_path):
+def test_legacy_json_ids_are_blocked_but_new_ingestion_and_capabilities_work(tmp_path):
     legacy = tmp_path / "research_ingestions.json"
     legacy.write_text(
-        json.dumps({KEY: {"dataset": "toir-pipeline", "documents": 1, "ingestion_id": KEY}})
+        json.dumps(
+            {
+                KEY: {
+                    "dataset": "toir-pipeline",
+                    "documents": 5,
+                    "ingestion_id": KEY,
+                }
+            }
+        )
     )
+    original = legacy.read_bytes()
+
+    async def scenario():
+        ingestion, calls = service(tmp_path)
+        await ingestion.open()
+        try:
+            assert await ingestion.capabilities() == {
+                "research_idempotency": True,
+                "research_writers": [LEAD, ENG],
+            }
+            with pytest.raises(IngestionError) as error:
+                await ingestion.submit(ResearchRequest(**payload()), KEY)
+            assert error.value.status == 409
+            assert error.value.code == "legacy_research_ingestion_requires_reconciliation"
+            assert calls == []
+            assert await ingestion.status(KEY) == {
+                "ingestion_id": KEY,
+                "status": "legacy",
+                "completed": 0,
+                "active_document": None,
+                "provider_completions": [],
+            }
+            next_id = "b" * 64
+            next_body = payload()
+            next_body["report"]["ingestion_id"] = next_id
+            first = await ingestion.submit(ResearchRequest(**next_body), next_id)
+            assert first == {"dataset": "toir-pipeline", "ingestion_id": next_id, "documents": 1}
+            assert await ingestion.submit(ResearchRequest(**next_body), next_id) == first
+            assert len(calls) == 1
+            assert legacy.read_bytes() == original
+        finally:
+            await ingestion.close()
+        # Imported protection remains durable even if an operator removes the old file.
+        legacy.unlink()
+        restarted, later_calls = service(tmp_path)
+        await restarted.open()
+        try:
+            with pytest.raises(IngestionError) as error:
+                await restarted.submit(ResearchRequest(**payload()), KEY)
+            assert error.value.code == "legacy_research_ingestion_requires_reconciliation"
+            assert later_calls == []
+            assert (await restarted.status(KEY))["status"] == "legacy"
+        finally:
+            await restarted.close()
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("content", ["[]", "invalid-json", "null"])
+def test_malformed_legacy_receipt_file_still_fails_closed(tmp_path, content):
+    legacy = tmp_path / "research_ingestions.json"
+    legacy.write_text(content)
     ledger = ResearchLedger(tmp_path / "receipts.sqlite3")
-    with pytest.raises(RuntimeError, match="legacy_research_receipts_require_reconciliation"):
+    with pytest.raises(RuntimeError, match="legacy_research_receipts_invalid"):
         ledger.open()
     assert not ledger.path.exists()
-    assert json.loads(legacy.read_text())[KEY]["documents"] == 1
-    # An unused alternate ledger is compatible; it is preserved on disk.
-    legacy.write_text("{}")
+    assert legacy.read_text() == content
+
+
+def test_legacy_ids_are_loaded_from_canonical_path_when_ledger_is_overridden(tmp_path):
+    legacy = tmp_path / "original-data" / "research_ingestions.json"
+    legacy.parent.mkdir()
+    legacy.write_text(json.dumps({KEY: {"documents": 1}}))
+    ledger = ResearchLedger(tmp_path / "custom-data" / "receipts.sqlite3", legacy_path=legacy)
     ledger.open()
-    ledger.close()
-    assert legacy.read_text() == "{}"
+    try:
+        assert ledger.status(KEY)["status"] == "legacy"
+        with pytest.raises(IngestionError):
+            ledger.reserve(KEY, "hash", "{}", [])
+    finally:
+        ledger.close()
+
+
+def test_legacy_receipt_status_and_error_are_visible_over_authenticated_api(tmp_path, monkeypatch):
+    monkeypatch.setenv("BRAIN_API_TOKEN", "fixture-token")
+    legacy = tmp_path / "research_ingestions.json"
+    legacy.write_text(json.dumps({KEY: {"documents": 10}}))
+
+    async def scenario():
+        ingestion, calls = service(tmp_path)
+        await ingestion.open()
+        try:
+            async with httpx.AsyncClient(
+                transport=httpx.ASGITransport(app=make_app(ingestion)),
+                base_url="http://test",
+                headers={"Authorization": "Bearer fixture-token", "Idempotency-Key": KEY},
+            ) as client:
+                assert (await client.get("/capabilities")).json()["research_idempotency"] is True
+                result = await client.post("/remember/research", json=payload())
+                assert result.status_code == 409
+                assert result.json() == {
+                    "detail": "legacy_research_ingestion_requires_reconciliation"
+                }
+                status = await client.get(f"/remember/research/{KEY}")
+                assert status.status_code == 200 and status.json()["status"] == "legacy"
+                assert status.json()["completed"] == 0
+                assert calls == []
+        finally:
+            await ingestion.close()
+
+    asyncio.run(scenario())

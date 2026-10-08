@@ -6,9 +6,25 @@ from typing import TypedDict
 
 from langgraph.graph import END, START, StateGraph
 
-from apps.orchestrator.agents.research import AgentFailure, SessionLost
+from apps.orchestrator.agents.research import AgentCancelled, AgentFailure, SessionLost
 from apps.orchestrator.graph.evidence import finalize_report, qualify
 from apps.orchestrator.models.research import ResearchPlan, ResearchReport, Review, Run
+
+# Research-agent v1 limits and exact Budget error messages. Never classify an
+# arbitrary provider/authentication failure as recoverable budget exhaustion.
+USAGE_LIMITS = {"searches": 60, "pages": 200, "model_turns": 60}
+BUDGET_ERRORS = {
+    f"Research exhausted its {kind.replace('_', ' ')} budget." for kind in USAGE_LIMITS
+} | {"Research exhausted its input context budget. Saved evidence is available."}
+BUDGET_GAP = (
+    "Research usage budget was exhausted; further research was stopped. "
+    "This report contains only findings accepted by evidence review."
+)
+
+
+def budget_spent(usage: dict[str, int]) -> bool:
+    return any(usage.get(kind, 0) >= limit for kind, limit in USAGE_LIMITS.items())
+
 
 PLAN_PROMPT = """Plan public-web sales research for Toir, a general forward-deployed engineering
 company that integrates AI into business workflows. Target US companies with 20–1000 employees
@@ -82,6 +98,7 @@ class GraphState(TypedDict):
     run: dict
     follow_up_queries: list[str]
     planning_context: dict
+    budget_exhausted: bool
 
 
 def build_graph(repository, models, agent, checkpointer):
@@ -105,11 +122,34 @@ def build_graph(repository, models, agent, checkpointer):
                 },
             )
             await repository.save(run)
-        return {"run": run.model_dump(mode="json"), "follow_up_queries": []}
+        return {
+            "run": run.model_dump(mode="json"),
+            "follow_up_queries": [],
+            "budget_exhausted": False,
+        }
+
+    async def finish_reviewed_report(run: Run, reviewed_report: ResearchReport | None):
+        if reviewed_report is None:
+            raise AgentFailure(
+                "Research usage budget was exhausted before any findings passed evidence review"
+            )
+        run.report = reviewed_report
+        run.task_id = None
+        await save(run, "budget_exhausted", BUDGET_GAP)
+        return {"run": run.model_dump(mode="json"), "budget_exhausted": True}
 
     async def dispatch(state: GraphState):
         run = Run.model_validate(state["run"])
         existing = bool(run.task_id)
+        reviewed_report = (
+            run.report.model_copy(deep=True)
+            if run.pass_number > 0 and (run.report.leads or run.report.competitors)
+            else None
+        )
+        # A reconnect must inspect the existing task, including authentication or
+        # cancellation failures. Only admission of a new task is budget-gated.
+        if not existing and budget_spent(run.usage):
+            return await finish_reviewed_report(run, reviewed_report)
         run.task_id = run.task_id or f"{run.id}-{run.pass_number}"
         await save(run, "researching", f"Research pass {run.pass_number + 1}: gathering sources")
         if existing:
@@ -143,8 +183,10 @@ def build_graph(repository, models, agent, checkpointer):
                 last_progress = str(status.get("progress", "Researching"))[:500]
                 await repository.event(run.id, "researching", last_progress)
             run.usage = status.get("usage", run.usage)
-            # Persist retrieved sources independently of successful model completion.
-            if status.get("sources"):
+            # Keep the reviewed report immutable during follow-up, including its
+            # source text. Failed or resumed tasks must not invalidate its citations.
+            # First-pass evidence is still saved for an explicit retry on failure.
+            if status.get("sources") and run.pass_number == 0:
                 run.report = run.report.model_copy(
                     update={
                         "sources": ResearchReport(sources=status["sources"]).sources,
@@ -156,7 +198,11 @@ def build_graph(repository, models, agent, checkpointer):
                 run.task_id = None
                 await repository.save(run)
                 return {"run": run.model_dump(mode="json")}
-            if status["status"] in {"failed", "cancelled"}:
+            if status["status"] == "cancelled":
+                raise AgentCancelled("Research cancelled by the user")
+            if status["status"] == "failed":
+                if status.get("error") in BUDGET_ERRORS:
+                    return await finish_reviewed_report(run, reviewed_report)
                 raise AgentFailure(status.get("error", "Research task did not complete"))
             await asyncio.sleep(2)
 
@@ -190,13 +236,22 @@ def build_graph(repository, models, agent, checkpointer):
     def next_step(state: GraphState):
         run = Run.model_validate(state["run"])
         remaining = (datetime.fromisoformat(run.deadline_at) - datetime.now(UTC)).total_seconds()
-        if state["follow_up_queries"] and run.pass_number < 3 and remaining > 90:
+        if (
+            state["follow_up_queries"]
+            and run.pass_number < 3
+            and remaining > 90
+            and not budget_spent(run.usage)
+        ):
             return "dispatch"
         return "report"
 
     async def report(state: GraphState):
         run = Run.model_validate(state["run"])
         run.report = finalize_report(run.report, run.brief)
+        if state.get("budget_exhausted") or (
+            state["follow_up_queries"] and budget_spent(run.usage)
+        ):
+            run.report.gaps.append(BUDGET_GAP)
         run.status = "completed"
         await save(run, "completed", "Research report saved")
         return {"run": run.model_dump(mode="json")}
@@ -211,7 +266,11 @@ def build_graph(repository, models, agent, checkpointer):
         graph.add_node(name, node)
     graph.add_edge(START, "plan")
     graph.add_edge("plan", "dispatch")
-    graph.add_edge("dispatch", "review")
+    graph.add_conditional_edges(
+        "dispatch",
+        lambda state: "report" if state.get("budget_exhausted") else "review",
+        ["review", "report"],
+    )
     graph.add_conditional_edges("review", next_step, ["dispatch", "report"])
     graph.add_edge("report", END)
     return graph.compile(checkpointer=checkpointer)
