@@ -6,6 +6,7 @@ from typing import Literal
 from fastapi import FastAPI
 from pydantic import BaseModel
 
+from apps.auth_logging import protect_auth_logs
 from apps.orchestrator.agents.research import ResearchAgentClient
 from apps.orchestrator.coordinator import Coordinator
 from apps.orchestrator.graph.workflow import build_graph
@@ -26,6 +27,7 @@ from apps.orchestrator.storage.factory import data_directory, open_storage
 
 @asynccontextmanager
 async def lifespan(application: FastAPI):
+    protect_auth_logs()
     telemetry = initialize_tracing()
     agent = ResearchAgentClient()
     try:

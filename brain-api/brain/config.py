@@ -20,6 +20,9 @@ DEFAULTS = {
     # Ubuntu SQLite 3.45.1 crashes on Cognee's nested user joins; use the existing local Postgres.
     "DB_PROVIDER": "postgres", "DB_HOST": "127.0.0.1", "DB_PORT": "5432",
     "DB_USERNAME": "rag", "DB_NAME": "cognee",
+    # A kept-alive engine holds the Ladybug file lock, so a second user's worker can't open a shared dataset.
+    # ponytail: close engines at release; slower cold opens, revisit with a graph server if latency matters.
+    "SUBPROCESS_IDLE_TTL_SECONDS": "0",
 }
 for key, value in DEFAULTS.items():
     if not os.environ.get(key):

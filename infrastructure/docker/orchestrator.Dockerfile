@@ -11,7 +11,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
     && apt-get purge -y curl && apt-get autoremove -y && rm -rf /var/lib/apt/lists/*
 COPY requirements.lock ./
 RUN pip install --no-cache-dir --require-hashes -r requirements.lock
-COPY apps/__init__.py ./apps/__init__.py
+COPY apps/__init__.py apps/auth_logging.py ./apps/
 COPY apps/orchestrator ./apps/orchestrator
 COPY tooling/migrate_research.py ./tooling/migrate_research.py
 COPY infrastructure/deployment/scripts/postgres_admin.py /opt/toir/postgres_admin.py

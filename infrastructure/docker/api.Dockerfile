@@ -3,7 +3,7 @@ WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 COPY requirements.lock ./
 RUN pip install --no-cache-dir --require-hashes -r requirements.lock
-COPY apps/__init__.py ./apps/__init__.py
+COPY apps/__init__.py apps/auth_logging.py ./apps/
 COPY apps/api ./apps/api
 COPY apps/orchestrator/__init__.py ./apps/orchestrator/__init__.py
 COPY apps/orchestrator/models ./apps/orchestrator/models

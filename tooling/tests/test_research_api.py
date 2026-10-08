@@ -323,6 +323,8 @@ async def real_research_identity(service, email=None):
                     "email": email,
                     "name": "Verified member",
                     "subject": "verified-provider-id",
+                    "issuer": auth.config.environment_url,
+                    "user_id": "user-" + email,
                     "active": True,
                     "role": "sales",
                 },
@@ -333,6 +335,8 @@ async def real_research_identity(service, email=None):
                 {
                     "email": email,
                     "subject": "verified-provider-id",
+                    "issuer": auth.config.environment_url,
+                    "user_id": "user-" + email,
                     "expires_at": time.time() + 60,
                 },
             )

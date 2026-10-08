@@ -6,6 +6,9 @@ workflow replaces executable demo sessions/tasks with authenticated server state
 Historical demo fixtures remain test/reference data; never import their approvals
 into the real workflow.
 
+Google login, user records, browser sessions and the Cognee identity boundary are
+documented in [auth handoff](auth-handoff.md).
+
 Start with [prospecting contract](prospecting-contract.md) for current APIs and
 [implementation status](prospecting-implementation.md) for validation and external
 dependencies. [Database handoff](database-handoff.md) remains the research storage
