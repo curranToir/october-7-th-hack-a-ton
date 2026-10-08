@@ -215,6 +215,21 @@ def atomic_json(path: Path, content: dict):
     os.replace(temp, path)
 
 
+def require_expected_release(expected_release: str | None):
+    """Call only after acquiring deploy.lock, before any operation or config changes."""
+    if expected_release is None:
+        return
+    validate_id(expected_release)
+    state_file = STATE / "state.json"
+    state = json.loads(state_file.read_text()) if state_file.exists() else {}
+    current = state.get("current")
+    if current != expected_release:
+        raise RuntimeError(
+            f"Deployment precondition failed: expected current release {expected_release}, "
+            f"found {current or 'none'}. No deployment changes were made."
+        )
+
+
 def deploy(release_id: str, bucket: str, expected: str):
     validate_id(release_id)
     if release_id.split("-")[1] != expected[:12]:
@@ -1228,6 +1243,7 @@ if __name__ == "__main__":
         ],
     )
     parser.add_argument("--release-id")
+    parser.add_argument("--expected-release")
     parser.add_argument("--bucket")
     parser.add_argument("--sha256")
     parser.add_argument("--previous", action="store_true")
@@ -1244,6 +1260,8 @@ if __name__ == "__main__":
     STATE.mkdir(parents=True, exist_ok=True)
     with (STATE / "deploy.lock").open("w") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        if ARGS.operation == "deploy":
+            require_expected_release(ARGS.expected_release)
         config = runtime_config()
         for name in (
             "bucket",

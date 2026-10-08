@@ -109,7 +109,11 @@ def runtime_arguments(aws: Aws, outputs: dict) -> list[str]:
     return args
 
 
-def deploy(aws: Aws, archive: Path | None):
+def deploy(aws: Aws, archive: Path | None, expected_release: str | None = None):
+    if expected_release is not None and not re.fullmatch(
+        r"[0-9a-f]{12}-[0-9a-f]{12}", expected_release
+    ):
+        raise ValueError("Expected release must be a complete release ID")
     if archive is None:
         record = DEPLOYMENT / "latest-build.json"
         if not record.exists():
@@ -144,6 +148,7 @@ def deploy(aws: Aws, archive: Path | None):
                 "--sha256",
                 digest,
                 *runtime_arguments(aws, outputs),
+                *(["--expected-release", expected_release] if expected_release is not None else []),
             ]
         ),
         timeout=2400,
@@ -261,6 +266,10 @@ def main():
     commands.add_parser("build", help="Build linux/amd64 images and a checked release archive")
     deployment = commands.add_parser("deploy", help="Deploy a built release through SSM")
     deployment.add_argument("--archive", type=Path)
+    deployment.add_argument(
+        "--expected-release",
+        help="Require this current server release under the deployment lock before changes",
+    )
     rollback = commands.add_parser("rollback", help="Restore the last successful release")
     rollback.add_argument("--previous", action="store_true", help="Switch to its predecessor")
     tunnel = commands.add_parser("tunnel", help="Open the app at http://localhost:8080")
@@ -291,7 +300,7 @@ def main():
             arguments.append("--resume")
         aws.run_ssm(outputs["InstanceId"], remote_script(arguments), timeout=1800)
     elif args.command == "deploy":
-        deploy(aws, args.archive)
+        deploy(aws, args.archive, args.expected_release)
     elif args.command == "rollback":
         outputs = aws.outputs()
         arguments = ["rollback", *runtime_arguments(aws, outputs)]
