@@ -145,11 +145,16 @@ HubSpot identity and permission verification on October 8 UTC:
   project deployment manifest. It is permission attestation, not evidence of
   a successful CRM write. No CRM records were changed during verification.
 
-The user has now requested continuous prospecting for the demo. Activation is
-being verified after the smaller-model rollout; the persisted settings permit ten
-discovery batches and 25 company enrichments daily. CRM mutations still require
-explicit proposal approval. Outbound messages and private client dataset access
-remain outside this rollout.
+Continuous prospecting was enabled through the authenticated application after
+the smaller-model rollout. Persisted settings permit ten discovery batches and
+25 company enrichments daily, with a minimum fit score of 70. The first real
+background job is `5f9132dc-7159-4446-b74b-b2f60badaeaa`, research run
+`cf6794b7-8f18-402e-b7b7-521532aadc31`, in
+[the continuous prospecting session](https://toir-hackathon.taild4c940.ts.net/#chat/284510b7-eef4-5474-8520-a0d0628e9642).
+Its trace ID is `c4d734e5536379a48d40456c1f1c7250`. Target: ten companies, with
+contact enrichment and proposed CRM updates. CRM mutations still require
+explicit proposal approval; none were executed during connection verification.
+Outbound messages and private client dataset access remain outside this rollout.
 
 Brain code on `main` also selects GPT-5 mini for its text LLM stages, synthesis
 and judging; its embedding model remains `nemotron-embed`. The live Spark
