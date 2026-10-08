@@ -1,6 +1,5 @@
-from . import config
+from . import config as config
 import asyncio
-import json
 import secrets
 from pathlib import Path
 import cognee
@@ -10,8 +9,10 @@ from cognee.modules.users.methods import create_user, get_user_by_email
 from cognee.modules.data.methods import create_authorized_dataset, get_authorized_existing_datasets, has_dataset_data
 from cognee.modules.users.permissions.methods import authorized_give_permission_on_datasets, authorized_revoke_permission_on_datasets
 from cognee.modules.search.types import SearchType
-from .registry import DATASETS, USERS, LEAD, ENG, user_name, dataset_name, withheld, sources_in, document
+from .registry import DATASETS, USERS, LEAD, user_name, dataset_name, withheld, sources_in
 from .graph_model import CompanyGraph, EXTRACTION_PROMPT
+from .initial_grants import apply_initial_read_grants
+from .research_cognee import remember_document
 
 # ponytail: one process-local lock; move to a dedicated writer only if throughput requires it.
 writer_lock = asyncio.Lock()
@@ -47,7 +48,7 @@ async def access(email):
     return {"readable": sorted(ds.name for ds in datasets), "owned": sorted(ds.name for ds in datasets if DATASETS[ds.name].owner == email)}
 
 async def apply_initial_grants():
-    await grant(LEAD, ENG, "toir-firm")
+    await apply_initial_read_grants(grant)
 
 async def grant(owner, grantee, dataset):
     return await permission(owner, grantee, dataset, False)
@@ -128,31 +129,13 @@ async def forget(email, dataset=None):
         await cognee.forget(dataset_id=ds.id, user=_users[email])
     return {"forgotten": sorted(ds.name for ds in datasets)}
 
-async def remember_research(email, run_id, report):
-    user_name(email)
-    leads = report.get("leads")
-    if not isinstance(leads, list):
-        leads = [report]
-    docs = []
-    sources = {source["id"]: source for source in report.get("sources", []) if isinstance(source, dict) and "id" in source}
-    for i, lead in enumerate(leads):
-        cited_ids = set()
-        def citations(value):
-            if isinstance(value, dict):
-                if isinstance(value.get("source_id"), str):
-                    cited_ids.add(value["source_id"])
-                for child in value.values():
-                    citations(child)
-            elif isinstance(value, list):
-                for child in value:
-                    citations(child)
-        citations(lead)
-        cited = [sources[source_id] for source_id in sorted(cited_ids) if source_id in sources]
-        title = str(lead.get("company", lead.get("name", lead.get("title", f"Lead {i + 1}")))) if isinstance(lead, dict) else f"Lead {i + 1}"
-        body = json.dumps({"lead": lead, "cited_sources": cited}, ensure_ascii=False, indent=2)
-        docs.append(document("research", run_id, "toir-pipeline", title, cited[0].get("url", "") if cited else "", body))
-    count = await remember_docs("toir-pipeline", docs)
-    return {"dataset": "toir-pipeline", "documents": count}
+async def remember_research_document(doc):
+    """Caller holds writer_lock and has durably marked this specific document started."""
+    await ensure_users()
+    return await remember_document(
+        doc, remember=cognee.remember, owner=_users[LEAD],
+        graph_model=CompanyGraph, prompt=EXTRACTION_PROMPT,
+    )
 
 async def graph(dataset):
     dataset_name(dataset)

@@ -15,6 +15,7 @@ DEFAULTS = {
     "EMBEDDING_MODEL": "nemotron-embed", "EMBEDDING_API_KEY": ".", "EMBEDDING_DIMENSIONS": "2048",
     "SYSTEM_ROOT_DIRECTORY": str(ROOT / ".cognee/system"),
     "DATA_ROOT_DIRECTORY": str(ROOT / ".cognee/data"),
+    "BRAIN_RESEARCH_LEDGER": str(ROOT / "data/research-ingestion.sqlite3"),
     "BRAIN_API_HOST": "100.87.113.122", "BRAIN_API_PORT": "8200", "JUDGE_MODEL": "gpt-5-mini",
     # Ubuntu SQLite 3.45.1 crashes on Cognee's nested user joins; use the existing local Postgres.
     "DB_PROVIDER": "postgres", "DB_HOST": "127.0.0.1", "DB_PORT": "5432",

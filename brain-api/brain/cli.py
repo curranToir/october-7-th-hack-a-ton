@@ -23,7 +23,7 @@ def main():
     args = parser.parse_args()
     if args.command == "serve":
         import uvicorn
-        uvicorn.run("brain.api:app", host=os.environ["BRAIN_API_HOST"], port=int(os.environ["BRAIN_API_PORT"]), workers=1)
+        uvicorn.run("brain.api:app", host=os.environ["BRAIN_API_HOST"], port=int(os.environ["BRAIN_API_PORT"]), workers=1, timeout_graceful_shutdown=900)
         return
     async def run():
         if args.command == "auth-links":

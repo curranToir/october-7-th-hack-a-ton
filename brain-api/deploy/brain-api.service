@@ -9,6 +9,7 @@ Group=hackathon
 WorkingDirectory=/srv/october-7-th-hack-a-ton/brain-api
 ExecStart=/srv/october-7-th-hack-a-ton/brain-api/.venv/bin/python -m brain serve
 Restart=on-failure
+TimeoutStopSec=900
 UMask=0007
 
 [Install]

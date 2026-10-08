@@ -1,18 +1,23 @@
-from . import config
+from . import config as config
 import asyncio
 from contextlib import asynccontextmanager
-import hmac
 from importlib.metadata import version
 import os
-from typing import Annotated, Literal
+from pathlib import Path
+from typing import Literal
 from uuid import uuid4
-from fastapi import FastAPI, APIRouter, Depends, Header, HTTPException, Request
+from fastapi import FastAPI, APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel, Field
 from respan import Respan
 from . import memory
-from .registry import user_name, dataset_name, CONNECTIONS
+from .registry import user_name, CONNECTIONS
 from .scalekit_pull import pull
+from .auth import bearer
+from .research_api import router as research_router, ingestion_failure
+from .research_contract import IngestionError
+from .research_ingestion import ResearchIngestion
+from .research_ledger import ResearchLedger
 
 jobs = {}
 tasks = set()
@@ -20,23 +25,26 @@ tasks = set()
 @asynccontextmanager
 async def lifespan(app):
     respan = Respan()
-    async with memory.writer_lock:
-        await memory.initialize()
+    ingestion = ResearchIngestion(
+        ResearchLedger(Path(os.environ["BRAIN_RESEARCH_LEDGER"])),
+        memory.remember_research_document, memory.access, memory.writer_lock,
+    )
+    app.state.research_ingestion = ingestion
+    await ingestion.open()
     try:
+        async with memory.writer_lock:
+            await memory.initialize()
         yield
     finally:
         if tasks:
             await asyncio.gather(*tasks, return_exceptions=True)
+        await ingestion.close()
         respan.flush()
 
 app = FastAPI(title="Toir Company Brain", lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
 
-async def bearer(authorization: Annotated[str | None, Header()] = None):
-    expected = os.environ.get("BRAIN_API_TOKEN", "")
-    if not expected or authorization is None or not hmac.compare_digest(authorization.encode(), f"Bearer {expected}".encode()):
-        raise HTTPException(401, "invalid_token")
-
 private = APIRouter(dependencies=[Depends(bearer)])
+app.add_exception_handler(IngestionError, ingestion_failure)
 
 @app.exception_handler(ValueError)
 async def invalid(request: Request, error: ValueError):
@@ -83,11 +91,6 @@ class PermissionRequest(BaseModel):
 class ForgetRequest(BaseModel):
     as_user: str
     dataset: str | None = None
-
-class ResearchRequest(BaseModel):
-    as_user: str
-    run_id: str
-    report: dict
 
 @app.get("/health")
 async def health():
@@ -144,12 +147,8 @@ async def revoke(body: PermissionRequest):
 @private.post("/forget")
 async def forget(body: ForgetRequest):
     async with memory.writer_lock:
+        await app.state.research_ingestion.before_forget(body.as_user, body.dataset)
         return await memory.forget(body.as_user, body.dataset)
-
-@private.post("/remember/research")
-async def research(body: ResearchRequest):
-    async with memory.writer_lock:
-        return await memory.remember_research(body.as_user, body.run_id, body.report)
 
 @app.get("/graph", response_class=HTMLResponse)
 async def graph(dataset: str):
@@ -157,3 +156,4 @@ async def graph(dataset: str):
         return await memory.graph(dataset)
 
 app.include_router(private)
+app.include_router(research_router, dependencies=[Depends(bearer)])
