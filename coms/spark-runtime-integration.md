@@ -169,16 +169,39 @@ environment-dependent skips. Prospecting remains persisted as enabled during
 maintenance. Follow-up release `a32aea998053-7e85693a34ed` is live with all five
 pods Ready and zero restarts. Its pre-deployment PostgreSQL backup is
 `20261008T010203Z-fd96eabeabc8`; maintenance is off and both the queued contact
-task and next discovery have resumed. Contact enrichment and the exact Cognee
-receipt are still pending live verification; accepted company results alone do
-not prove memory delivery.
+task and next discovery resumed. The exact discovery outbox
+`6ad532321b18028ee91b9963f09f66333fd327d2234c6107cc6c67015e47ee32`
+is now synced on its first attempt. A read-only check on Spark found the same
+completed receipt in the legacy JSON ledger: `toir-pipeline`, one document.
+The PostgreSQL outbox maps that receipt to the real research run; the legacy
+receipt itself does not store a run ID. This verifies actual memory delivery
+without changing Spark configuration or restarting its services.
+
+The first contact-enrichment attempt failed the identity gate: selected legal
+name `Jazwares, LLC` did not equal the fresh official display name `Jazwares`.
+The follow-up patch permits only standard trailing legal-suffix differences on
+the same verified domain, then uses the literally cited official display name.
+It preserves fit metadata and rejects different brands/domains. The failed task
+and its evidence remain in history; one explicit retry will verify the patch.
+
+The fourth automatic discovery completed the live company-to-contact-to-CRM
+proposal flow under JSON mode: run `b6541022-c9f3-47a0-bb1e-5f3690c7a930`
+qualified PayNearMe with 15 retrieved sources and eight valid citations. Child
+`97449f31-e74f-53eb-8e21-37f87ba135dc` completed with four verified contacts,
+19 sources and six valid citations. Proposal
+`79f4e705-b4c7-4c2a-87ef-ee5c4f482fad` is pending approval, with 23 proposed
+operations and no execution or approval decisions in the acceptance snapshot.
+These are actual agent results, separate from the ten concurrently added
+proposals. The legal-name follow-up passed 76 worker tests, both TypeScript
+checks and eight downstream Python evidence checks.
 
 Evidence precision note: the Jazwares source states 700–800 employees. The
-stored value 750 is an estimate within that range, not a verified exact count;
-the generated rationale currently overstates that precision. The source
+stored value 750 is an estimate within that range, not a verified exact count.
+The historical generated rationale overstates that precision; future report
+rationales now explicitly describe the count as an estimate. The source
 supports existing AI initiatives, not proven unmet demand or purchase intent.
 There is no independent headcount corroboration in this run. Ten concurrently
-added demo proposals are preserved separately and are not counted as results
+added proposals are preserved separately and are not counted as results
 of this observed automatic research run.
 
 Brain code on `main` also selects GPT-5 mini for its text LLM stages, synthesis

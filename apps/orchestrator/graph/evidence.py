@@ -82,7 +82,7 @@ def finalize_report(report: ResearchReport, brief: Brief) -> ResearchReport:
     for lead in result.leads:
         signals = ", ".join(dict.fromkeys(labels[signal.kind] for signal in lead.signals))
         lead.rationale = (
-            f"Verified US location and {lead.employee_count} employees fit the requested "
+            f"Cited US location and an employee estimate of {lead.employee_count} fit the requested "
             f"{brief.employee_min}–{brief.employee_max} employee profile. "
             f"Accepted evidence supports: {signals}. "
             "The cited signals below explain the opportunity; buying intent is unverified."
