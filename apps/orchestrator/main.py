@@ -11,6 +11,12 @@ from apps.orchestrator.agents.research import ResearchAgentClient
 from apps.orchestrator.coordinator import Coordinator
 from apps.orchestrator.graph.workflow import build_graph
 from apps.orchestrator.integrations.models import RespanModels, initialize_tracing
+from apps.orchestrator.meetings.agent import MeetingAgentClient
+from apps.orchestrator.meetings.github import GitHubIssues
+from apps.orchestrator.meetings.providers import RecallClient
+from apps.orchestrator.meetings.routes import router as meeting_router
+from apps.orchestrator.meetings.service import MeetingService
+from apps.orchestrator.meetings.store import MeetingStore
 from apps.orchestrator.routes import router
 from apps.orchestrator.sales.auth import AuthService
 from apps.orchestrator.sales.brain import BrainClient
@@ -56,12 +62,24 @@ async def lifespan(application: FastAPI):
                 brain,
             )
             application.state.sales_service = sales
+            meetings = MeetingService(
+                MeetingStore(repository),
+                RecallClient(),
+                MeetingAgentClient(),
+                GitHubIssues(),
+                service,
+            )
+            application.state.meeting_service = meetings
+            service.meeting_service = meetings
             try:
                 await sales.setup()
+                await meetings.setup()
                 await service.recover()
                 sales.start()
+                meetings.start()
                 yield
             finally:
+                await meetings.close()
                 await sales.shutdown()
                 await service.shutdown()
                 await auth.close()
@@ -76,6 +94,7 @@ app = FastAPI(title="Toir Coordinator", lifespan=lifespan, docs_url=None, redoc_
 app.include_router(router)
 app.include_router(sales_router)
 app.include_router(auth_router)
+app.include_router(meeting_router)
 
 
 class Probe(BaseModel):

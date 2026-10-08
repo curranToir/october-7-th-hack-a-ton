@@ -19,7 +19,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 STATE = Path("/var/lib/company-brain")
-SERVICES = ("web", "api", "orchestrator", "research", "contacts")
+SERVICES = ("web", "api", "orchestrator", "research", "contacts", "meetings")
 DATABASES = ("runs.sqlite", "checkpoints.sqlite")
 KUBECTL = ["k3s", "kubectl", "--request-timeout=30s"]
 FILES = {"images.tar", "manifests.json", "release.json", "checksums.json"}
@@ -174,7 +174,7 @@ def apply_release(folder: Path):
         sync_secrets()
     execute(*KUBECTL, "apply", "-f", str(folder / "manifests.json"))
     # Remove only known workers omitted by an older release; preserve all durable state.
-    for worker in ("research", "contacts"):
+    for worker in ("research", "contacts", "meetings"):
         if worker in services:
             continue
         for kind, name in (
@@ -370,6 +370,21 @@ def sync_secrets(restart: bool = False):
         if config.get("brain_api_secret")
         else {}
     )
+    meetings = (
+        read_secret(
+            config["meetings_provider_secret"],
+            {
+                "RECALL_API_KEY",
+                "RECALL_REGION",
+                "RECALL_WORKSPACE_VERIFICATION_SECRET",
+                "RECALL_SVIX_WEBHOOK_SECRET",
+                "MEETING_WEBHOOK_BASE_URL",
+                "MEETING_GITHUB_TOKEN",
+            },
+        )
+        if config.get("meetings_provider_secret")
+        else {}
+    )
     # Worker account/connection settings select Exa only. CRM/auth credentials and
     # shared HubSpot settings remain coordinator-owned; no DB/Brain secrets reach workers.
     coordinator_scalekit = {
@@ -392,6 +407,8 @@ def sync_secrets(restart: bool = False):
             ("orchestrator-runtime", {**respan, **coordinator_scalekit, **database, **brain}),
             ("research-runtime", {**respan, **scalekit}),
             ("contacts-runtime", {**respan, **scalekit}),
+            ("meetings-runtime", respan),
+            ("meetings-provider", meetings),
         ):
             secrets.append(
                 {
@@ -425,7 +442,7 @@ def sync_secrets(restart: bool = False):
             flush=True,
         )
         if restart:
-            for service in ("orchestrator", "research", "contacts"):
+            for service in ("orchestrator", "research", "contacts", "meetings"):
                 if not kubernetes_json("-n", "company-brain", "get", "deployment", service):
                     continue
                 execute(
@@ -562,12 +579,14 @@ def drain() -> bool:
                 "active_contact_task_id",
                 "active_crm_operations",
                 "active_jobs",
+                "active_meeting_operations",
             )
         ):
             return True
         if time.monotonic() >= deadline:
             raise RuntimeError(
-                "Research, contacts or CRM execution did not drain; maintenance remains enabled"
+                "Research, contacts, meetings or CRM execution did not drain; "
+                "maintenance remains enabled"
             )
         time.sleep(5)
 
@@ -1217,6 +1236,7 @@ if __name__ == "__main__":
     parser.add_argument("--scalekit-secret")
     parser.add_argument("--database-secret")
     parser.add_argument("--brain-api-secret")
+    parser.add_argument("--meetings-provider-secret")
     parser.add_argument("--restart", action="store_true")
     parser.add_argument("--backup-id")
     parser.add_argument("--resume", action="store_true")
@@ -1232,6 +1252,7 @@ if __name__ == "__main__":
             "scalekit_secret",
             "database_secret",
             "brain_api_secret",
+            "meetings_provider_secret",
         ):
             value = getattr(ARGS, name)
             if value:

@@ -472,12 +472,38 @@
                   {
                     "name": "SCALEKIT_HUBSPOT_WRITE_SCOPES_VERIFIED",
                     "value": "true"
+                  },
+                  {
+                    "name": "MEETING_AGENT_URL",
+                    "value": "http://meetings:8000"
+                  },
+                  {
+                    "name": "MEETING_OWNER_EMAIL",
+                    "value": "curran@toirinc.com"
+                  },
+                  {
+                    "name": "MEETING_GITHUB_REPOSITORY",
+                    "value": "curranToir/october-7-th-hack-a-ton"
+                  },
+                  {
+                    "name": "MEETING_GITHUB_CONNECTION_NAME",
+                    "value": "github-connect"
+                  },
+                  {
+                    "name": "MEETING_GITHUB_ACCOUNT_ID",
+                    "value": "jared@neptuneops.com"
                   }
                 ],
                 "envFrom": [
                   {
                     "secretRef": {
                       "name": "orchestrator-runtime"
+                    }
+                  },
+                  {
+                    "secretRef": {
+                      "name": "meetings-provider",
+                      "optional": true
                     }
                   }
                 ]
@@ -1125,6 +1151,204 @@
         "podSelector": {
           "matchLabels": {
             "app.kubernetes.io/name": "contacts"
+          }
+        },
+        "policyTypes": [
+          "Ingress"
+        ],
+        "ingress": [
+          {
+            "from": [
+              {
+                "podSelector": {
+                  "matchLabels": {
+                    "app.kubernetes.io/name": "orchestrator"
+                  }
+                }
+              }
+            ],
+            "ports": [
+              {
+                "protocol": "TCP",
+                "port": 8000
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "apiVersion": "apps/v1",
+      "kind": "Deployment",
+      "metadata": {
+        "name": "meetings",
+        "namespace": "company-brain",
+        "labels": {
+          "app.kubernetes.io/name": "meetings",
+          "app.kubernetes.io/part-of": "company-brain"
+        }
+      },
+      "spec": {
+        "replicas": 1,
+        "revisionHistoryLimit": 2,
+        "progressDeadlineSeconds": 180,
+        "strategy": {
+          "type": "RollingUpdate",
+          "rollingUpdate": {
+            "maxSurge": 0,
+            "maxUnavailable": 1
+          }
+        },
+        "selector": {
+          "matchLabels": {
+            "app.kubernetes.io/name": "meetings",
+            "app.kubernetes.io/part-of": "company-brain"
+          }
+        },
+        "template": {
+          "metadata": {
+            "labels": {
+              "app.kubernetes.io/name": "meetings",
+              "app.kubernetes.io/part-of": "company-brain"
+            }
+          },
+          "spec": {
+            "serviceAccountName": "application",
+            "automountServiceAccountToken": false,
+            "terminationGracePeriodSeconds": 30,
+            "securityContext": {
+              "runAsNonRoot": true,
+              "runAsUser": 1000,
+              "runAsGroup": 1000,
+              "fsGroup": 1000,
+              "seccompProfile": {
+                "type": "RuntimeDefault"
+              }
+            },
+            "containers": [
+              {
+                "name": "meetings",
+                "image": "__MEETINGS_IMAGE__",
+                "imagePullPolicy": "Never",
+                "ports": [
+                  {
+                    "name": "http",
+                    "containerPort": 8000
+                  }
+                ],
+                "resources": {
+                  "requests": {
+                    "cpu": "100m",
+                    "memory": "256Mi"
+                  },
+                  "limits": {
+                    "cpu": "500m",
+                    "memory": "512Mi"
+                  }
+                },
+                "securityContext": {
+                  "allowPrivilegeEscalation": false,
+                  "readOnlyRootFilesystem": true,
+                  "capabilities": {
+                    "drop": [
+                      "ALL"
+                    ]
+                  }
+                },
+                "startupProbe": {
+                  "httpGet": {
+                    "path": "/health",
+                    "port": "http"
+                  },
+                  "periodSeconds": 2,
+                  "failureThreshold": 60
+                },
+                "livenessProbe": {
+                  "httpGet": {
+                    "path": "/health",
+                    "port": "http"
+                  },
+                  "periodSeconds": 15,
+                  "timeoutSeconds": 2
+                },
+                "readinessProbe": {
+                  "httpGet": {
+                    "path": "/ready",
+                    "port": "http"
+                  },
+                  "periodSeconds": 5,
+                  "timeoutSeconds": 2
+                },
+                "volumeMounts": [
+                  {
+                    "name": "tmp",
+                    "mountPath": "/tmp"
+                  }
+                ],
+                "env": [
+                  {
+                    "name": "RESPAN_MODEL",
+                    "value": "gpt-5.4"
+                  }
+                ],
+                "envFrom": [
+                  {
+                    "secretRef": {
+                      "name": "meetings-runtime"
+                    }
+                  }
+                ]
+              }
+            ],
+            "volumes": [
+              {
+                "name": "tmp",
+                "emptyDir": {
+                  "sizeLimit": "128Mi"
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "apiVersion": "v1",
+      "kind": "Service",
+      "metadata": {
+        "name": "meetings",
+        "namespace": "company-brain",
+        "labels": {
+          "app.kubernetes.io/name": "meetings",
+          "app.kubernetes.io/part-of": "company-brain"
+        }
+      },
+      "spec": {
+        "type": "ClusterIP",
+        "selector": {
+          "app.kubernetes.io/name": "meetings",
+          "app.kubernetes.io/part-of": "company-brain"
+        },
+        "ports": [
+          {
+            "name": "http",
+            "port": 8000,
+            "targetPort": "http"
+          }
+        ]
+      }
+    },
+    {
+      "apiVersion": "networking.k8s.io/v1",
+      "kind": "NetworkPolicy",
+      "metadata": {
+        "name": "meetings-ingress",
+        "namespace": "company-brain"
+      },
+      "spec": {
+        "podSelector": {
+          "matchLabels": {
+            "app.kubernetes.io/name": "meetings"
           }
         },
         "policyTypes": [

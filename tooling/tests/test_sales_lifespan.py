@@ -21,6 +21,7 @@ def test_coordinator_composes_sales_services_and_drains(monkeypatch, tmp_path):
         assert status == {
             "enabled": True,
             "active_run_id": None,
+            "active_meeting_operations": [],
             "storage_backend": "sqlite",
             "active_jobs": [],
             "active_contact_task_id": None,

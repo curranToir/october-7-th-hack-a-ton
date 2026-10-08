@@ -21,6 +21,15 @@ SECRET_FIELDS = {
         "SCALEKIT_ACCOUNT_ID",
     ),
     "exa": ("EXA_API_KEY",),
+    # This group can be configured in stages. Blank hidden prompts retain prior values.
+    "meetings-provider": (
+        "RECALL_API_KEY",
+        "RECALL_REGION",
+        "RECALL_WORKSPACE_VERIFICATION_SECRET",
+        "RECALL_SVIX_WEBHOOK_SECRET",
+        "MEETING_WEBHOOK_BASE_URL",
+        "MEETING_GITHUB_TOKEN",
+    ),
 }
 
 EXISTING_SECRET_PARAMETERS = {
@@ -72,7 +81,14 @@ def cloudformation_yaml(text: str) -> dict:
 def protected_changes(current: dict, candidate: dict, changes: list[dict]) -> list[str]:
     # Bucket lifecycle updates may propagate a dependency-only bucket-policy change.
     # Permit that notification only when the complete policy resource is unchanged.
-    permitted = {"HostRole", "Artifacts", "RespanSecret", "ScalekitSecret", "ExaSecret"}
+    permitted = {
+        "HostRole",
+        "Artifacts",
+        "RespanSecret",
+        "ScalekitSecret",
+        "ExaSecret",
+        "MeetingsProviderSecret",
+    }
     policy_unchanged = current["Resources"].get("ArtifactPolicy") is not None and current[
         "Resources"
     ]["ArtifactPolicy"] == candidate["Resources"].get("ArtifactPolicy")
@@ -207,20 +223,48 @@ def set_secret(aws: Aws, name: str, from_stdin: bool):
     import boto3
 
     fields = SECRET_FIELDS[name]
+    client = boto3.client("secretsmanager", region_name=aws.region)
     if from_stdin:
         try:
             values = json.load(sys.stdin)
         except ValueError:
             raise ValueError("Expected a JSON object on stdin; contents were not logged") from None
+    elif name == "meetings-provider":
+        # Read through the SDK and never echo values. This preserves a previously
+        # configured provider when the operator adds the other provider later.
+        try:
+            existing = client.get_secret_value(SecretId=f"/{aws.stack}/{name}")
+            values = json.loads(existing["SecretString"])
+        except client.exceptions.ResourceNotFoundException:
+            values = {}
+        except client.exceptions.InvalidRequestException as error:
+            if "AWSCURRENT" not in str(error):
+                raise RuntimeError("Cannot read meetings setup; check secret metadata") from None
+            values = {}
+        except Exception:
+            raise RuntimeError("Cannot read meetings setup; contents were not logged") from None
+        if not isinstance(values, dict) or not set(values) <= set(fields):
+            raise ValueError("Existing meetings configuration has unsupported fields")
+        for field in fields:
+            entered = getpass.getpass(f"{field} (hidden; Enter keeps existing or skips): ")
+            if entered.strip():
+                values[field] = entered
     else:
         values = {field: getpass.getpass(f"{field} (hidden): ") for field in fields}
     if (
         not isinstance(values, dict)
-        or set(values) != set(fields)
+        or not values
+        or (
+            not set(values) <= set(fields)
+            if name == "meetings-provider"
+            else set(values) != set(fields)
+        )
         or any(not isinstance(v, str) or not v.strip() for v in values.values())
     ):
-        raise ValueError("Supply every required field as a nonempty string: " + ", ".join(fields))
-    client = boto3.client("secretsmanager", region_name=aws.region)
+        requirement = (
+            "one or more supported fields" if name == "meetings-provider" else "every field"
+        )
+        raise ValueError(f"Supply {requirement} as nonempty strings: " + ", ".join(fields))
     try:
         client.put_secret_value(SecretId=f"/{aws.stack}/{name}", SecretString=json.dumps(values))
     except Exception:

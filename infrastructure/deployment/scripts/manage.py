@@ -102,6 +102,7 @@ def runtime_arguments(aws: Aws, outputs: dict) -> list[str]:
         ("ScalekitSecretArn", "--scalekit-secret"),
         ("DatabaseSecretArn", "--database-secret"),
         ("BrainApiSecretArn", "--brain-api-secret"),
+        ("MeetingsProviderSecretArn", "--meetings-provider-secret"),
     ):
         if outputs.get(output):
             args.extend([flag, outputs[output]])
@@ -167,6 +168,15 @@ def verify(aws: Aws, agent_template: bool):
         "k3s kubectl -n company-brain rollout status deployment/research --timeout=210s; fi",
         "if k3s kubectl -n company-brain get deployment contacts >/dev/null 2>&1; then "
         "k3s kubectl -n company-brain rollout status deployment/contacts --timeout=210s; fi",
+        "if k3s kubectl -n company-brain get deployment meetings >/dev/null 2>&1; then "
+        "k3s kubectl -n company-brain rollout status deployment/meetings --timeout=210s; fi",
+        "if k3s kubectl -n company-brain get deployment meetings >/dev/null 2>&1; then "
+        "k3s kubectl -n company-brain exec deployment/orchestrator -- python -c "
+        + shlex.quote(
+            "import urllib.request; print(urllib.request.urlopen("
+            "'http://meetings:8000/ready', timeout=5).read().decode())"
+        )
+        + "; fi",
         INGRESS_WAIT,
         "if k3s kubectl -n company-brain get deployment research >/dev/null 2>&1; then "
         "curl -fsS --max-time 10 http://127.0.0.1/research | grep -o 'Research' | head -n 1; "

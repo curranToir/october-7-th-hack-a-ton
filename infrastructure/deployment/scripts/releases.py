@@ -10,7 +10,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
 DEPLOYMENT = ROOT / ".deployment"
-SERVICES = ("web", "api", "orchestrator", "research", "contacts")
+SERVICES = ("web", "api", "orchestrator", "research", "contacts", "meetings")
 
 
 def sha256(path: Path) -> str:

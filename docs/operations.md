@@ -7,7 +7,7 @@ checks the authenticated account. Run commands from the repository root.
 The dedicated Ubuntu 24.04 `t3.medium` has a 30 GiB encrypted gp3 root disk, a
 public IPv4 address for outbound internet, IMDSv2 and no security-group inbound
 rules. SSM provides administration and the browser tunnel. The EC2 role can read
-this project's release objects and exact Respan/Scalekit/database/Brain API secret ARNs, and
+this project's release objects and exact Respan/Scalekit/meetings-provider/database/Brain API secret ARNs, and
 read/write only the artifact bucket's `backups/` prefix. It cannot read the Exa
 setup secret. Operators need CloudFormation/IAM/EC2/S3/SSM permissions and secret
 write permission. Treat SSM Run Command as privileged host access.
@@ -29,7 +29,7 @@ Traefik. Existing stacks are only checked. `stack-update` preserves the deployed
 Host resource, pins the running AMI instead of re-resolving Canonical's current
 SSM parameter, and inspects a change set before execution. It resolves the existing database and Brain API secret ARNs through metadata-only
 `describe-secret` calls; it does not create duplicate Secrets Manager resources.
-It refuses changes outside IAM, artifact bucket lifecycle and the three
+It refuses changes outside IAM, artifact bucket lifecycle and the four
 stack-owned runtime/setup secrets, and
 rejects replacement/removal. It does not update user data or replace EC2.
 
@@ -47,7 +47,7 @@ creating a new account. Connector/account identifiers must match Scalekit exactl
 The approved tools are search, similar-company discovery and page retrieval;
 generated-answer and autonomous Exa research tools are not enabled.
 
-CloudFormation creates three empty retained Secrets Manager entries. The Spark
+CloudFormation creates four empty retained Secrets Manager entries. The Spark
 owner supplies the existing database and Brain API entries separately. Enter the
 stack-owned JSON
 fields through hidden local prompts; do not paste credentials into shell commands:
@@ -56,6 +56,8 @@ fields through hidden local prompts; do not paste credentials into shell command
 .venv/bin/python infrastructure/deployment/scripts/manage.py secret-set --name respan
 .venv/bin/python infrastructure/deployment/scripts/manage.py secret-set --name scalekit
 .venv/bin/python infrastructure/deployment/scripts/manage.py secret-set --name exa
+# Optional, staged setup for live Zoom capture and approved GitHub issues:
+.venv/bin/python infrastructure/deployment/scripts/manage.py secret-set --name meetings-provider
 .venv/bin/python infrastructure/deployment/scripts/manage.py secret-sync --restart
 ```
 
@@ -66,6 +68,7 @@ Required fields:
 | `/<stack>/respan` | `RESPAN_API_KEY` |
 | `/<stack>/scalekit` | `SCALEKIT_ENVIRONMENT_URL`, `SCALEKIT_CLIENT_ID`, `SCALEKIT_CLIENT_SECRET`, `SCALEKIT_CONNECTION_NAME`, `SCALEKIT_ACCOUNT_ID` |
 | `/<stack>/exa` | `EXA_API_KEY` |
+| `/<stack>/meetings-provider` (optional) | `RECALL_API_KEY`, `RECALL_WORKSPACE_VERIFICATION_SECRET`, `MEETING_GITHUB_TOKEN`, `MEETING_WEBHOOK_BASE_URL`; optional `RECALL_REGION`, legacy `RECALL_SVIX_WEBHOOK_SECRET` |
 | `/<stack>/database` (existing, Spark-owned) | `DATABASE_URL` |
 | `/<stack>/brain-api` (existing, Spark-owned) | `BRAIN_API_URL`, `BRAIN_API_TOKEN` |
 
@@ -74,9 +77,18 @@ pipe without creating a file. The command writes directly with the AWS SDK;
 values are never command arguments or logged output. Do not use a shell literal
 containing the credential. Exa rotation also requires updating Scalekit's vault.
 
+The optional `meetings-provider` group supports staged connection: its hidden
+prompts retain existing values on blank input, while `--stdin` replaces the whole
+group with the supplied supported fields. This secret reaches only the
+coordinator; the meeting analysis worker receives Respan only. Follow the
+[meeting agent runbook](meeting-agent.md) for account activation, public HTTPS
+callbacks, signed webhook subscriptions, the sample call and the approval gate.
+The owner email is `curran@toirinc.com`; it does not authenticate the bot as that
+person's Zoom account.
+
 `secret-sync` updates Kubernetes Secrets but existing processes retain their old
-environment. Add `--restart` to drain and restart the coordinator and both research
-worker pods. On a fresh server use `secret-sync` without restart, or deploy: deployment
+environment. Add `--restart` to drain and restart the coordinator, research,
+contacts and meetings pods. On a fresh server use `secret-sync` without restart, or deploy: deployment
 always synchronizes before applying the new manifests. Empty provider secrets
 are an expected setup state; IAM/auth failures are errors. Missing credentials
 keep process health green but research capability blocked. No placeholder key
@@ -91,17 +103,26 @@ is supplied and no direct LLM provider fallback exists.
 
 Build freezes tracked and unignored source in a temporary directory, including
 uncommitted changes. Never track credentials. The source-content hash supplements
-the Git SHA. Locked dependencies and five production Dockerfiles produce amd64
-images. The archive contains images, rendered manifests, release metadata and
+the Git SHA. Locked dependencies and six production Dockerfiles produce amd64
+images for web, API, coordinator, research, contacts and meetings. The archive
+contains images, rendered manifests, release metadata and
 checksums; its ID combines commit SHA and archive hash prefixes.
 
-Deploy uploads the archive to private S3, blocks new discovery, contact and CRM dispatch and waits up to
+Deploy uploads the archive to private S3, blocks new discovery, contact, CRM and
+meeting dispatch and waits up to
 660 seconds for active work to finish. Once persistent state exists, it makes a
 consistent backup before changing workloads. It then verifies every release
 checksum, imports containerd images, synchronizes runtime secrets and applies
 manifests. Readiness and ingress checks must pass before maintenance is cleared
 and the successful release pointer changes. Imported images use pull policy
 `Never`. Concurrent deployment/backup/rotation operations are locked out.
+
+The drain includes `active_meeting_operations`, including remote subject research
+task IDs. During maintenance the coordinator polls already-running subject jobs
+until they finish and starts no new ones. Signed Recall callbacks receive 503
+with retry guidance during maintenance; check provider delivery history after
+recovery. Meeting subject results are saved with citations inside the meeting and
+do not appear as prospect-discovery runs in `/research`.
 
 ```sh
 .venv/bin/python infrastructure/deployment/scripts/manage.py deploy --archive .deployment/releases/RELEASE_ID.tar.gz
@@ -130,8 +151,8 @@ workspace. Configure `SALES_PUBLIC_URL=http://localhost:8080` and register exact
 without Secure; a remote browser origin requires HTTPS and Secure cookies. There
 is no public DNS or public TLS endpoint in this stack. Internal traffic uses HTTP.
 
-Verify checks node and deployment health, web/API ingress, internal coordinator
-connectivity and lack of application Kubernetes privileges, then prints CPU,
+Verify checks node and all six deployment health states, web/API ingress, internal
+coordinator and meeting worker connectivity, and lack of application Kubernetes privileges, then prints CPU,
 memory and disk usage. The optional template check starts a temporary independent
 agent pod using the coordinator image and writable `/tmp` data, probes it and
 removes the Deployment, Service and policy. It is not a production agent.
@@ -152,7 +173,7 @@ acceptance run; health checks alone do not prove provider execution or trace del
 ```
 
 When the live coordinator uses SQLite, backup blocks admission, drains active
-research/contact/CRM work and uses SQLite's online backup API
+research/contact/CRM/meeting work and uses SQLite's online backup API
 for both `runs.sqlite` and `checkpoints.sqlite`. It validates integrity and schema
 version, then uploads an encrypted archive and embedded checksum/source-release
 manifest under `backups/`. The latest ID/hash is recorded on the host. Bucket
@@ -172,9 +193,9 @@ deployment/code rollback; follow the Spark procedure below.
 
 `rollback` restores the recorded successful release after a failed rollout;
 `--previous` switches to its predecessor. Cached payloads are verified and images
-reimported. A rollback to the older three-pod foundation removes the research
-Deployment, Service and network policy while preserving its coordinator PVC and
-records. A subsequent upgrade snapshots those retained databases without calling
+reimported. A rollback removes research, contacts or meetings Deployments,
+Services and network policies absent from the target release while preserving
+the coordinator PVC and records. A subsequent upgrade snapshots those retained databases without calling
 the absent maintenance API only after confirming that the deployed coordinator
 image matches the recorded foundation release and no pod still mounts the claim.
 Unknown images or lingering research pods stop that offline backup. Restore into
@@ -209,7 +230,8 @@ The Spark owner must use PostgreSQL 17 `pg_dump --format=custom` with a trusted
 service/pgpass configuration (no credentials in command arguments), record the
 server version and dump checksum, and retain the encrypted backup outside the
 Spark disk. Include the complete `toir_runs` database: research rows, sales rows,
-operation journals, memory outbox, auth/session state and LangGraph checkpoints.
+`meeting_records`, operation journals, memory outbox, auth/session state and
+LangGraph checkpoints.
 Verify `pg_restore --list`, restore into an isolated scratch database/schema with
 no app writer, and compare table counts and key approval/operation records.
 Only then record the backup reference in the deployment handoff. PostgreSQL

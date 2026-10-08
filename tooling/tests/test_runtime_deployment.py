@@ -20,7 +20,7 @@ def test_application_boundaries_and_secret_scope():
     deployments = {
         r["metadata"]["name"]: r for r in resources["items"] if r["kind"] == "Deployment"
     }
-    assert set(deployments) == {"web", "api", "orchestrator", "research", "contacts"}
+    assert set(deployments) == {"web", "api", "orchestrator", "research", "contacts", "meetings"}
     for name, deployment in deployments.items():
         pod = deployment["spec"]["template"]["spec"]
         assert not pod["automountServiceAccountToken"]
@@ -43,13 +43,14 @@ def test_application_boundaries_and_secret_scope():
         if statement["Action"] == "secretsmanager:GetSecretValue"
     ]
     assert grants[0]["Resource"][:2] == [{"Ref": "RespanSecret"}, {"Ref": "ScalekitSecret"}]
-    assert grants[0]["Resource"][2:] == [
+    assert grants[0]["Resource"][2] == {"Ref": "MeetingsProviderSecret"}
+    assert grants[0]["Resource"][3:] == [
         {"Fn::If": ["HasDatabaseSecret", {"Ref": "DatabaseSecretArn"}, {"Ref": "AWS::NoValue"}]},
         {"Fn::If": ["HasBrainApiSecret", {"Ref": "BrainApiSecretArn"}, {"Ref": "AWS::NoValue"}]},
     ]
     assert "DatabaseSecret" not in template["Resources"]
     assert "BrainApiSecret" not in template["Resources"]
-    for name in ("RespanSecret", "ScalekitSecret", "ExaSecret"):
+    for name in ("RespanSecret", "ScalekitSecret", "ExaSecret", "MeetingsProviderSecret"):
         assert "SecretString" not in template["Resources"][name]["Properties"]
         assert template["Resources"][name]["DeletionPolicy"] == "Retain"
 
@@ -122,7 +123,7 @@ def test_old_release_removes_research_but_keeps_persistent_volume(tmp_path, monk
     )
     remote_apply.apply_release(tmp_path)
     deletes = [call for call in calls if "delete" in call]
-    assert len(deletes) == 6
+    assert len(deletes) == 9
     assert not any("pvc" in call for call in calls)
     assert not any("deployment/research" in call for call in calls)
 
@@ -508,7 +509,8 @@ def test_spark_secret_values_reach_only_coordinator(monkeypatch, backend):
 
 
 @pytest.mark.parametrize(
-    "active", ["active_contact_task_id", "active_crm_operations", "active_jobs"]
+    "active",
+    ["active_contact_task_id", "active_crm_operations", "active_jobs", "active_meeting_operations"],
 )
 def test_drain_waits_for_contact_and_crm_work(monkeypatch, active):
     monkeypatch.setattr(remote_apply, "data_directory", lambda: Path("/data"))

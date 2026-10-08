@@ -15,6 +15,7 @@ export class Budget {
     prior: Record<string, number>,
     deadline: string,
     readonly signal: AbortSignal,
+    private readonly limits: Readonly<Record<"searches" | "pages" | "model_turns", number>> = WORKER_LIMITS,
   ) {
     this.usage = Object.fromEntries(
       ["searches", "pages", "model_turns", "input_tokens", "output_tokens"].map(
@@ -34,14 +35,14 @@ export class Budget {
   }
   remaining() {
     return {
-      searches: Math.max(0, WORKER_LIMITS.searches - this.usage.searches),
-      pages: Math.max(0, WORKER_LIMITS.pages - this.usage.pages),
-      model_turns: Math.max(0, WORKER_LIMITS.model_turns - this.usage.model_turns),
+      searches: Math.max(0, this.limits.searches - this.usage.searches),
+      pages: Math.max(0, this.limits.pages - this.usage.pages),
+      model_turns: Math.max(0, this.limits.model_turns - this.usage.model_turns),
     };
   }
   consume(kind: "searches" | "pages" | "model_turns", amount = 1) {
     this.check();
-    if (this.usage[kind] + amount > WORKER_LIMITS[kind])
+    if (this.usage[kind] + amount > this.limits[kind])
       throw new ResearchError(
         "budget",
         `Research exhausted its ${kind.replace("_", " ")} budget.`,

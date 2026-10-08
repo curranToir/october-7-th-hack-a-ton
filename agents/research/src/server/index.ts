@@ -1,12 +1,19 @@
 import { MODEL_CONFIG } from "../research/limits";
 import { createApp } from "./app";
 import { ompHarness } from "../harness/omp";
+import { subjectHarness } from "../subjects/harness";
 import { missingCredentials, scalekitTransport } from "../tools/scalekit";
 import { initializeTelemetry, shutdownTelemetry } from "../telemetry/respan";
 initializeTelemetry(process.env.RESPAN_API_KEY);
 // Defer credential-dependent construction so the pod can report actionable setup status.
 const app = createApp({
   missing: () => missingCredentials(),
+  subjectHarness: (task, context) =>
+    subjectHarness(
+      scalekitTransport(),
+      process.env.RESPAN_API_KEY!,
+      process.env.RESPAN_MODEL || "gpt-5.4",
+    )(task, context),
   harness: (task, context) =>
     ompHarness(
       scalekitTransport(),

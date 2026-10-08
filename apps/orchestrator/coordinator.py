@@ -176,7 +176,11 @@ class Coordinator:
 
     async def maintenance_status(self):
         active = await self.repository.active()
-        return {"enabled": self.maintenance, "active_run_id": active.id if active else None}
+        meetings = getattr(self, "meeting_service", None)
+        return {
+            "enabled": self.maintenance, "active_run_id": active.id if active else None,
+            "active_meeting_operations": sorted(meetings.active_operations) if meetings else [],
+        }
 
     async def set_maintenance(self, enabled: bool):
         async with self.admission_lock:

@@ -10,8 +10,11 @@ import { Sources } from "../research/sources";
 import { WORKER_LIMITS } from "../research/limits";
 import type { Harness } from "../harness/omp";
 import { tracedTask } from "../telemetry/respan";
+import { createSubjectServer } from "../subjects/server";
+import type { SubjectHarness } from "../subjects/harness";
 export interface Options {
   harness: Harness;
+  subjectHarness?: SubjectHarness;
   missing?: () => string[];
   retention?: number;
 }
@@ -27,6 +30,20 @@ export function createApp(options: Options) {
   const tasks = new Map<string, Entry>();
   let active: string | undefined;
   let closing = false;
+  const subjects = createSubjectServer({
+    harness: options.subjectHarness,
+    missing: () => options.missing?.() ?? [],
+    closing: () => closing,
+    claim: (id) => {
+      if (active) return false;
+      active = id;
+      return true;
+    },
+    release: (id) => {
+      if (active === id) active = undefined;
+    },
+    retention: options.retention ?? 20,
+  });
   const prune = () => {
     for (const [id, task] of tasks) {
       if (tasks.size <= (options.retention ?? 20)) break;
@@ -102,9 +119,14 @@ export function createApp(options: Options) {
         agent: "research",
         configured: !options.missing?.().length,
         missing_credentials: options.missing?.() ?? [],
-        capabilities: ["company_research"],
+        capabilities: [
+          "company_research",
+          ...(options.subjectHarness ? ["subject_research"] : []),
+        ],
         limits: WORKER_LIMITS,
       });
+    const subjectResponse = await subjects.fetch(request);
+    if (subjectResponse) return subjectResponse;
     if (request.method === "POST" && path === "/v1/tasks") {
       if (closing) return json({ error: "Research agent is stopping." }, 503);
       if (Number(request.headers.get("content-length") ?? 0) > 2_000_000)
@@ -203,7 +225,9 @@ export function createApp(options: Options) {
       closing = true;
       for (const task of tasks.values())
         if (task.status.status === "running") task.abort.abort("shutdown");
-      await Promise.allSettled([...tasks.values()].map((t) => t.done));
+      await Promise.allSettled(
+        [...tasks.values()].map((t) => t.done).concat(subjects.shutdown()),
+      );
     },
   };
 }

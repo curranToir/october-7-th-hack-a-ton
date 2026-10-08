@@ -10,8 +10,10 @@ import { Settings, settingsPages } from "../components/settings";
 import { Icon } from "../components/icon";
 import { Logo } from "../components/logo";
 import { Dialog } from "../components/dialog";
+import { Meetings } from "../components/meetings";
+import { useMeetings } from "../components/use-meetings";
 
-type Route = { view: "chat" | "tasks" | "settings"; id: string };
+type Route = { view: "chat" | "tasks" | "meetings" | "settings"; id: string };
 function readRoute(): Route {
   const [view, encodedId = ""] = window.location.hash.slice(1).split("/");
   let id = "";
@@ -25,12 +27,14 @@ function readRoute(): Route {
       view,
       id: settingsPages.some((item) => item.id === id) ? id : "general",
     };
-  if (view === "tasks") return { view, id: "" };
+  if (view === "tasks") return { view, id: id === "meetings" ? id : "" };
+  if (view === "meetings") return { view, id };
   return { view: "chat", id };
 }
 export default function Home() {
   const actions = useWorkspace();
   const { state, warning, clearWarning, unauthorized, loading } = actions;
+  const meetingActions = useMeetings(!!state && !unauthorized);
   const [route, setRoute] = useState<Route>({ view: "chat", id: "" });
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searching, setSearching] = useState(false);
@@ -181,6 +185,8 @@ export default function Home() {
         sessionId={session?.id ?? ""}
         onChat={(id) => navigate("chat", id)}
         onTasks={() => navigate("tasks")}
+        onMeetings={() => navigate("meetings")}
+        meetingPending={meetingActions.state?.tasks.filter(task => task.status === "pending").length ?? 0}
         onSettings={(page = "general") => navigate("settings", page)}
         onNew={() => void startChat()}
         onHelp={() => {
@@ -216,6 +222,8 @@ export default function Home() {
             <h1>
               {route.view === "tasks"
                 ? "Tasks"
+                : route.view === "meetings"
+                  ? "Meetings"
                 : route.view === "settings"
                   ? "Settings"
                   : (session?.title ?? "New chat")}
@@ -223,6 +231,8 @@ export default function Home() {
             <p>
               {route.view === "tasks"
                 ? "Review what your agents found."
+                : route.view === "meetings"
+                  ? "Customer conversations, notes, and follow-through."
                 : route.view === "settings"
                   ? "Manage your workspace and agent preferences."
                   : (session?.agent ?? "TOIR research")}
@@ -308,10 +318,18 @@ export default function Home() {
         )}
         {route.view === "tasks" && (
           <Tasks
+            key={route.id}
             state={state}
             actions={actions}
             onSession={(id) => navigate("chat", id)}
+            meetingActions={meetingActions}
+            initialTab={route.id === "meetings" ? "meetings" : "pending"}
+            onMeeting={(id) => navigate("meetings", id)}
           />
+        )}
+        {route.view === "meetings" && (
+          <Meetings actions={meetingActions} selectedId={route.id}
+            onSelect={(id) => navigate("meetings", id)} onTasks={() => navigate("tasks", "meetings")} />
         )}
         {route.view === "settings" && (
           <Settings
@@ -350,6 +368,12 @@ export default function Home() {
               <strong>Follow execution</strong>An approval is recorded before
               the CRM work runs. Execution status and retries remain in the
               session and task history.
+            </p>
+            <p>
+              <strong>Bring an agent to your call</strong>Open Meetings to add
+              a Zoom call or try the customer issue demo. Review notes and
+              mentioned companies, then approve an engineering issue from
+              Tasks → Meeting issues.
             </p>
             <p>
               <strong>Configure continuous work</strong>Settings → Agents &

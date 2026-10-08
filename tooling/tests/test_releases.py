@@ -104,7 +104,7 @@ def test_release_id_cannot_be_used_as_a_path(release_id):
 
 
 def test_render_deploys_foundation_and_research():
-    names = ("web", "api", "orchestrator", "research", "contacts")
+    names = ("web", "api", "orchestrator", "research", "contacts", "meetings")
     images = {name: f"company-brain.local/{name}:test" for name in names}
     rendered = render(
         ROOT / "infrastructure/deployment/kubernetes/foundation.json",
