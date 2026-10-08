@@ -4,7 +4,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/*
 COPY requirements.lock ./
 RUN pip install --no-cache-dir --require-hashes -r requirements.lock
-COPY apps/__init__.py ./apps/__init__.py
+COPY apps/__init__.py apps/auth_logging.py ./apps/
 COPY apps/orchestrator ./apps/orchestrator
 USER 1000:1000
 EXPOSE 8000

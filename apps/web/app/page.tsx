@@ -111,7 +111,7 @@ export default function Home() {
           approve CRM updates.
         </p>
         <a className="button primary" href="/api/auth/login">
-          Sign in with Scalekit <Icon name="arrow" size={17} />
+          Sign in with Google <Icon name="arrow" size={17} />
         </a>
         <small>Access is limited to authorized Toir sales members.</small>
       </main>

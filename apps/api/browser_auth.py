@@ -21,6 +21,8 @@ def browser_headers(request: Request | None, *, include_flow: bool = False) -> d
     )
     # Always override httpx's shared cookie jar, including for anonymous requests.
     headers = {"Cookie": "; ".join(cookies), "Accept": "application/json"}
+    if include_flow and request is not None:
+        headers["User-Agent"] = request.headers.get("user-agent", "")[:300]
     origin = request.headers.get("origin", "") if request else ""
     try:
         parsed = urlsplit(origin)

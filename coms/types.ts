@@ -263,3 +263,13 @@ export interface LiveWorkspace extends WorkspaceState {
   automation: SalesAutomation;
   capabilities: SalesCapabilities;
 }
+
+/** Browser logins are separate from shared sales conversations. No bearer tokens. */
+export interface AuthSession {
+  id: string;
+  created_at: number;
+  last_seen_at: number;
+  expires_at: number;
+  user_agent: string;
+  current: boolean;
+}

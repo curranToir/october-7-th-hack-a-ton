@@ -34,7 +34,11 @@ are bound parameters. Typed application models validate payloads at service boun
 
 ## Browser API
 
-Auth routes: GET `/api/auth/login`, GET `/api/auth/callback`, POST `/api/auth/logout`.
+Auth routes: GET `/api/auth/login` (Google via Scalekit), GET `/api/auth/callback`,
+POST `/api/auth/logout`. GET `/api/auth/sessions` lists the caller’s browser sign-ins;
+DELETE `/api/auth/sessions/{uuid}` revokes one, DELETE `/api/auth/sessions` revokes all.
+`/api/me` also returns a stable user `id` and `email_verified` flag.
+See [auth handoff](auth-handoff.md) for persistence, rollout and Cognee identity.
 GET `/api/me` returns authenticated email/name; no browser-supplied actor is trusted.
 Browser facade forwards the session cookie to internal routes; coordinator validates
 it from durable auth state and enforces membership. Mutations require same-origin
