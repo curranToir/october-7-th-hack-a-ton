@@ -4,6 +4,12 @@ import { ResearchError } from "../../../research/src/research/budget";
 import { EMPTY_REPORT, validateReport, type Citation, type Company, type ContactReport, type ContactTask, type Source } from "./contracts";
 
 const norm = (value: string) => value.replace(/\s+/g, " ").trim().toLowerCase();
+// Used only after fresh company evidence independently verifies the same domain.
+// Do not equate brands by substring or strip suffix-like words inside a name.
+const identityName = (value: string) => norm(value).replace(
+  /(?:,\s*|\s+)(?:l\.?l\.?c\.?|inc\.?|incorporated|corp\.?|corporation|ltd\.?|limited)$/,
+  "",
+).trim();
 export function domain(raw: string): string {
   const url = new URL(publicURL(raw.includes("://") ? raw : `https://${raw}`));
   return url.hostname.toLowerCase().replace(/^www\./, "").replace(/\.$/, "");
@@ -74,8 +80,12 @@ export function finalizeReport(value: unknown, task: ContactTask, registry: Sour
     // Fresh evidence can confirm that same identity; it cannot change the target.
     if (!selected && task.company && report.company
         && domain(task.company.domain) === report.company.domain
-        && norm(task.company.name) === norm(report.company.name)) {
-      selected = { ...task.company, domain: report.company.domain, citations: report.company.citations };
+        && identityName(task.company.name)
+        && identityName(task.company.name) === identityName(report.company.name)) {
+      // The returned name must occur literally in the fresh quotation, including
+      // downstream coordinator review. Preserve all coordinator-owned sales data.
+      selected = { ...task.company, name: report.company.name,
+        domain: report.company.domain, citations: report.company.citations };
     }
     if (!selected) throw new ResearchError("report", "The selected company requires verified identity evidence.");
     // The selected company is coordinator-owned. Never allow model output to switch it.

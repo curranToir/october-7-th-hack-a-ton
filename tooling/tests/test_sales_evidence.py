@@ -128,6 +128,24 @@ def test_company_identity_private_urls_and_conflicting_sources_fail_closed():
     assert ground(report, job).company is None
 
 
+def test_official_display_name_from_worker_suffix_bridge_retains_literal_grounding():
+    job, report = fixture()
+    job.company = report.company.model_copy(update={"name": "Example, LLC", "fit_score": 87})
+    report.company = report.company.model_copy(update={"fit_score": job.company.fit_score})
+    result = ground(report, job)
+    assert result.company.name == "Example"
+    assert result.company.domain == job.company.domain
+    assert result.company.fit_score == 87
+    assert len(result.contacts) == 1
+    assert job.company.name == "Example, LLC"
+    assert "Example, LLC" not in result.company.citations[0].quote
+    # Neither layer can fabricate the legal spelling inside an official quote.
+    report.company.name = job.company.name
+    rejected = ground(report, job)
+    assert rejected.company is None
+    assert rejected.contacts == []
+
+
 def test_resolve_ambiguity_cannot_be_removed_by_semantic_reviewer_guess():
     async def scenario():
         job, report = fixture()
