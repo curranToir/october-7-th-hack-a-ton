@@ -166,8 +166,20 @@ strict citation checks, discard malformed candidates without fabricating values,
 and reject truncated or ambiguous final JSON. Combined worker validation passed
 65 tests and both TypeScript checks; the backend suite passed 385 tests with 46
 environment-dependent skips. Prospecting remains persisted as enabled during
-maintenance. Contact enrichment and the exact Cognee receipt are still pending
-live verification; accepted company results alone do not prove memory delivery.
+maintenance. Follow-up release `a32aea998053-7e85693a34ed` is live with all five
+pods Ready and zero restarts. Its pre-deployment PostgreSQL backup is
+`20261008T010203Z-fd96eabeabc8`; maintenance is off and both the queued contact
+task and next discovery have resumed. Contact enrichment and the exact Cognee
+receipt are still pending live verification; accepted company results alone do
+not prove memory delivery.
+
+Evidence precision note: the Jazwares source states 700–800 employees. The
+stored value 750 is an estimate within that range, not a verified exact count;
+the generated rationale currently overstates that precision. The source
+supports existing AI initiatives, not proven unmet demand or purchase intent.
+There is no independent headcount corroboration in this run. Ten concurrently
+added demo proposals are preserved separately and are not counted as results
+of this observed automatic research run.
 
 Brain code on `main` also selects GPT-5 mini for its text LLM stages, synthesis
 and judging; its embedding model remains `nemotron-embed`. The live Spark
