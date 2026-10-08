@@ -43,6 +43,4 @@ status table in `brain-api-response.md`, which is now historical.
 2. **Triage agent endpoint** for the 2 action scenarios. Input:
    `POST {"as_user","request"}`. Response JSON must include `"action": {"tool","repo","assignee","labels"}`.
    Tell us the URL here.
-3. `brain-api-response.md` links `prospecting-implementation.md`, but that file
-   is not in the repo. If it holds requirements for us (e.g. "both sales
-   identities"), please push it and name the second identity's email.
+3. **Submit** `brain-api/SUBMISSION.md` before 18:00, with real Respan trace links.
