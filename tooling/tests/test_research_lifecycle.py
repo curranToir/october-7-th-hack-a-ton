@@ -499,8 +499,13 @@ async def execute_passes(repository, directory, agent, *, seed=None):
         await service.shutdown()
 
 
-@pytest.mark.parametrize("budget", ["searches", "pages", "model_turns"])
-def test_follow_up_budget_failure_preserves_only_reviewed_report_and_usage(tmp_path, budget):
+@pytest.mark.parametrize("error", [
+    "Research exhausted its searches budget.",
+    "Research exhausted its pages budget.",
+    "Research exhausted its model turns budget.",
+    "Research exhausted its input context budget. Saved evidence is available.",
+])
+def test_follow_up_budget_failure_preserves_only_reviewed_report_and_usage(tmp_path, error):
     async def scenario():
         repository = await SQLiteRunRepository.open(tmp_path / "runs.sqlite")
         candidate = accepted_candidate()
@@ -510,12 +515,14 @@ def test_follow_up_budget_failure_preserves_only_reviewed_report_and_usage(tmp_p
         unreviewed.sources[0].text = "Replaced source text that cannot support earlier citations."
         unreviewed.summary = "The failed worker found 100 qualified companies."
         unreviewed.gaps = ["Invented claims from a failed follow-up"]
+        # Preserve the original 50 -> 60 page production failure: a worker's
+        # explicit budget error is authoritative even below newer local limits.
         usage = {"pages": 60, "searches": 12, "model_turns": 20, "input_tokens": 12345}
         agent = PassAgent([
             completed_pass(candidate, pages=50, searches=10, model_turns=18),
             {
                 "status": "failed", "progress": "Research stopped", "usage": usage,
-                "error": f"Research exhausted its {budget.replace('_', ' ')} budget.",
+                "error": error,
                 "report": unreviewed.model_dump(mode="json"),
                 "sources": [source.model_dump(mode="json") for source in unreviewed.sources],
             },
@@ -549,13 +556,19 @@ def test_follow_up_budget_failure_preserves_only_reviewed_report_and_usage(tmp_p
 
 
 @pytest.mark.parametrize("prior_candidates", [False, True])
-def test_first_pass_budget_failure_cannot_promote_unreviewed_candidates(tmp_path, prior_candidates):
+@pytest.mark.parametrize("error", [
+    "Research exhausted its pages budget.",
+    "Research exhausted its input context budget. Saved evidence is available.",
+])
+def test_first_pass_budget_failure_cannot_promote_unreviewed_candidates(
+    tmp_path, prior_candidates, error,
+):
     async def scenario():
         repository = await SQLiteRunRepository.open(tmp_path / "runs.sqlite")
         candidate = accepted_candidate()
         agent = PassAgent([{
             **completed_pass(candidate, pages=60), "status": "failed",
-            "error": "Research exhausted its pages budget.",
+            "error": error,
         }])
 
         def seed(run):
@@ -579,7 +592,7 @@ def test_first_pass_budget_failure_cannot_promote_unreviewed_candidates(tmp_path
     asyncio.run(scenario())
 
 
-@pytest.mark.parametrize("budget,limit", [("searches", 30), ("pages", 60), ("model_turns", 30)])
+@pytest.mark.parametrize("budget,limit", [("searches", 60), ("pages", 200), ("model_turns", 60)])
 @pytest.mark.parametrize("extra", [0, 1])
 def test_spent_budget_prevents_follow_up_despite_reviewer_queries(tmp_path, budget, limit, extra):
     async def scenario():
@@ -599,7 +612,7 @@ def test_spent_budget_prevents_follow_up_despite_reviewer_queries(tmp_path, budg
 
 
 @pytest.mark.parametrize("reviewed", [False, True])
-@pytest.mark.parametrize("budget,limit", [("searches", 30), ("pages", 60), ("model_turns", 30)])
+@pytest.mark.parametrize("budget,limit", [("searches", 60), ("pages", 200), ("model_turns", 60)])
 def test_new_dispatch_is_gated_by_all_worker_usage_limits(tmp_path, reviewed, budget, limit):
     async def scenario():
         repository = await SQLiteRunRepository.open(tmp_path / "runs.sqlite")
@@ -624,10 +637,39 @@ def test_new_dispatch_is_gated_by_all_worker_usage_limits(tmp_path, reviewed, bu
     asyncio.run(scenario())
 
 
+@pytest.mark.parametrize("budget,old_limit,new_limit", [
+    ("searches", 30, 60), ("pages", 60, 200), ("model_turns", 30, 60),
+])
+def test_follow_up_can_use_increased_budget_past_the_old_limit(
+    tmp_path, budget, old_limit, new_limit,
+):
+    async def scenario():
+        repository = await SQLiteRunRepository.open(tmp_path / "runs.sqlite")
+        candidate = accepted_candidate()
+        agent = PassAgent([
+            completed_pass(candidate, **{budget: old_limit}),
+            completed_pass(candidate, **{budget: new_limit}),
+        ])
+        try:
+            result, models = await execute_passes(repository, tmp_path, agent)
+            assert result.status == "completed"
+            assert len(agent.submissions) == 2
+            assert agent.submissions[1]["usage"] == {budget: old_limit}
+            assert result.usage == {budget: new_limit}
+            assert result.pass_number == 2
+            assert models.calls == [Review, Review]
+            assert BUDGET_GAP in result.report.gaps
+        finally:
+            await repository.close()
+
+    asyncio.run(scenario())
+
+
 @pytest.mark.parametrize("status,error,expected", [
     ("failed", "Respan authentication failed; check the runtime secret", "failed"),
     ("failed", "Research reached its deadline. Saved evidence is available for retry.", "failed"),
     ("failed", "Provider budget or credentials failed; retry later.", "failed"),
+    ("failed", "Research exhausted its input context budget. Invalid credentials.", "failed"),
     ("cancelled", "Research exhausted its pages budget.", "cancelled"),
 ])
 def test_follow_up_authentication_deadline_and_cancellation_are_not_budget_fallbacks(
@@ -637,13 +679,13 @@ def test_follow_up_authentication_deadline_and_cancellation_are_not_budget_fallb
         repository = await SQLiteRunRepository.open(tmp_path / "runs.sqlite")
         agent = PassAgent([
             completed_pass(accepted_candidate(), pages=50),
-            {"status": status, "error": error, "progress": "Stopped", "usage": {"pages": 60}},
+            {"status": status, "error": error, "progress": "Stopped", "usage": {"pages": 200}},
         ])
         try:
             result, models = await execute_passes(repository, tmp_path, agent)
             assert result.status == expected
             assert len(result.report.leads) == 1
-            assert result.usage == {"pages": 60}
+            assert result.usage == {"pages": 200}
             expected_error = error if expected == "failed" else "Research cancelled by the user"
             assert result.error == expected_error
             assert BUDGET_GAP not in result.report.gaps
@@ -671,13 +713,13 @@ def test_recovered_follow_up_inspects_existing_terminal_task_even_with_spent_bud
         run.report = accepted_candidate()
         run.pass_number = 1
         run.task_id = f"{run.id}-1"
-        run.usage = {"pages": 60}
+        run.usage = {"pages": 200}
         await repository.save(run)
         await repository.close()
         repository = await SQLiteRunRepository.open(tmp_path / "runs.sqlite")
         agent = FakeAgent({
             "status": "failed", "error": error, "progress": "Stopped",
-            "usage": {"pages": 60, "model_turns": 25},
+            "usage": {"pages": 200, "model_turns": 25},
             "sources": [run.report.sources[0].model_copy(update={
                 "text": "The failed worker supplied replacement text without any prior quotation.",
             }).model_dump(mode="json")],
@@ -692,7 +734,7 @@ def test_recovered_follow_up_inspects_existing_terminal_task_even_with_spent_bud
             assert result.status == expected
             assert result.report.sources == run.report.sources
             assert result.report.leads[0].signals == run.report.leads[0].signals
-            assert result.usage == {"pages": 60, "model_turns": 25}
+            assert result.usage == {"pages": 200, "model_turns": 25}
             assert set(agent.lookups) == {run.task_id}
             assert agent.submissions == []
             assert models.calls == []

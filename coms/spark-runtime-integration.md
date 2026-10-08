@@ -119,6 +119,40 @@ the provider committed it.
   60-page budget. Its original failure and evidence remain unchanged. A follow-up
   budget handling fix and bounded acceptance requests are being verified.
 
-Continuous automation, CRM writes, outbound messages, and private client dataset
-access are outside these research acceptance runs. Explicit company-only
-requests can bound the target count and disable contact enrichment.
+## Requested model and prospecting update
+
+The next application release uses `gpt-5-mini` through Respan for planning,
+review, chat routing, research and contact research. A live EC2 gateway probe
+returned `gpt-5-mini-2025-08-07` successfully. Worker and coordinator limits are
+now 60 searches, 200 retrieved-page slots and 60 model turns per run, still
+cumulative across follow-up passes and bounded by the ten-minute deadline.
+Reviewed findings survive a later usage-budget failure with an explicit report
+gap. Historical failed runs are not relabeled.
+
+HubSpot identity and permission verification on October 8 UTC:
+
+- Scalekit account `ca_146541202500485386`, connection
+  `conn_146541157638209802`, named `hubspot` / `curran@toirinc.com`, is ACTIVE.
+- The authenticated read-only `/integrations/v1/me` proxy returned ToirInc
+  portal `247630342`. Real company/contact search calls returned 34 companies
+  and 43 contacts; no customer record contents were copied into this handoff.
+- HubSpot's [connected-app grant screen](https://app-na2.hubspot.com/connected-apps/247630342/installed/basic/40203579/overview)
+  for “Scalekit Test Account” explicitly grants company and contact View and
+  Create/delete/change permissions. These match the connection's mandatory
+  company/contact read/write scopes; optional scopes are empty. All eleven
+  required connector tools are available.
+- This evidence supports `SCALEKIT_HUBSPOT_WRITE_SCOPES_VERIFIED=true` in the
+  project deployment manifest. It is permission attestation, not evidence of
+  a successful CRM write. No CRM records were changed during verification.
+
+The user has now requested continuous prospecting for the demo. Activation is
+pending the smaller-model rollout; the persisted settings currently permit ten
+discovery batches and 25 company enrichments daily. CRM mutations still require
+explicit proposal approval. Outbound messages and private client dataset access
+remain outside this rollout.
+
+Brain code on `main` also selects GPT-5 mini for its text LLM stages, synthesis
+and judging; its embedding model remains `nemotron-embed`. The live Spark
+model switch requires a quiet patch/restart window because another engineer is
+actively editing that checkout. Do not confuse the committed model policy with
+the model already loaded by the running Spark process.

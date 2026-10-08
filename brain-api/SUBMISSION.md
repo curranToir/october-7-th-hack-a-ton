@@ -55,12 +55,12 @@ Toir Inc is (role-played as) an FDE shop embedded with three clients: Acme Logis
 - Agent(s) and the task each performs:
   - Curran's orchestrator (LangGraph coordinator + workers) calls `/recall` for briefs and triage, opens issues via Scalekit, and syncs accepted prospecting research into `toir-pipeline` via `/remember/research`.
   - The brain itself answers `/recall`.
-- LLM calls routed through the Respan gateway? Yes: Cognee extraction/completion and answer synthesis use `claude-haiku-4-5`; the judge uses `gpt-5-mini`.
+- LLM calls routed through the Respan gateway? Yes: current code uses `gpt-5-mini` for Cognee extraction/completion, answer synthesis and the judge. Historical evaluation evidence below retains the model configuration used when those runs were recorded.
 - How the runs are traced: `respan-ai` SDK. `@workflow("brain.recall")`, `@task` spans for pull, remember and synthesis, and `@workflow("eval.scenario")` per scenario with `scenario_id`, `run_label`, `expected` and `output` attributes.
 - Scenario file: `brain-api/eval/scenarios.json` (14 scenarios: 9 qa, 4 access, 1 grant, 2 action)
 - Evaluator:
   - Deterministic Python checks: every `must_mention` present, no `must_not_mention` leak, `expected_sources` ⊆ returned `source:*` tags.
-  - LLM judge `gpt-5-mini` at temperature 0 via the Respan gateway.
+  - LLM judge `gpt-5-mini` with low reasoning and an 8,192 completion-token budget via the Respan gateway; no temperature parameter.
   - Neither is the agent.
 - Code entry point: `brain-api/eval/run.py`
 
@@ -119,7 +119,7 @@ Slack ─┐  GitHub ─┐  HubSpot ─┐            (Scalekit connected accou
                                         ▼
         Curran's coordinator (AWS K3s, over Tailscale, static bearer) ── triage/brief agents ── Scalekit write actions
                                         │
-                     Respan: gateway (Haiku, gpt-5-mini) · traces (brain.recall, eval.scenario) · judge
+                     Respan: gateway (gpt-5-mini) · traces (brain.recall, eval.scenario) · judge
 ```
 
 Access is enforced twice: by Scalekit (what each user's token can read) and by Cognee dataset permissions (what each user can recall).

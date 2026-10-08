@@ -43,6 +43,7 @@ test("readiness reports missing credential names and health remains available", 
   expect((await app.fetch(new Request("http://c/health"))).status).toBe(200);
   expect((await app.fetch(new Request("http://c/ready"))).status).toBe(503);
   const caps = await (await app.fetch(new Request("http://c/v1/capabilities"))).json();
+  expect(caps.limits).toMatchObject({ searches: 60, pages: 200, model_turns: 60, deadline_seconds: 600, active_tasks: 1 });
   expect(caps.missing_credentials).toEqual(["RESPAN_API_KEY"]);
   expect(caps.limits.contacts).toBe(5);
   expect((await app.fetch(post(fixture().task))).status).toBe(503);
@@ -155,7 +156,7 @@ test("actual OMP SDK constructs contact-only prompt with exactly the three Exa t
   const { task, sources } = fixture();
   const signal = new AbortController().signal;
   const runtime = await createRestrictedSession(task, { budget: new Budget({}, task.deadline_at, signal), sources, signal, progress: () => {} },
-    { execute: async () => { throw Error("No paid tool calls allowed"); } }, "fake-test-key", "gpt-5.4",
+    { execute: async () => { throw Error("No paid tool calls allowed"); } }, "fake-test-key", "gpt-5-mini",
     { systemPrompt: CONTACT_SYSTEM, agentName: "toir-contacts" });
   try {
     expect(runtime.session.agent.state.model.provider).toBe("respan");
@@ -167,15 +168,17 @@ test("actual OMP loop uses the restricted Respan gateway and shared budget with 
   const { task, sources, report } = fixture();
   const original = globalThis.fetch;
   let calls = 0;
+  const payloads: unknown[] = [];
   const fake = async (input: any, init: any) => {
     expect(String(input instanceof Request ? input.url : input)).toBe("https://api.respan.ai/api/chat/completions");
     const body = JSON.parse(init.body);
+    payloads.push(body);
     expect(body.tools.map((tool: any) => tool.function.name).sort()).toEqual(["exa_crawl", "exa_find_similar", "exa_search"]);
     expect(JSON.stringify(body.messages)).toContain("contact-research execution agent");
     const first = calls++ === 0;
     const delta = first ? { role: "assistant", tool_calls: [{ index: 0, id: "call_exa", type: "function", function: { name: "exa_search", arguments: JSON.stringify({ query: "Example Jane Smith current CTO" }) } }] }
       : { role: "assistant", content: JSON.stringify(report) };
-    const chunk = (choices: unknown[], extra = {}) => ({ id: "test", object: "chat.completion.chunk", created: 1, model: "gpt-5.4", choices, ...extra });
+    const chunk = (choices: unknown[], extra = {}) => ({ id: "test", object: "chat.completion.chunk", created: 1, model: "gpt-5-mini", choices, ...extra });
     return new Response([
       chunk([{ index: 0, delta, finish_reason: null }]),
       chunk([{ index: 0, delta: {}, finish_reason: first ? "tool_calls" : "stop" }]),
@@ -191,6 +194,11 @@ test("actual OMP loop uses the restricted Respan gateway and shared budget with 
     } }, "fake-test-key")(task, { budget, sources, signal, progress: () => {} });
     expect(finalizeReport(output, task, sources).contacts).toHaveLength(1);
     expect(calls).toBe(2);
+    for (const payload of payloads) {
+      expect(payload).toMatchObject({model: "gpt-5-mini", max_completion_tokens: 16384, reasoning_effort: "low"});
+      expect(payload).not.toHaveProperty("temperature");
+      expect(payload).not.toHaveProperty("max_tokens");
+    }
     expect(budget.usage.model_turns).toBe(2);
     expect(budget.usage.input_tokens).toBe(200);
     expect(budget.usage.searches).toBe(1);

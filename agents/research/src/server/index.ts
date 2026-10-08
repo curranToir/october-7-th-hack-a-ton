@@ -1,3 +1,4 @@
+import { MODEL_CONFIG } from "../research/limits";
 import { createApp } from "./app";
 import { ompHarness } from "../harness/omp";
 import { missingCredentials, scalekitTransport } from "../tools/scalekit";
@@ -10,7 +11,7 @@ const app = createApp({
     ompHarness(
       scalekitTransport(),
       process.env.RESPAN_API_KEY!,
-      process.env.RESPAN_MODEL || "gpt-5.4",
+      process.env.RESPAN_MODEL || MODEL_CONFIG.id,
     )(task, context),
 });
 const server = Bun.serve({

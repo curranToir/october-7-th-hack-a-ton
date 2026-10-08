@@ -24,6 +24,9 @@ from opentelemetry import trace
 from respan import Respan, respan_span_attributes, workflow
 
 ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, str(ROOT.parent))
+from brain.model_config import GATEWAY, JUDGE_COMPLETION_TOKENS, completion_parameters  # noqa: E402
+
 load_dotenv(ROOT.parent / ".env")
 CHANGE = "Added HubSpot (CRM: deals, contacts, SOW notes) as a third Scalekit source."
 
@@ -78,11 +81,8 @@ def judge(scenario: dict, answer: str) -> dict:
     key = os.environ.get("RESPAN_API_KEY")
     if not key:
         raise ValueError("RESPAN_API_KEY is missing from brain-api/.env")
-    response = post_json("https://api.respan.ai/api/chat/completions", {
-        "model": os.environ.get("JUDGE_MODEL", "gpt-5-mini"),
-        "temperature": 0,
-        "max_tokens": 2048,
-        "reasoning_effort": "low",
+    response = post_json(f"{GATEWAY}/chat/completions", {
+        **completion_parameters("JUDGE_MAX_COMPLETION_TOKENS", JUDGE_COMPLETION_TOKENS),
         "response_format": {"type": "json_object"},
         "messages": [
             {"role": "system", "content": (

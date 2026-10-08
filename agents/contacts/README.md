@@ -25,7 +25,7 @@ Use `python -m agents.contacts.contracts.export` after changing the coordinator'
 `PORT` defaults to 8000. Required credentials: `RESPAN_API_KEY`,
 `SCALEKIT_ENVIRONMENT_URL`, `SCALEKIT_CLIENT_ID`, `SCALEKIT_CLIENT_SECRET`.
 `SCALEKIT_CONNECTION_NAME` defaults to `exa`; `SCALEKIT_ACCOUNT_ID` to `toir`;
-`RESPAN_MODEL` to `gpt-5.4`. Never configure a CRM connector on this worker.
+`RESPAN_MODEL` to `gpt-5-mini`. Never configure a CRM connector on this worker.
 
 `POST /v1/tasks` returns 202, or 200 for a retained task with an identical canonical
 payload. A reused ID with different contents or a second concurrent task returns 409.
@@ -34,7 +34,7 @@ the validated final report. `POST /v1/tasks/{id}/cancellation` requests cancella
 Retained history is bounded to 20 tasks; unknown/lost tasks return 404 and require an
 explicit coordinator retry. The service never replays work after restarting.
 
-Each task is capped at 30 searches, 60 pages, 30 model turns and ten minutes from
+Each task is capped at 60 searches, 200 pages, 60 model turns and ten minutes from
 dispatch, including carried usage. Failed provider attempts consume budgets. Resolve
 mode never returns contacts, and conflicting company identities become candidates.
 Enrich requires a selected company. The host validates source quotes, company/name/role
@@ -49,3 +49,7 @@ SIGTERM/SIGINT reject new work, cancel active research and flush tracing.
 
 Tests use the real restricted OMP session and a fake Respan stream/Scalekit transport;
 they make no paid model, search or CRM calls.
+
+Both workers share `agents/research/src/research/limits.ts`. Respan Chat Completions uses low reasoning and `max_completion_tokens=16384`, without `temperature` or legacy `max_tokens`. The application configures a conservative 272,000-token context ceiling; [GPT-5 mini](https://developers.openai.com/api/docs/models/gpt-5-mini) supports a 400,000-token context, 272,000-token maximum input, and 128,000-token maximum output. The tool response includes current remaining budgets so the model can reserve its final report turn. Retrieved evidence remains capped at 100 unique sources and 12,000 characters per source; terminal task retention remains 20.
+
+The worker sends model-only source excerpts of up to 4,000 characters, including windows around headcount, leadership and buying-signal evidence, plus verified quotes needed by prior findings. The trusted evidence registry retains the original retrieved text. The SDK tokenizer requests a final report without tools at 220,000 input tokens and blocks requests above 264,000, leaving room for provider framing below the configured 272,000-token ceiling.

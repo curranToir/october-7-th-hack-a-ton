@@ -177,7 +177,7 @@ export class ExaTools {
     }
   }
   search(query: string) {
-    const count = Math.min(5, 60 - this.budget.usage.pages);
+    const count = Math.min(5, this.budget.remaining().pages);
     if (count < 1)
       throw new ResearchError("budget", "Research exhausted its pages budget.");
     return this.call(
@@ -194,7 +194,7 @@ export class ExaTools {
     );
   }
   similar(url: string) {
-    const count = Math.min(5, 60 - this.budget.usage.pages);
+    const count = Math.min(5, this.budget.remaining().pages);
     if (count < 1)
       throw new ResearchError("budget", "Research exhausted its pages budget.");
     return this.call(

@@ -447,7 +447,7 @@
                   },
                   {
                     "name": "RESPAN_MODEL",
-                    "value": "gpt-5.4"
+                    "value": "gpt-5-mini"
                   },
                   {
                     "name": "RESPAN_BASE_URL",
@@ -471,7 +471,7 @@
                   },
                   {
                     "name": "SCALEKIT_HUBSPOT_WRITE_SCOPES_VERIFIED",
-                    "value": "false"
+                    "value": "true"
                   }
                 ],
                 "envFrom": [
@@ -846,7 +846,7 @@
                   },
                   {
                     "name": "RESPAN_MODEL",
-                    "value": "gpt-5.4"
+                    "value": "gpt-5-mini"
                   },
                   {
                     "name": "RESPAN_BASE_URL",
@@ -1056,7 +1056,7 @@
                   },
                   {
                     "name": "RESPAN_MODEL",
-                    "value": "gpt-5.4"
+                    "value": "gpt-5-mini"
                   },
                   {
                     "name": "RESPAN_BASE_URL",
