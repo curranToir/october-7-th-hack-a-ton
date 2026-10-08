@@ -1,4 +1,4 @@
-# brain-api: current status (Jared, 16:55 PT)
+# brain-api: current status (Jared, 17:20 PT)
 
 This file is the current source of truth for the Spark side. It supersedes the
 status table in `brain-api-response.md`, which is now historical.
@@ -17,8 +17,13 @@ status table in `brain-api-response.md`, which is now historical.
   - HubSpot: 5 companies, 5 deals, 8 contacts, 10 notes (the SOW/contract text).
   - Source of truth: `brain-api/seed/world.json`. Scenarios:
     `brain-api/eval/scenarios.json` (14).
-- **Before pull running** (Slack + GitHub), followed by eval `before`, then the
-  HubSpot pull and eval `after`. Scores will be posted here.
+- **Eval done** (`brain-api/eval/results/`): before (Slack + GitHub) **4/11** pass, judge mean 0.48 →
+  after (+ HubSpot) **11/11**, judge mean 0.64. Grant scenario s11: PASS. Named change: *Added HubSpot
+  (CRM: deals, contacts, SOW notes) as a third Scalekit source.* The 2 action scenarios wait on your agent endpoint.
+- **Access demo** verified live: `brain-api/demo.sh` (ask → withheld → grant `acme-eng` → answered, commercial
+  still withheld → revoke).
+- **Submission draft**: `brain-api/SUBMISSION.md`, for you to submit (PR to topoteretes/cognee-hackathons or hand
+  the link to organizers). Please swap in real Respan trace links.
 
 ## Decisions since the last table
 
@@ -28,7 +33,7 @@ status table in `brain-api-response.md`, which is now historical.
 | Access story | Enforced by Cognee dataset ACLs (per-client eng/commercial datasets) plus GitHub repo access (you are a collaborator only on `globex-clinical-rag` and `toir-playbooks`). Demo: you ask about Acme → `withheld` → Jared runs `/grant acme-eng` → answered, while `acme-commercial` stays withheld. |
 | HubSpot | Pulled with your `hubspot` connection (ACTIVE). Jared doesn't need a HubSpot invite. |
 | GitHub | Connection `github-connect`. Pulls fall back to Jared's account until yours is ACTIVE. |
-| `/remember/research` | Accepts any known `as_user`. Documents always land in `toir-pipeline`, owned by Jared, one document per lead with its cited source text. Idempotency: the same `run_id` + report produce byte-identical documents, which Cognee's content-hash incremental loading should skip (not yet exercised). Read access for a second identity is one call: `POST /grant {"owner":"jared@neptuneops.com","grantee":"<email>","dataset":"toir-pipeline"}`. |
+| `/remember/research` | **Ready per your `prospecting-contract.md` handshake.** `GET /capabilities` → `{"research_idempotency":true,"research_writers":["curran@toirinc.com","jared@neptuneops.com"]}`. `/access/{user}.readable` includes `toir-pipeline` for both users (Curran has read+write). Requires `Idempotency-Key` == `report.ingestion_id` (400 `idempotency_key_required` / `idempotency_key_mismatch`). Writes as the requesting user, never substituted. Retries return the stored ack `{"dataset":"toir-pipeline","documents":n,"ingestion_id":key}` without re-ingesting. Empty report → 400 `empty_report`. Verified live, including retry after restart; test data removed. |
 
 ## Asks for Curran
 
@@ -38,6 +43,4 @@ status table in `brain-api-response.md`, which is now historical.
 2. **Triage agent endpoint** for the 2 action scenarios. Input:
    `POST {"as_user","request"}`. Response JSON must include `"action": {"tool","repo","assignee","labels"}`.
    Tell us the URL here.
-3. `brain-api-response.md` links `prospecting-implementation.md`, but that file
-   is not in the repo. If it holds requirements for us (e.g. "both sales
-   identities"), please push it and name the second identity's email.
+3. **Submit** `brain-api/SUBMISSION.md` before 18:00, with real Respan trace links.
