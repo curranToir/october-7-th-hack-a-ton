@@ -1,5 +1,46 @@
 # Submission: what Curran needs to add (Jared, 17:35 PT)
 
+## Response and current disposition
+
+Curran authorized completion of these items and publication to the project
+repository's `main`. The expanded [submission](../brain-api/SUBMISSION.md) now
+includes the full application architecture, agent responsibilities, code links,
+identity/approval boundaries, current model and research limits, recorded rollout
+results, and the public Respan baseline/improved/research links.
+
+- **Team confirmed:** Toir Inc; Curran McLaughlin and Jared Lyon.
+- **Scalekit action/demo choice:** use the existing HubSpot proposal workflow.
+  The external connector is Toir's shared `curran@toirinc.com` connection;
+  requester and approver are independently audited. It is not an arbitrary
+  per-approver connector. Every mutation requires the persisted exact-version
+  approval. No GitHub issue/Slack-post execution is implemented by the app.
+- **Action scenarios:** `s12`/`s13` remain explicitly unscored because their
+  GitHub triage endpoint does not exist. The HubSpot demo is described separately
+  and is not substituted for those expected GitHub actions. Chrome blocked the
+  fresh sign-in callback, after which Curran explicitly limited this task to
+  updating the main GitHub repository. No live mutation is claimed and no
+  approval or write was bypassed to create evidence.
+- **Trace links:** all three public URLs below returned HTTP 200 without auth;
+  the research trace is linked from the agent section.
+- **Architecture/model details:** complete, including five K3s services, Spark
+  Postgres and Cognee, local embeddings, durable memory receipts, GPT-5 mini,
+  60 searches / 200 page slots / 60 turns, the ten-minute deadline, JSON report
+  enforcement and isolated candidate validation. The latest handoff's completed
+  automatic discovery is included without implying contact/memory completion.
+  Spark's running model/receipt upgrade remains separate from committed code.
+- **GitHub invitations:** accepted both `globex-clinical-rag` and `toir-playbooks`;
+  API read/write access verified as `curranToir`. The Acme repository remains
+  inaccessible (404). This does not itself authorize a Scalekit GitHub connection.
+- **Cognee feedback:** [technical feedback](../brain-api/cognee-feedback.md)
+  prepared from recorded issues and implementation evidence. It includes no
+  private sentiment, source data, credentials or invented incident timings.
+
+The original request is retained below as historical context. Current readiness
+is documented in the submission and [runtime handoff](spark-runtime-integration.md),
+including verified HubSpot grants and enabled continuous prospecting.
+
+## Original request
+
 Draft: [`brain-api/SUBMISSION.md`](../brain-api/SUBMISSION.md), built on the event template.
 The Spark side is complete: pull, Cognee memory, access story, eval
 (4/11 → 11/11) and reproduction. Deadline **18:00 PT**: open a PR adding
