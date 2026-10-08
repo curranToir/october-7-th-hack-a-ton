@@ -12,12 +12,13 @@ from cognee.modules.users.methods import create_user, get_user_by_email
 from cognee.modules.data.methods import create_authorized_dataset, get_authorized_existing_datasets, has_dataset_data
 from cognee.modules.users.permissions.methods import authorized_give_permission_on_datasets, authorized_revoke_permission_on_datasets
 from cognee.modules.search.types import SearchType
-from .registry import DATASETS, USERS, LEAD, ENG, user_name, dataset_name, withheld, sources_in, document
+from .registry import DATASETS, INITIAL_GRANTS, USERS, LEAD, ENG, user_name, dataset_name, withheld, sources_in, document
 from .graph_model import CompanyGraph, EXTRACTION_PROMPT
 
 # ponytail: one process-local lock; move to a dedicated writer only if throughput requires it.
 writer_lock = asyncio.Lock()
 _users = {}
+RESEARCH_INGESTIONS = config.ROOT / "data" / "research_ingestions.json"
 
 async def ensure_users():
     if _users:
@@ -49,7 +50,11 @@ async def access(email):
     return {"readable": sorted(ds.name for ds in datasets), "owned": sorted(ds.name for ds in datasets if DATASETS[ds.name].owner == email)}
 
 async def apply_initial_grants():
-    await grant(LEAD, ENG, "toir-firm")
+    await ensure_users()
+    for dataset, grantee, permission_name in INITIAL_GRANTS:
+        owner = _users[DATASETS[dataset].owner]
+        ds = await get_authorized_existing_datasets([dataset], "share", owner)
+        await authorized_give_permission_on_datasets(_users[grantee].id, [ds[0].id], permission_name, owner.id)
 
 async def grant(owner, grantee, dataset):
     return await permission(owner, grantee, dataset, False)
@@ -70,14 +75,20 @@ async def permission(owner, grantee, dataset, revoke):
     return {"readable": (await access(grantee))["readable"]}
 
 @task(name="brain.remember")
-async def remember_docs(dataset, docs):
+async def remember_docs(dataset, docs, as_user=None):
     dataset_name(dataset)
     await ensure_users()
     owner = _users[DATASETS[dataset].owner]
+    user = _users[user_name(as_user)] if as_user is not None else owner
+    datasets = await get_authorized_existing_datasets([dataset], "share", owner)
+    writable = await get_authorized_existing_datasets([datasets[0].id], "write", user)
+    if not writable:
+        raise PermissionError("not_dataset_writer")
+    dataset_id = writable[0].id
     for doc in docs:
-        await cognee.remember(doc["text"], dataset_name=dataset, user=owner, node_set=doc["node_set"], graph_model=CompanyGraph, custom_prompt=EXTRACTION_PROMPT, self_improvement=False, run_in_background=False)
+        await cognee.remember(doc["text"], dataset_name=dataset, dataset_id=dataset_id, user=user, node_set=doc["node_set"], graph_model=CompanyGraph, custom_prompt=EXTRACTION_PROMPT, self_improvement=False, run_in_background=False)
     if docs:
-        await cognee.improve(dataset=dataset, user=owner, session_ids=[])
+        await cognee.improve(dataset=dataset_id, user=user, session_ids=[])
     await apply_initial_grants()
     return len(docs)
 
@@ -150,8 +161,7 @@ async def forget(email, dataset=None):
         await cognee.forget(dataset_id=ds.id, user=_users[email])
     return {"forgotten": sorted(ds.name for ds in datasets)}
 
-async def remember_research(email, run_id, report):
-    user_name(email)
+def research_documents(run_id, report):
     leads = report.get("leads")
     if not isinstance(leads, list):
         leads = [report]
@@ -171,10 +181,41 @@ async def remember_research(email, run_id, report):
         citations(lead)
         cited = [sources[source_id] for source_id in sorted(cited_ids) if source_id in sources]
         title = str(lead.get("company", lead.get("name", lead.get("title", f"Lead {i + 1}")))) if isinstance(lead, dict) else f"Lead {i + 1}"
-        body = json.dumps({"lead": lead, "cited_sources": cited}, ensure_ascii=False, indent=2)
+        body = json.dumps({"lead": lead, "sources": report.get("sources", []), "cited_sources": cited}, ensure_ascii=False, indent=2)
         docs.append(document("research", run_id, "toir-pipeline", title, cited[0].get("url", "") if cited else "", body))
-    count = await remember_docs("toir-pipeline", docs)
-    return {"dataset": "toir-pipeline", "documents": count}
+    return docs
+
+def save_research_ingestions(acknowledgements):
+    RESEARCH_INGESTIONS.parent.mkdir(parents=True, exist_ok=True)
+    temporary = RESEARCH_INGESTIONS.with_suffix(".json.tmp")
+    with temporary.open("w", encoding="utf-8") as stream:
+        json.dump(acknowledgements, stream, ensure_ascii=False)
+        stream.flush()
+        os.fsync(stream.fileno())
+    temporary.replace(RESEARCH_INGESTIONS)
+    directory = os.open(RESEARCH_INGESTIONS.parent, os.O_RDONLY)
+    try:
+        os.fsync(directory)
+    finally:
+        os.close(directory)
+
+async def remember_research(email, run_id, report, ingestion_id):
+    user_name(email)
+    try:
+        acknowledgements = json.loads(RESEARCH_INGESTIONS.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        acknowledgements = {}
+    if ingestion_id in acknowledgements:
+        ack = acknowledgements[ingestion_id]
+        return {key: ack[key] for key in ("dataset", "documents", "ingestion_id")}
+    docs = research_documents(run_id, report)
+    if not docs:
+        raise ValueError("empty_report")
+    count = await remember_docs("toir-pipeline", docs, as_user=email)
+    ack = {"dataset": "toir-pipeline", "documents": count, "ingestion_id": ingestion_id}
+    acknowledgements[ingestion_id] = {**ack, "as_user": email}
+    save_research_ingestions(acknowledgements)
+    return ack
 
 async def graph(dataset):
     dataset_name(dataset)
@@ -188,3 +229,13 @@ async def graph(dataset):
         path = Path(folder) / "graph.html"
         await cognee.visualize_graph(destination_file_path=str(path), user=owner, dataset=dataset, include_session_events=False)
         return path.read_text()
+
+if __name__ == "__main__":
+    lead = {"company": "Check", "workflow": {"status": "research_only", "execution": "not_requested"},
+            "contacts": [{"citations": [{"source_id": "nested"}]}]}
+    sources = [{"id": "nested", "text": "Evidence"}, {"id": "other", "text": "Uncited evidence"}]
+    docs = research_documents("check", {"leads": [lead], "sources": sources})
+    stored = json.loads(docs[0]["text"].split("\n\n", 1)[1])
+    assert stored["lead"] == lead and stored["sources"] == sources
+    assert stored["cited_sources"] == [sources[0]]
+    assert research_documents("check", {"leads": []}) == []

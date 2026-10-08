@@ -22,6 +22,11 @@ DATASETS = {
     "globex-eng": Dataset("globex", "eng", ENG),
     "globex-commercial": Dataset("globex", "commercial", LEAD),
 }
+INITIAL_GRANTS = (
+    ("toir-firm", ENG, "read"),
+    ("toir-pipeline", ENG, "read"),
+    ("toir-pipeline", ENG, "write"),
+)
 SLACK = {"toir-general": "toir-firm", "acme-eng": "acme-eng", "acme-deal": "acme-commercial", "initech-eng": "initech-eng", "initech-deal": "initech-commercial", "globex-eng": "globex-eng", "globex-deal": "globex-commercial"}
 GITHUB = {"acme-agent-rollout": "acme-eng", "initech-evals": "initech-eng", "globex-clinical-rag": "globex-eng", "toir-playbooks": "toir-firm"}
 COMPANIES = {"Acme Logistics": "acme-commercial", "Globex Health": "globex-commercial", "Initech Finance": "initech-commercial"}

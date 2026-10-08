@@ -33,7 +33,13 @@ With the service running, use `POST /pull` with `{"as_user":"jared@neptuneops.co
 .venv/bin/python eval/run.py --label after
 ```
 
-Demo: ask ENG an Acme question using `POST /recall` (`mode=answer` or `context`). Unreadable client layers are listed in `withheld` without content, titles or counts. Grant `acme-eng` from LEAD to ENG with `POST /grant`, repeat the question, then `POST /revoke`. `acme-commercial` stays withheld. `GET /access/<email>` returns owned/readable datasets. `POST /remember/research` accepts either known actor and stores each cited lead report in `toir-pipeline` as its owner LEAD. `POST /forget` deletes only datasets owned by the requesting identity.
+Demo: ask ENG an Acme question using `POST /recall` (`mode=answer` or `context`). Unreadable client layers are listed in `withheld` without content, titles or counts. Grant `acme-eng` from LEAD to ENG with `POST /grant`, repeat the question, then `POST /revoke`. `acme-commercial` stays withheld. `GET /access/<email>` returns owned/readable datasets. `POST /forget` deletes only datasets owned by the requesting identity.
+
+`GET /capabilities` requires bearer auth and returns `{"research_idempotency":true,"research_writers":["curran@toirinc.com","jared@neptuneops.com"]}`.
+Both users can read/write `toir-pipeline`; `POST /remember/research` writes each lead as the actual `as_user`, preserving workflow, nested contacts/citations, and report sources.
+Send `Idempotency-Key` equal to `report.ingestion_id`; missing/mismatched keys return 400 (`idempotency_key_required`/`idempotency_key_mismatch`), and zero leads return 400 `empty_report`.
+Success returns `{"dataset":"toir-pipeline","documents":1,"ingestion_id":"<exact key>"}` (count varies); retries return the same acknowledgement without ingesting again.
+Acknowledgements persist atomically in `data/research_ingestions.json` under the single writer lock.
 
 CLI: `serve`, `pull --as-user EMAIL --sources ... [--from-recorded]`, `grant --owner EMAIL --grantee EMAIL --dataset NAME`, `access --user EMAIL`, `auth-links --user EMAIL`. Session ids are passed only to Cognee recall session memory, never to cognify.
 

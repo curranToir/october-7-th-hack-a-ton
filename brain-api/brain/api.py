@@ -40,7 +40,7 @@ private = APIRouter(dependencies=[Depends(bearer)])
 
 @app.exception_handler(ValueError)
 async def invalid(request: Request, error: ValueError):
-    if str(error) in {"unknown_user", "unknown_dataset", "unknown_source"}:
+    if str(error) in {"unknown_user", "unknown_dataset", "unknown_source", "empty_report"}:
         return JSONResponse(status_code=400, content={"detail": str(error)})
     return JSONResponse(status_code=500, content={"detail": "internal_error"})
 
@@ -131,6 +131,10 @@ async def recall(body: RecallRequest):
 async def access(user: str):
     return await memory.access(user)
 
+@private.get("/capabilities")
+async def capabilities():
+    return {"research_idempotency": True, "research_writers": sorted(memory.USERS)}
+
 @private.post("/grant")
 async def grant(body: PermissionRequest):
     async with memory.writer_lock:
@@ -147,9 +151,13 @@ async def forget(body: ForgetRequest):
         return await memory.forget(body.as_user, body.dataset)
 
 @private.post("/remember/research")
-async def research(body: ResearchRequest):
+async def research(body: ResearchRequest, idempotency_key: Annotated[str | None, Header()] = None):
+    if not idempotency_key:
+        raise HTTPException(400, "idempotency_key_required")
+    if idempotency_key != body.report.get("ingestion_id"):
+        raise HTTPException(400, "idempotency_key_mismatch")
     async with memory.writer_lock:
-        return await memory.remember_research(body.as_user, body.run_id, body.report)
+        return await memory.remember_research(body.as_user, body.run_id, body.report, idempotency_key)
 
 @app.get("/graph", response_class=HTMLResponse)
 async def graph(dataset: str):
