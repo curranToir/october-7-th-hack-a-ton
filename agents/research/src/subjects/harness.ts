@@ -1,5 +1,7 @@
 import { createRestrictedSession, type HarnessContext } from "../harness/omp";
+import { parseReportText } from "../harness/json-report";
 import { ResearchError } from "../research/budget";
+import { MODEL_CONFIG } from "../research/limits";
 import type { ToolTransport } from "../tools/scalekit";
 import {
   subjectReportSchema,
@@ -32,7 +34,7 @@ export type SubjectHarness = (
 export function subjectHarness(
   transport: ToolTransport,
   key: string,
-  modelID = "gpt-5.4",
+  modelID: string = MODEL_CONFIG.id,
 ): SubjectHarness {
   return async (task, context) => {
     const runtime = await createRestrictedSession(
@@ -70,16 +72,11 @@ export function subjectHarness(
         .filter((item) => item.type === "text")
         .map((item) => item.text)
         .join("");
-      try {
-        return JSON.parse(
-          body.replace(/^\s*```(?:json)?\s*/, "").replace(/\s*```\s*$/, ""),
-        );
-      } catch {
-        throw new ResearchError(
-          "report",
-          "Subject research returned invalid JSON; retry explicitly.",
-        );
-      }
+      return parseReportText(
+        body,
+        message.stopReason,
+        "Subject research",
+      ) as SubjectReport;
     } finally {
       await runtime.dispose();
     }

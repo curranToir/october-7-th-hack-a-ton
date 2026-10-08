@@ -1,7 +1,7 @@
 import { ResearchError } from "../research/budget";
 
 /** Accept one complete JSON value, optionally in one outer JSON fence. */
-export function parseReportText(body: string, stopReason: string, label: "Research" | "Contact research" = "Research"): unknown {
+export function parseReportText(body: string, stopReason: string, label: "Research" | "Contact research" | "Subject research" = "Research"): unknown {
   const trimmed = body.trim();
   const fence = /^```(?:json)?\s*\r?\n([\s\S]*?)\r?\n```$/i.exec(trimmed);
   const text = fence ? fence[1].trim() : trimmed;

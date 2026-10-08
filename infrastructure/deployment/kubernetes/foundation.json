@@ -1288,7 +1288,7 @@
                 "env": [
                   {
                     "name": "RESPAN_MODEL",
-                    "value": "gpt-5.4"
+                    "value": "gpt-5-mini"
                   }
                 ],
                 "envFrom": [

@@ -244,7 +244,7 @@ test("subject budget prevents seventh search before calling provider", () => {
   expect(() => budget.consume("searches")).toThrow("budget");
 });
 
-test("real subject OMP harness searches Exa with original professional identity context", async () => {
+test.each(["stop", "length"] as const)("real subject OMP harness uses Mini JSON mode and validates completion %s", async (stopReason) => {
   const originalFetch = globalThis.fetch;
   const sources = new Sources();
   const quote = "Jane Example is the product director of Acme UK in London.";
@@ -271,6 +271,13 @@ test("real subject OMP harness searches Exa with original professional identity 
       "https://api.respan.ai/api/chat/completions",
     );
     const body = JSON.parse(init.body);
+    expect(body.model).toBe("gpt-5-mini");
+    expect(body.reasoning_effort).toBe("low");
+    expect(body.max_completion_tokens).toBe(16384);
+    expect(body.response_format).toEqual({ type: "json_object" });
+    expect(body.max_tokens).toBeUndefined();
+    expect(body.temperature).toBeUndefined();
+    expect(body.input).toBeUndefined();
     expect(JSON.stringify(body)).toContain("Acme UK's product director");
     expect(JSON.stringify(body)).toContain(
       "no buying signal or sales qualification",
@@ -298,11 +305,11 @@ test("real subject OMP harness searches Exa with original professional identity 
       id: "test",
       object: "chat.completion.chunk",
       created: 1,
-      model: "gpt-5.4",
+      model: "gpt-5-mini",
       choices: [{ index: 0, delta, finish_reason: finish }],
     });
     return new Response(
-      [chunk(delta, null), chunk({}, first ? "tool_calls" : "stop")]
+      [chunk(delta, null), chunk({}, first ? "tool_calls" : stopReason)]
         .map((value) => `data: ${JSON.stringify(value)}\n\n`)
         .join("") + "data: [DONE]\n\n",
       { headers: { "Content-Type": "text/event-stream" } },
@@ -313,7 +320,7 @@ test("real subject OMP harness searches Exa with original professional identity 
   }) as typeof fetch;
   try {
     const abort = new AbortController();
-    const report = await subjectHarness(
+    const report = subjectHarness(
       {
         execute: async (name) => {
           expect(name).toBe("exa_search");
@@ -335,8 +342,14 @@ test("real subject OMP harness searches Exa with original professional identity 
         { searches: 6, pages: 12, model_turns: 8 },
       ),
     });
+    if (stopReason === "stop") {
+      expect(finalizeSubject(await report, sources).facts).toHaveLength(1);
+    } else {
+      // Closed JSON at the token limit is still an incomplete model response.
+      await expect(report).rejects.toThrow("completion=length");
+    }
     expect(searches).toBe(1);
-    expect(finalizeSubject(report, sources).facts).toHaveLength(1);
+    expect(calls).toBe(2);
   } finally {
     globalThis.fetch = originalFetch;
   }

@@ -12,7 +12,7 @@ const app = createApp({
     subjectHarness(
       scalekitTransport(),
       process.env.RESPAN_API_KEY!,
-      process.env.RESPAN_MODEL || "gpt-5.4",
+      process.env.RESPAN_MODEL || MODEL_CONFIG.id,
     )(task, context),
   harness: (task, context) =>
     ompHarness(
