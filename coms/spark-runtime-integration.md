@@ -121,7 +121,7 @@ the provider committed it.
 
 ## Requested model and prospecting update
 
-The next application release uses `gpt-5-mini` through Respan for planning,
+Application release `b9730136262d-7eae5ee824ee` uses `gpt-5-mini` through Respan for planning,
 review, chat routing, research and contact research. A live EC2 gateway probe
 returned `gpt-5-mini-2025-08-07` successfully. Worker and coordinator limits are
 now 60 searches, 200 retrieved-page slots and 60 model turns per run, still
@@ -146,13 +146,18 @@ HubSpot identity and permission verification on October 8 UTC:
   a successful CRM write. No CRM records were changed during verification.
 
 The user has now requested continuous prospecting for the demo. Activation is
-pending the smaller-model rollout; the persisted settings currently permit ten
+being verified after the smaller-model rollout; the persisted settings permit ten
 discovery batches and 25 company enrichments daily. CRM mutations still require
 explicit proposal approval. Outbound messages and private client dataset access
 remain outside this rollout.
 
 Brain code on `main` also selects GPT-5 mini for its text LLM stages, synthesis
 and judging; its embedding model remains `nemotron-embed`. The live Spark
-model switch requires a quiet patch/restart window because another engineer is
-actively editing that checkout. Do not confuse the committed model policy with
-the model already loaded by the running Spark process.
+model switch is explicitly deferred: the user instructed **keep Spark unchanged
+for now**. Its existing Cognee runtime remains on its loaded configuration;
+no Spark files, services or embeddings were changed. Do not confuse the committed
+model policy with the model already loaded by the running Spark process.
+
+The release passed all five Deployment readiness checks, API/coordinator and
+ingress probes, with zero pod restarts. Its pre-deployment PostgreSQL backup is
+`20261008T004829Z-6afb55a7e8be`.
