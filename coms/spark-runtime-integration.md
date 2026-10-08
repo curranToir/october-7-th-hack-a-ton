@@ -42,8 +42,11 @@ tailscale serve --bg --https=443 http://127.0.0.1:80
 tailscale serve status --json
 ```
 
-No Funnel/public ingress was enabled. EC2's AWS security group still has no
-inbound rules. SSM remains the administrative path. The Scalekit environment
+The integration rollout enabled no public application access. A separately
+merged meeting-agent rollout subsequently added a signed Recall-only Funnel
+listener on port 8443; see [meeting activation](../docs/meeting-agent.md). Private
+application HTTPS 443 and EC2's security group with no inbound rules remain
+unchanged. SSM remains the administrative path. The Scalekit environment
 has the exact HTTPS `/api/auth/callback` URL registered, alongside the existing
 localhost callback. Runtime `SALES_PUBLIC_URL` selects the HTTPS origin; use
 that origin for browser sign-in and writes.
@@ -166,8 +169,8 @@ strict citation checks, discard malformed candidates without fabricating values,
 and reject truncated or ambiguous final JSON. Combined worker validation passed
 65 tests and both TypeScript checks; the backend suite passed 385 tests with 46
 environment-dependent skips. Prospecting remains persisted as enabled during
-maintenance. Follow-up release `a32aea998053-7e85693a34ed` is live with all five
-pods Ready and zero restarts. Its pre-deployment PostgreSQL backup is
+maintenance. Follow-up release `a32aea998053-7e85693a34ed` passed with all five
+pods Ready and zero restarts before the separate six-pod meeting rollout. Its pre-deployment PostgreSQL backup is
 `20261008T010203Z-fd96eabeabc8`; maintenance is off and both the queued contact
 task and next discovery resumed. The exact discovery outbox
 `6ad532321b18028ee91b9963f09f66333fd327d2234c6107cc6c67015e47ee32`
@@ -186,13 +189,22 @@ and its evidence remain in history; one explicit retry will verify the patch.
 
 The fourth automatic discovery completed the live company-to-contact-to-CRM
 proposal flow under JSON mode: run `b6541022-c9f3-47a0-bb1e-5f3690c7a930`
-qualified PayNearMe with 15 retrieved sources and eight valid citations. Child
+returned PayNearMe with 15 retrieved sources and eight valid citations.
+Independent review found its headcount evidence insufficient to establish the
+20–1,000 employee ICP: the cited historical company blog says “100+”, which is
+a lower bound, not a current exact count or an upper bound. Child
 `97449f31-e74f-53eb-8e21-37f87ba135dc` completed with four verified contacts,
 19 sources and six valid citations. Proposal
-`79f4e705-b4c7-4c2a-87ef-ee5c4f482fad` is pending approval, with 23 proposed
-operations and no execution or approval decisions in the acceptance snapshot.
+`79f4e705-b4c7-4c2a-87ef-ee5c4f482fad` originally contained 23 proposed
+operations. It was corrected through the authenticated UI to version 3: the
+unsupported company headcount and description fields, company note and its
+dependent association are excluded. All four contact changes remain pending.
+Read-only verification confirmed `pending` / `not_started`, with no approval
+or execution for this proposal. Historical research still retains the original
+headcount and its overstated rationale; exclusion prevents that claim from
+being included in this pending CRM write, rather than rewriting history.
 These are actual agent results, separate from the ten concurrently added
-proposals. The legal-name follow-up passed 76 worker tests, both TypeScript
+demo proposals. The legal-name follow-up passed 76 worker tests, both TypeScript
 checks and eight downstream Python evidence checks.
 
 Evidence precision note: the Jazwares source states 700–800 employees. The
@@ -214,3 +226,43 @@ model policy with the model already loaded by the running Spark process.
 The release passed all five Deployment readiness checks, API/coordinator and
 ingress probes, with zero pod restarts. Its pre-deployment PostgreSQL backup is
 `20261008T004829Z-6afb55a7e8be`.
+
+
+## Combined six-pod release and exact delivery evidence
+
+The other engineer deployed `2b0d15355c55-fa3fc4ddf60d` and merged its meetings
+feature into `main` (`cb33208`). The next combined build preserves all six pods
+and the meeting provider configuration while applying the legal-name fix and
+GPT-5 mini to meeting analysis and subject research as well. The built release
+is `8133677f1ab4-adb0185c8185`, SHA256
+`adb0185c81855b9fc775b15ec879d54a441f15e6a81d0cae2b20900277d70e65`.
+Deployment is pending verification at this record's publication; the build alone
+does not establish activation. The deployment command uses
+`--expected-release 2b0d15355c55-fa3fc4ddf60d`; the exact check runs under the
+host deployment lock before configuration, draining, backup or image imports.
+Any intervening release aborts this rollout without application changes.
+
+Combined backend validation passed 505 tests (46 environment-dependent skips).
+Research/contact/subject validation passed 83 tests, followed by 11 focused
+Mini provider/final-JSON tests after the subject change. The deployment guard
+and runtime/release suites passed 54 tests. Meeting analysis uses the Respan
+gateway but its new feature has no cross-service root-span instrumentation;
+do not claim correlated meeting traces from the existing research trace proof.
+
+PayNearMe's persisted discovery and contact report each have a synced outbox,
+with the exact completed IDs independently found in Spark's existing legacy
+receipt ledger (`toir-pipeline`, one document each):
+
+- Discovery: `302a4a62252be2eec67ad4e70dd0bef9ec18cbe31495129b3b0ae66a2d74ccac`.
+- Contacts/proposal: `d8714f5c32e5d80198c8e054acd8387daf1baa8a8ac5c51b7d58ab84feb77a5f`.
+
+Its discovery trace `d627b7a272370297a0d518001c6c9757` recorded eight Mini
+model calls across coordinator and research. Contact trace
+`14a452b2b7be3bcfbcbf7f448dcffad4` recorded three Mini calls and a complete
+final response. Public source quotations and source IDs passed the deterministic
+citation audit; that check alone does not establish company qualification.
+A fifth discovery (`560415a4-dcd3-4bf9-a79b-b81a6ee948df`) returned zero accepted
+companies from 30 sources. Empty results are preserved as actual outcomes.
+
+The user reiterated that Spark must remain unchanged. None of this EC2 work
+alters its files, service configuration, loaded model or embeddings.
