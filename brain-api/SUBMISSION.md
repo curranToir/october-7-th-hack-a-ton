@@ -25,7 +25,7 @@ Toir Inc is (role-played as) an FDE shop embedded with three clients: Acme Logis
 - Connections created (`connection_name` → app): `slack` → Slack (Toir Inc workspace), `github-connect` → GitHub (org `Toir-FDE-Team`), `hubspot` → HubSpot
 - Tools called: `slack_list_channels`, `slack_list_users`, `slack_fetch_conversation_history`, `slack_get_conversation_replies`, GitHub issues/comments/PR/readme list tools, HubSpot company/deal/contact/note read tools
 - How users are identified: the Scalekit `identifier` **is** the Cognee user email. Each source container (channel / repo / company) routes to exactly one dataset with a fixed owner; the pull uses the owner's connected account when ACTIVE, otherwise the other user's.
-- Write-back actions: the triage agent (Curran's orchestrator) opens GitHub issues as the acting user via Scalekit `execute_tool`.
+- Write-back actions: Curran's coordinator writes HubSpot CRM records (company, contacts, notes, associations) through Scalekit as the approving user, and only after a persisted, version-specific approval. Opening GitHub issues as the user (engineering-request triage) is demonstrated live and is not yet scored.
 - Code entry point: `brain-api/brain/scalekit_pull.py`, `POST /pull`
 
 ### Remember — Cognee
@@ -69,7 +69,7 @@ Toir Inc is (role-played as) an FDE shop embedded with three clients: Acme Logis
 ### Baseline Run
 
 - Respan trace (public, scenario s01, before): https://api.respan.ai/api/3f37a437-bd40-4bcb-9e37-f5f2686d5622/traces/042daa65fe1d2060f8aacce699f5b112/. In the Respan platform: Observability → Logs → Traces, filter metadata `run_label=before` (traces appear under the name `workflow`).
-- Scenarios run: 11 (grant + 2 action scenarios run separately)
+- Scenarios run: 11. Grant scenario s11 was run separately after the grant. The 2 action scenarios (s12, s13) are not scored, because there is no agent endpoint yet; they are shown live.
 - Mean score: **4/11 pass**; judge mean 0.48; must-mention coverage 0.74
 - Worst scenario and why it failed:
 
