@@ -64,9 +64,8 @@ Respan or Recall.
 
 Use the [Recall us-west-2 dashboard](https://us-west-2.recall.ai/) with
 `curran@toirinc.com`. Account signup, email verification and any required account
-terms must be completed before creating credentials. No Recall account activation,
-live Zoom capture, webhook subscription or production deployment is implied by
-this code change.
+terms must be completed before creating credentials. The live workspace activation
+and its verified limits are recorded below.
 
 Current [Recall Zoom documentation](https://docs.recall.ai/docs/zoom-overview)
 supports standard Zoom meetings without a separate Zoom app setup. The host may
@@ -116,8 +115,7 @@ The callback origin for the existing node is
 The listener was activated and checked on October 7, 2026 (Los Angeles). Both
 public Funnel IPv4 relays answered from EC2, private HTTPS 443 remained
 tailnet-only, and public application/sign-in/workspace paths returned 404. This
-verifies the ingress boundary, not a completed Recall connection. Recall account
-signup and signed provider delivery still require their separate setup checks.
+verifies the ingress boundary; application and credential checks are recorded below.
 
 ```sh
 .venv/bin/python infrastructure/deployment/scripts/meeting_webhook.py setup
@@ -155,7 +153,7 @@ with `--bg` persists the configuration across reboot. The helper never uses
 | `MEETING_OWNER_EMAIL` | Coordinator | `curran@toirinc.com` |
 | `MEETING_GITHUB_REPOSITORY` | Coordinator | `curranToir/october-7-th-hack-a-ton` |
 | `MEETING_GITHUB_CONNECTION_NAME` | Coordinator | `github-connect`; explicit Scalekit connection selection |
-| `MEETING_GITHUB_ACCOUNT_ID` | Coordinator | `curran@toirinc.com`; must authorize GitHub in Scalekit |
+| `MEETING_GITHUB_ACCOUNT_ID` | Coordinator | `jared@neptuneops.com` in the deployed workspace, explicitly selected by Curran; GitHub actor `jaredlyon` |
 | `RECALL_REGION` | Coordinator | `us-west-2`; must match the credential workspace |
 | `RECALL_API_KEY` | Coordinator secret | Required to schedule bots |
 | `RECALL_WORKSPACE_VERIFICATION_SECRET` | Coordinator secret | Required `whsec_` signing key |
@@ -250,6 +248,44 @@ existing [local setup](../README.md#local-development).
 - Include `meeting_records` in full database backups. Rolling application code back
   does not roll back notes or decisions. There is no automatic meeting retention or
   provider recording deletion workflow in this implementation.
+
+## Verified live activation — October 7, 2026
+
+- Deployed release `2b0d15355c55-fa3fc4ddf60d`, retaining the latest research fixes
+  from main. All six application deployments and the operational verification
+  passed; the preceding release remains available for rollback.
+- Recall workspace `toirinc` in `us-west-2` is connected as `curran@toirinc.com`.
+  Its purpose-named **Toir customer meeting agent** key passed a read-only Recall
+  API request. The API key, workspace verification secret and endpoint Svix secret
+  are stored in `/<stack>/meetings-provider`; the temporary local copy was removed.
+- The dashboard endpoint is registered for ten events: `bot.joining_call`,
+  `bot.in_waiting_room`, `bot.in_call_recording`, `bot.in_call_not_recording`,
+  `bot.call_ended`, `bot.done`, `bot.fatal`, `transcript.done`, `transcript.failed`
+  and `recording.failed`. The application sets realtime delivery per bot.
+- Both callback paths were tested through a public Funnel relay with synthetic
+  payloads and the stored signing keys: valid signatures returned 202; unsigned
+  requests returned 403. These were operator-generated probes, not a captured call.
+  The dashboard's example sender has no schema for `bot.done`, so it could not send
+  that sample itself.
+- Curran explicitly selected Jared's existing `github-connect` account
+  (`jared@neptuneops.com`, GitHub actor `jaredlyon`). Its ACTIVE status, issue tools
+  and access to `curranToir/october-7-th-hack-a-ton` were verified. Meeting ownership
+  remains `curran@toirinc.com`; the approval records retain the actual reviewer.
+- The deployed coordinator reports Zoom, analysis and GitHub ready. A real request
+  through the deployed meeting worker produced one evidence-validated issue and a
+  Linear mention. A separate real Scalekit Exa/Respan subject run returned six
+  cited facts from five sources.
+- The signed-in browser demo saved customer notes and a version-1 issue draft in
+  **Tasks → Meeting issues → Needs approval**. Its Linear research completed with
+  linked sources. The approval button is enabled; the demo issue remains pending
+  and no issue was published. A temporary coordinator warning cleared on refresh.
+
+No live Zoom call or approved GitHub write was performed during activation. For
+the demo, sign in at [Meetings](https://toir-hackathon.taild4c940.ts.net/#meetings),
+add the Zoom invitation, confirm recording permission and admit **Toir · Customer
+notes** if required. Review the resulting task before approving its GitHub issue.
+The app joins supplied or scheduled invitations; it does not discover every new
+Zoom meeting automatically through a calendar.
 
 `/health` and `/ready` prove the worker is reachable, not that Recall, Respan or
 GitHub credentials work. A successful real meeting, notes extraction, signed
