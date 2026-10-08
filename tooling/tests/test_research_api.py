@@ -282,7 +282,11 @@ def test_internal_maintenance_route_persists_and_reports_state(tmp_path):
         async with route_stack(tmp_path, False) as (client, service, _):
             response = await client.post("/v1/maintenance", json={"enabled": True})
             assert response.status_code == 200
-            assert response.json() == {"enabled": True, "active_run_id": None}
+            assert response.json() == {
+                "enabled": True,
+                "active_run_id": None,
+                "active_meeting_operations": [],
+            }
             assert (await client.get("/v1/maintenance")).json() == response.json()
             assert service.maintenance is True
 

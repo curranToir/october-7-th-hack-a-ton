@@ -19,6 +19,15 @@ Research setup: [Scalekit connection](docs/scalekit-setup.md),
 The separate [RAG service](rag-db-api/README.md) has its own setup instructions
 and is not included in the foundation's Kubernetes deployment.
 
+## Customer meeting agent
+
+The [meeting agent plan and setup guide](docs/meeting-agent.md) covers Zoom attendance,
+customer notes, source-backed company/person research, and Tasks approvals that publish
+GitHub issues. Open **Meetings → Run demo** for a fictional saved call; live
+Zoom capture uses Recall.ai, with owner `curran@toirinc.com`. Scalekit supplies workspace
+sign-in and the Exa research connection. Live capture and publishing require the
+provider credentials and public webhook setup described in the guide.
+
 ## Layout
 
 ```text

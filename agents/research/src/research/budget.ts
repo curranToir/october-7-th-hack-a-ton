@@ -14,6 +14,7 @@ export class Budget {
     prior: Record<string, number>,
     deadline: string,
     readonly signal: AbortSignal,
+    private readonly limits = { searches: 30, pages: 60, model_turns: 30 },
   ) {
     this.usage = Object.fromEntries(
       ["searches", "pages", "model_turns", "input_tokens", "output_tokens"].map(
@@ -33,8 +34,7 @@ export class Budget {
   }
   consume(kind: "searches" | "pages" | "model_turns", amount = 1) {
     this.check();
-    const limits = { searches: 30, pages: 60, model_turns: 30 };
-    if (this.usage[kind] + amount > limits[kind])
+    if (this.usage[kind] + amount > this.limits[kind])
       throw new ResearchError(
         "budget",
         `Research exhausted its ${kind.replace("_", " ")} budget.`,

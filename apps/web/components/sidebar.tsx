@@ -9,6 +9,8 @@ export function Sidebar({
   sessionId,
   onChat,
   onTasks,
+  onMeetings,
+  meetingPending,
   onSettings,
   onNew,
   onHelp,
@@ -26,6 +28,8 @@ export function Sidebar({
   onClose: () => void;
   onChat: (id: string) => void;
   onTasks: () => void;
+  onMeetings: () => void;
+  meetingPending: number;
   onSettings: (page?: string) => void;
   onNew: () => void;
   onHelp: () => void;
@@ -69,7 +73,7 @@ export function Sidebar({
   }, [open, onClose]);
   const pending = state.tasks.filter(
     (task) => task.status === "pending",
-  ).length;
+  ).length + meetingPending;
   const sessions = state.sessions.filter((session) =>
     `${session.title} ${session.messages.map((m) => m.content).join(" ")}`
       .toLowerCase()
@@ -127,6 +131,14 @@ export function Sidebar({
             <Icon name="tasks" />
             <span>Tasks</span>
             {pending > 0 && <span className="count-badge">{pending}</span>}
+          </button>
+          <button
+            className={`nav-item ${view === "meetings" ? "active" : ""}`}
+            onClick={onMeetings}
+            aria-current={view === "meetings" ? "page" : undefined}
+          >
+            <Icon name="messages" />
+            <span>Meetings</span>
           </button>
           <button className="nav-item" onClick={onNew}>
             <Icon name="plus" />

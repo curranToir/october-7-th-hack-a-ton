@@ -7,6 +7,8 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 
 from apps.api.auth_routes import router as auth_router
+from apps.api.meeting_client import MeetingClient
+from apps.api.meeting_routes import router as meeting_router
 from apps.api.research_client import ResearchClient
 from apps.api.research_routes import router
 from apps.api.sales_client import SalesClient
@@ -21,17 +23,21 @@ async def lifespan(application: FastAPI):
     application.state.research_client = client
     sales_client = SalesClient()
     application.state.sales_client = sales_client
+    meetings = MeetingClient()
+    application.state.meeting_client = meetings
     try:
         yield
     finally:
         await client.close()
         await sales_client.close()
+        await meetings.close()
 
 
 app = FastAPI(title="Toir API", lifespan=lifespan, docs_url=None, redoc_url=None)
 app.include_router(router)
 app.include_router(sales_router)
 app.include_router(auth_router)
+app.include_router(meeting_router)
 
 
 class Probe(BaseModel):

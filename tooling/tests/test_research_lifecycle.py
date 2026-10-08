@@ -306,7 +306,9 @@ def test_maintenance_blocks_new_work_and_survives_coordinator_restart(tmp_path):
         repository = await SQLiteRunRepository.open(tmp_path / "runs.sqlite")
         service = coordinator(repository, tmp_path)
         try:
-            assert await service.set_maintenance(True) == {"enabled": True, "active_run_id": None}
+            assert await service.set_maintenance(True) == {
+                "enabled": True, "active_run_id": None, "active_meeting_operations": [],
+            }
             with pytest.raises(Conflict, match="maintenance"):
                 await service.create(brief(), "first")
             restarted = coordinator(repository, tmp_path)

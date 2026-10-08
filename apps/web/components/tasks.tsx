@@ -4,17 +4,25 @@ import { useState } from "react";
 import type { LiveWorkspace } from "../../../coms/types.ts";
 import { Icon } from "./icon";
 import { ProposalCard, type ProposalActions } from "./proposal";
+import { MeetingTasks } from "./meeting-tasks";
+import type { MeetingActions } from "./use-meetings";
 
 export function Tasks({
   state,
   actions,
   onSession,
+  meetingActions,
+  initialTab = "pending",
+  onMeeting,
 }: {
   state: LiveWorkspace;
   actions: ProposalActions;
   onSession: (id: string) => void;
+  meetingActions: MeetingActions;
+  initialTab?: string;
+  onMeeting: (id: string) => void;
 }) {
-  const [tab, setTab] = useState("pending");
+  const [tab, setTab] = useState(initialTab);
   const [index, setIndex] = useState(0);
   const [reviewed, setReviewed] = useState(false);
   const pending = state.proposals.filter((p) => p.status === "pending");
@@ -42,7 +50,7 @@ export function Tasks({
   return (
     <div className="tasks-workspace">
       <div className="task-tabs" role="tablist" aria-label="Task status">
-        {["pending", "history"].map((name) => (
+        {["pending", "history", "meetings"].map((name) => (
           <button
             key={name}
             role="tab"
@@ -52,8 +60,8 @@ export function Tasks({
             className={tab === name ? "active" : ""}
             onClick={() => setTab(name)}
           >
-            {name === "pending" ? "Pending" : "History"}
-            <span>{name === "pending" ? pending.length : history.length}</span>
+            {name === "pending" ? "Pending" : name === "history" ? "History" : "Meeting issues"}
+            <span>{name === "pending" ? pending.length : name === "history" ? history.length : meetingActions.state?.tasks.filter(task => task.status === "pending").length ?? 0}</span>
           </button>
         ))}
       </div>
@@ -63,7 +71,7 @@ export function Tasks({
         role="tabpanel"
         aria-labelledby={`${tab}-tab`}
       >
-        {tab === "history" ? (
+        {tab === "meetings" ? <MeetingTasks actions={meetingActions} onMeeting={onMeeting} /> : tab === "history" ? (
           history.length ? (
             <div className="proposal-history">{history.map(card)}</div>
           ) : (

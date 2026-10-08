@@ -119,6 +119,13 @@ Resources:
     Properties:
       Name: !Sub '/${AWS::StackName}/scalekit'
       Description: Scalekit runtime JSON; set values with manage.py secret-set.
+  MeetingsProviderSecret:
+    Type: AWS::SecretsManager::Secret
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      Name: !Sub '/${AWS::StackName}/meetings-provider'
+      Description: Optional coordinator-only Recall and GitHub configuration; empty until setup.
   ExaSecret:
     Type: AWS::SecretsManager::Secret
     DeletionPolicy: Retain
@@ -153,6 +160,7 @@ Resources:
                 Resource:
                   - !Ref RespanSecret
                   - !Ref ScalekitSecret
+                  - !Ref MeetingsProviderSecret
                   - !If [HasDatabaseSecret, !Ref DatabaseSecretArn, !Ref 'AWS::NoValue']
                   - !If [HasBrainApiSecret, !Ref BrainApiSecretArn, !Ref 'AWS::NoValue']
               - Effect: Allow
@@ -235,6 +243,8 @@ Outputs:
     Value: !Ref RespanSecret
   ScalekitSecretArn:
     Value: !Ref ScalekitSecret
+  MeetingsProviderSecretArn:
+    Value: !Ref MeetingsProviderSecret
   ExaSecretArn:
     Value: !Ref ExaSecret
   DatabaseSecretArn:
