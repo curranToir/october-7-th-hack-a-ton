@@ -48,7 +48,7 @@ app.add_exception_handler(IngestionError, ingestion_failure)
 
 @app.exception_handler(ValueError)
 async def invalid(request: Request, error: ValueError):
-    if str(error) in {"unknown_user", "unknown_dataset", "unknown_source"}:
+    if str(error) in {"unknown_user", "unknown_dataset", "unknown_source", "empty_report"}:
         return JSONResponse(status_code=400, content={"detail": str(error)})
     return JSONResponse(status_code=500, content={"detail": "internal_error"})
 

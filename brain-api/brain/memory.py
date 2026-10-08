@@ -73,14 +73,20 @@ async def permission(owner, grantee, dataset, revoke, permission_name="read"):
     return {"readable": (await access(grantee))["readable"]}
 
 @task(name="brain.remember")
-async def remember_docs(dataset, docs):
+async def remember_docs(dataset, docs, as_user=None):
     dataset_name(dataset)
     await ensure_users()
     owner = _users[DATASETS[dataset].owner]
+    user = _users[user_name(as_user)] if as_user is not None else owner
+    datasets = await get_authorized_existing_datasets([dataset], "share", owner)
+    writable = await get_authorized_existing_datasets([datasets[0].id], "write", user)
+    if not writable:
+        raise PermissionError("not_dataset_writer")
+    dataset_id = writable[0].id
     for doc in docs:
-        await cognee.remember(doc["text"], dataset_name=dataset, user=owner, node_set=doc["node_set"], graph_model=CompanyGraph, custom_prompt=EXTRACTION_PROMPT, self_improvement=False, run_in_background=False)
+        await cognee.remember(doc["text"], dataset_name=dataset, dataset_id=dataset_id, user=user, node_set=doc["node_set"], graph_model=CompanyGraph, custom_prompt=EXTRACTION_PROMPT, self_improvement=False, run_in_background=False)
     if docs:
-        await cognee.improve(dataset=dataset, user=owner, session_ids=[])
+        await cognee.improve(dataset=dataset_id, user=user, session_ids=[])
     await apply_initial_grants()
     return len(docs)
 
