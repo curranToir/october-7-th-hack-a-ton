@@ -27,6 +27,10 @@ class MeetingTasks:
             return task
 
     async def decide(self, identifier, decision: TaskDecision, actor):
+        # Provider reads happen outside the record lock; the task is rechecked below.
+        github_ready = self.github.configured
+        if decision.decision == "approve" and hasattr(self.github, "ready"):
+            github_ready = await self.github.ready()
         async with self.store.transaction() as tx:
             task = await tx.get("task", identifier)
             if not task:
@@ -37,7 +41,7 @@ class MeetingTasks:
                 return task
             if task["status"] != "pending" or task["version"] != decision.version:
                 raise Conflict("The task changed; review the latest version before deciding")
-            if decision.decision == "approve" and not self.github.configured:
+            if decision.decision == "approve" and not github_ready:
                 raise Conflict("Connect GitHub before approving this issue")
             task.update(
                 status="approved" if decision.decision == "approve" else "rejected",

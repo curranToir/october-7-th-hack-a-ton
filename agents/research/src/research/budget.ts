@@ -15,7 +15,7 @@ export class Budget {
     prior: Record<string, number>,
     deadline: string,
     readonly signal: AbortSignal,
-    private readonly limits: Pick<typeof WORKER_LIMITS, "searches" | "pages" | "model_turns"> = WORKER_LIMITS,
+    private readonly limits: Readonly<Record<"searches" | "pages" | "model_turns", number>> = WORKER_LIMITS,
   ) {
     this.usage = Object.fromEntries(
       ["searches", "pages", "model_turns", "input_tokens", "output_tokens"].map(

@@ -81,8 +81,8 @@ For live capture:
 2. Set `MEETING_WEBHOOK_BASE_URL` to the backend's stable, internet-reachable HTTPS
    origin, such as `https://calls.example.com`. Supply an origin without a path,
    query or credentials. A private Tailscale address or SSM localhost tunnel is not
-   reachable from Recall. Arrange the public HTTPS route separately; the supplied
-   infrastructure changes do not open EC2 inbound ports or publish a new endpoint.
+   reachable from Recall. Arrange the public HTTPS route with the scoped operator
+   command below; it does not open EC2 inbound ports or publish the private app.
 3. Register this dashboard webhook URL:
    `https://calls.example.com/api/meetings/webhooks/recall/dashboard`.
    Subscribe to bot lifecycle events (including joining, waiting room, recording,
@@ -106,6 +106,47 @@ documents streaming configuration, the final transcript subscriptions and the
 public webhook requirement. This implementation uses Recall's built-in streaming
 transcription provider in English.
 
+## Scoped public webhook endpoint
+
+The operator helper exposes only the two Recall callback paths on a separate
+Tailscale Funnel. The normal application remains on private Tailscale HTTPS 443.
+The callback origin for the existing node is
+`https://toir-hackathon.taild4c940.ts.net:8443`.
+
+The listener was activated and checked on October 7, 2026 (Los Angeles). Both
+public Funnel IPv4 relays answered from EC2, private HTTPS 443 remained
+tailnet-only, and public application/sign-in/workspace paths returned 404. This
+verifies the ingress boundary, not a completed Recall connection. Recall account
+signup and signed provider delivery still require their separate setup checks.
+
+```sh
+.venv/bin/python infrastructure/deployment/scripts/meeting_webhook.py setup
+.venv/bin/python infrastructure/deployment/scripts/meeting_webhook.py status
+# Roll back only this public listener; private HTTPS 443 is preserved:
+.venv/bin/python infrastructure/deployment/scripts/meeting_webhook.py disable
+```
+
+Setup checks the existing node's hostname, tailnet and Funnel 8443 capability; it
+never enables or broadens tailnet policy. It refuses to replace another service
+already using 8443. A hardened systemd service binds only `127.0.0.1:8787` and
+forwards exact POST requests to the existing local ingress. All other paths and
+methods return 404, including `/`, `/api/health`, sign-in and meeting workspace
+routes. The proxy preserves raw JSON bytes and Recall/Svix signature headers,
+drops browser identity headers, limits bodies to 1 MB and returns retryable 503
+when the application is unavailable. No provider secrets live in the proxy.
+
+Set `MEETING_WEBHOOK_BASE_URL` to this origin. Register the dashboard callback at
+`https://toir-hackathon.taild4c940.ts.net:8443/api/meetings/webhooks/recall/dashboard`.
+The bot request configures the matching `/realtime` callback automatically. After
+deployment, an unsigned POST to either exact path must return 403; a 404 means the
+meeting application routes are not deployed. Unknown paths must remain 404.
+Verify both public callbacks and that private HTTPS 443 is still tailnet-only.
+
+[Tailscale Funnel](https://tailscale.com/docs/features/tailscale-funnel) supports
+HTTPS 8443 and requires a node capability. The [Funnel CLI](https://tailscale.com/docs/reference/tailscale-cli/funnel)
+with `--bg` persists the configuration across reboot. The helper never uses
+`tailscale funnel reset`, because that could affect unrelated endpoints.
+
 ## Runtime configuration and secret entry
 
 | Variable | Destination | Default or requirement |
@@ -113,13 +154,28 @@ transcription provider in English.
 | `MEETING_AGENT_URL` | Coordinator | `http://meetings:8000` in Kubernetes; `http://127.0.0.1:8004` locally |
 | `MEETING_OWNER_EMAIL` | Coordinator | `curran@toirinc.com` |
 | `MEETING_GITHUB_REPOSITORY` | Coordinator | `curranToir/october-7-th-hack-a-ton` |
+| `MEETING_GITHUB_CONNECTION_NAME` | Coordinator | `github-connect`; explicit Scalekit connection selection |
+| `MEETING_GITHUB_ACCOUNT_ID` | Coordinator | `curran@toirinc.com`; must authorize GitHub in Scalekit |
 | `RECALL_REGION` | Coordinator | `us-west-2`; must match the credential workspace |
 | `RECALL_API_KEY` | Coordinator secret | Required to schedule bots |
 | `RECALL_WORKSPACE_VERIFICATION_SECRET` | Coordinator secret | Required `whsec_` signing key |
 | `RECALL_SVIX_WEBHOOK_SECRET` | Coordinator secret | Optional legacy dashboard signing key |
 | `MEETING_WEBHOOK_BASE_URL` | Coordinator | Public HTTPS origin required for live capture |
-| `MEETING_GITHUB_TOKEN` | Coordinator secret | Fine-grained token limited to target repository, Issues read/write |
+| `MEETING_GITHUB_TOKEN` | Coordinator secret | Optional direct token, target repository Issues read/write; takes precedence over Scalekit |
 | `RESPAN_API_KEY` | Meeting worker secret | Required for real transcript analysis |
+
+GitHub can reuse the selected user's existing Scalekit account. The coordinator
+checks that the account is ACTIVE, the exact `github_issue_create`,
+`github_issues_list` and `github_repo_get` tools are available, and the target
+repository has issues enabled. These are read-only checks; they create no test
+issue. The configured account must complete OAuth before approval becomes
+available. Connection readiness is cached briefly and does not bypass task
+approval. After approval, the fixed create-issue tool receives only the reviewed
+repository, title and body. Reconciliation uses the fixed list-issues tool and
+never resubmits an uncertain creation. A supplied direct token remains supported
+and takes precedence. Provider credentials and authorization links stay out of
+Git, release payloads and browser API responses. See the
+[official GitHub connector contract](https://docs.scalekit.com/agentkit/connectors/github/).
 
 Use the existing operator secret flow from the repository root:
 

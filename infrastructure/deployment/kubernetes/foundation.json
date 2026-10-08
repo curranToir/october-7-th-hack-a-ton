@@ -484,6 +484,14 @@
                   {
                     "name": "MEETING_GITHUB_REPOSITORY",
                     "value": "curranToir/october-7-th-hack-a-ton"
+                  },
+                  {
+                    "name": "MEETING_GITHUB_CONNECTION_NAME",
+                    "value": "github-connect"
+                  },
+                  {
+                    "name": "MEETING_GITHUB_ACCOUNT_ID",
+                    "value": "curran@toirinc.com"
                   }
                 ],
                 "envFrom": [

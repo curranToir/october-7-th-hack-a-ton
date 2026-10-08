@@ -5,6 +5,7 @@ import re
 
 import httpx
 
+from apps.orchestrator.meetings.github_scalekit import ScalekitGitHub
 from apps.orchestrator.meetings.providers import OutcomeUnknown, ProviderFailure
 
 
@@ -17,10 +18,18 @@ class GitHubIssues:
         if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", self.repository):
             raise ValueError("Expected a GitHub owner/repository")
         self.client = client or httpx.AsyncClient(timeout=25, follow_redirects=False)
+        self.scalekit = ScalekitGitHub(self.repository, self.client)
 
     @property
     def configured(self):
-        return bool(self.token)
+        return bool(self.token) or self.scalekit.ready_value
+
+    @property
+    def readiness_error(self):
+        return None if self.token else self.scalekit.error
+
+    async def ready(self):
+        return bool(self.token) or await self.scalekit.ready()
 
     def headers(self):
         return {
@@ -30,10 +39,22 @@ class GitHubIssues:
         }
 
     async def publish(self, task):
-        if not self.configured or task["repository"] != self.repository:
+        if task["repository"] != self.repository or not await self.ready():
             raise ProviderFailure(
                 "GitHub credentials or the approved repository need configuration"
             )
+        if not self.token:
+            owner, repo = self.repository.split("/")
+            receipt = await self.scalekit.execute(
+                "github_issue_create",
+                {
+                    "owner": owner,
+                    "repo": repo,
+                    "title": task["title"],
+                    "body": task["body"],
+                },
+            )
+            return self.issue_url(receipt, task["repository"])
         try:
             result = await self.client.post(
                 f"https://api.github.com/repos/{task['repository']}/issues",
@@ -49,42 +70,66 @@ class GitHubIssues:
         if result.status_code != 201:
             raise ProviderFailure(f"GitHub rejected the issue (HTTP {result.status_code})")
         try:
-            number = result.json()["number"]
-            if not isinstance(number, int) or number < 1:
-                raise ValueError()
-            return f"https://github.com/{task['repository']}/issues/{number}"
-        except (ValueError, KeyError):
+            return self.issue_url(result.json(), task["repository"])
+        except ValueError:
             raise OutcomeUnknown(
                 "GitHub accepted the request but returned an invalid receipt"
             ) from None
 
+    @staticmethod
+    def issue_url(receipt, repository):
+        number = receipt.get("number") if isinstance(receipt, dict) else None
+        if type(number) is not int or number < 1:
+            raise OutcomeUnknown("GitHub accepted the request but returned an invalid receipt")
+        return f"https://github.com/{repository}/issues/{number}"
+
     async def reconcile(self, task):
-        if not self.configured:
+        if task["repository"] != self.repository or not await self.ready():
             raise ProviderFailure("Configure GitHub credentials first")
         marker = f"<!-- toir-meeting-task:{task['id']} -->"
         try:
             for page in range(1, 11):
-                result = await self.client.get(
-                    f"https://api.github.com/repos/{task['repository']}/issues",
-                    headers=self.headers(),
-                    params={
-                        "state": "all",
-                        "sort": "created",
-                        "direction": "desc",
-                        "per_page": 100,
-                        "page": page,
-                        "since": task["decided_at"],
-                    },
-                )
-                result.raise_for_status()
-                issues = result.json()
+                params = {
+                    "state": "all",
+                    "sort": "created",
+                    "direction": "desc",
+                    "per_page": 100,
+                    "page": page,
+                    "since": task["decided_at"],
+                }
+                if self.token:
+                    result = await self.client.get(
+                        f"https://api.github.com/repos/{task['repository']}/issues",
+                        headers=self.headers(),
+                        params=params,
+                    )
+                    result.raise_for_status()
+                    issues = result.json()
+                else:
+                    owner, repo = self.repository.split("/")
+                    issues = await self.scalekit.execute(
+                        "github_issues_list",
+                        {
+                            "owner": owner,
+                            "repo": repo,
+                            **params,
+                        },
+                    )
+                    if isinstance(issues, dict):
+                        # Scalekit's protobuf Struct wraps GitHub array responses.
+                        lists = [value for value in issues.values() if isinstance(value, list)]
+                        issues = lists[0] if len(lists) == 1 else None
+                if not isinstance(issues, list) or any(not isinstance(i, dict) for i in issues):
+                    raise ValueError()
                 for issue in issues:
                     if "pull_request" not in issue and marker in (issue.get("body") or ""):
-                        return f"https://github.com/{task['repository']}/issues/{issue['number']}"
+                        return self.issue_url(issue, task["repository"])
                 if len(issues) < 100:
                     break
-        except (httpx.HTTPError, ValueError, KeyError):
-            raise ProviderFailure("GitHub reconciliation failed; no issue was created") from None
+        except (httpx.HTTPError, ValueError, KeyError, OutcomeUnknown):
+            raise ProviderFailure(
+                "GitHub reconciliation failed; publication remains uncertain"
+            ) from None
         return None
 
     async def close(self):

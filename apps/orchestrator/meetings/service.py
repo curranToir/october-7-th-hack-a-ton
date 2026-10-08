@@ -90,11 +90,14 @@ class MeetingService:
     async def workspace(self):
         meetings = await self.store.list("meeting")
         analysis = await self.agent.configured()
+        github_ready = (
+            await self.github.ready() if hasattr(self.github, "ready") else self.github.configured
+        )
         missing = self.recall.missing.copy()
         if not analysis:
             missing.append("Meeting agent / RESPAN_API_KEY")
-        if not self.github.configured:
-            missing.append("MEETING_GITHUB_TOKEN")
+        if not github_ready:
+            missing.append("GitHub connection")
         return {
             "meetings": sorted(meetings, key=lambda m: m["created_at"], reverse=True),
             "tasks": sorted(
@@ -105,7 +108,7 @@ class MeetingService:
                 "repository": self.github.repository,
                 "zoom_ready": not self.recall.missing,
                 "analysis_ready": analysis,
-                "github_ready": self.github.configured,
+                "github_ready": github_ready,
                 "missing": missing,
             },
         }
